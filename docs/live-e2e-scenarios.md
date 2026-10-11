@@ -174,11 +174,17 @@ execution permit are different failures.
 
 ### E4: Useful multi-agent coordination
 
-**Extension required; reuse persistent agents and existing coordination APIs.**
+**Executable:** `LiveCoordinationEvidence` reuses persistent agents and the existing coordination APIs.
 An analyst reads evidence, a checker receives attributed peer findings, and a
 reporter produces the exact blocked-release decision. Use two models with explicit
 roles and also a same-model control. Machine-check task correctness separately
 from MsgHub delivery and each agent's private history.
+The current profile uses `submit_report` for each model's proposed decision;
+schema, exact semantics and previously observed evidence must pass before
+Direct completion. Earlier ordinary-text attempts remain separate results.
+The current executable advertises one phase-selected function with `ToolChoice.Required`
+and temperature zero. Report arguments remain model proposals subject to runtime
+validation. This profile does not demonstrate autonomous operation selection.
 
 Hold one recipient in a tool while another publishes: require a Queued receipt
 with no extra recipient model call. Release/join its turn, explicitly flush between
@@ -194,7 +200,7 @@ calling its successor. This is scoped coordination, not durable workflow replay.
 
 ### E5: Large evidence and bounded context
 
-**Extension required; reuse HostAssembly, result eviction and compaction.** Return
+**Executable:** `LiveContextEvidence` reuses HostAssembly, result eviction and compaction. Return
 more than 80,000 characters containing a known fact in the middle, outside the
 2,000-character previews. Require exact stored bytes, a valid retrieval key/path
 and the shortened observation in the next actual model request. The model must
@@ -209,13 +215,13 @@ guarantees. Repeated prompting alone does not prove compaction. INV-4/5/6 apply.
 
 ### E6: Provider failure and request cancellation
 
-**Partly executable now:** the existing definite HTTP rejection/fallback scenario
+**Executable:** the existing definite HTTP rejection/fallback scenario
 uses an owned loopback first target and a real selected bots fallback. Require no
 first-target tool effect and one successful continuation. It proves a specific
 safe rejection path, not retry safety after an ambiguous response.
 
-**Extension required:** cancel an active response through an owned HTTP fixture or
-instrumented forwarding boundary. Synchronize on receipt of a real stream chunk,
+**Executable:** `LiveRequestBoundary` cancels an active response through an
+instrumented borrowing HTTP driver. Synchronize on receipt of a real stream chunk,
 not a timer. Verify local request-scope release, consumer/child termination and no
 later tool dispatch. Remote generation may continue: client cleanup cannot prove
 that the bots backend stopped inference. A malformed/truncated response must not

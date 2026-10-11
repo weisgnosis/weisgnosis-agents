@@ -2,7 +2,7 @@
 
 This nonpublished SBT project compiles against core, harness, and MCP. It demonstrates existing library APIs rather than adding a supported facade. Start with the complete applications in [Getting started](../../docs/getting-started.md). Use JDK 21 and the repository-pinned sbt version, and run the commands below from the repository root.
 
-The [real-model E2E scenario design](../../docs/live-e2e-scenarios.md) specifies a useful evidence/report task, concurrency and cancellation measurements, and publication limits. It distinguishes runnable profiles from remaining proposed extensions; [current live results](../../docs/live-e2e-results.md) record actual selected attempts.
+The [real-model E2E scenario design](../../docs/live-e2e-scenarios.md) specifies a useful evidence/report task, concurrency and cancellation measurements, and publication limits. It distinguishes executed profiles from unverified model/provider behavior; [current live results](../../docs/live-e2e-results.md) record actual selected attempts.
 
 `LiveFileTask`, `LiveProviderSmoke`, `LiveProviderProfiles` and `MsgHubConversation` are runnable applications. HostAssembly, AuditedLlmClient and LifecycleLogging are composition examples used by a host application; they have no standalone `runMain` entrypoint.
 
@@ -79,6 +79,83 @@ Acceptance requires `scenarioAccepted=true` and a Passed scenario receipt.
 The run admits at most two model requests and has one aggregate live deadline;
 joined cleanup can extend that deadline. Discovery and installation schemas are
 included in the receipt. Disabled execution and process exit zero are not acceptance.
+
+## Useful coordination and Pipeline controls
+
+With the enabled live environment, run:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveCoordinationEvidence"
+```
+
+The runner validates the configured primary model against the current catalog.
+Set `WEISGNOSIS_LIVE_PEER_MODEL` for mixed roles in both directions, in addition
+to the same-model control. Each room task permits five model requests: an analyst
+reads evidence, a checker queues it while busy in a tool, and a reporter produces
+the checked blocked-release decision. Explicit flushing must deliver each
+attributed observation once; captured receiver requests must keep foreign tool
+calls/results inert. Each reporting role proposes the closed `submit_report`
+schema. The tool validates the exact decision and checks previously observed
+evidence before returning that proposal directly; a guessed same-batch report
+cannot complete the task. Exactly one accepted submission per role is required.
+Correct decisions and delivery assertions are separate.
+
+The current profile sets temperature zero and explicitly selects the required
+tool by advertising one phase-selected function with `ToolChoice.Required`.
+Sources may read once, then submit only after
+an observed successful read; a missing read fails without retry. The initial
+checker wait is selected only from the exact current host instruction. This is
+provider request steering, not execution authority or proof of autonomous tool
+selection. Ignored steering, premature submissions and incorrect values still fail.
+
+The Pipeline arm permits ten requests. It checks useful sequential handoff,
+fanout with at most two active stages and input-ordered results despite a forced
+different completion order, joined cancellation, and suspended/interrupted stages
+leaving their successors idle. A failed useful sequential decision stops the arm
+before the additional lifecycle requests. Each arm has its own aggregate live deadline.
+This is process-local coordination, not durable workflow replay. Inspect JSON
+receipts and statuses; a zero process exit does not turn a failed receipt into acceptance.
+
+## Oversized evidence and explicit compaction
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveContextEvidence"
+```
+
+The enabled runner uses at most five model requests under one aggregate deadline.
+A fresh fact lies in the middle of an oversized result, outside both previews.
+An example-owned single-file store persists actual UTF-8 bytes in a disposable
+directory; the model must retrieve the bounded middle slice through `read_file`
+using the exact saved path and answer correctly. No general filesystem access
+is granted. The fixture checks physical bytes, content hash and the next request's
+shortened observation.
+
+The same host assembly explicitly compacts seeded history containing a prior
+summary and repeated tool IDs. A real tool-free summary request and subsequent
+answer are checked separately from occurrence pairing and retained provenance.
+The existing assembly retains its one-minute per-turn limit; the aggregate live
+deadline also includes summarization and joined fixture cleanup. Offline controls
+cover storage failure and serialized provenance. This does not measure unlimited
+memory, general semantic recall or the local store's concurrent publication contract.
+
+## Active HTTP request cancellation
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveRequestBoundary"
+```
+
+The enabled runner forwards one complete real SSE frame through a borrowed HTTP
+client and withholds later frames. Cancellation starts only after a parsed runtime
+chunk arrives. A held request finalizer proves the consumer remains pending until
+cleanup is released and joined; local tool dispatch must remain zero. The fixture
+also checks recovery and any incomplete received call arguments. SSE framing is
+normalized, so this is instrumented protocol forwarding rather than a byte-transparent proxy.
+
+Separate receipts label malformed/truncated response and token-exhaustion controls
+as `offline-fixture`. A definite loopback rejection followed by the selected real
+model reuses the existing failover scenario. Active-request cancellation permits
+one request under an aggregate deadline; these checks do not prove that the remote
+backend stops inference or authorize replay after an ambiguous failure.
 
 ## Selected structured-output and cancellation profiles
 

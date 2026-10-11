@@ -3,15 +3,17 @@
 These are actual bots gateway runs on 2026-10-11. They exercise the current
 library through its public streaming, tool, coordination and interruption APIs.
 The [scenario design](live-e2e-scenarios.md) and [tracker](architecture/tracker.md)
-separate executed contracts from remaining live extensions.
+separate executed contracts from unverified model/provider profiles.
 
 ## Execution conditions and reproduction
 
 The authenticated catalog selected `qwen3.8-27b` and `lfm2.5-2.6b-mlx` by their
 chat capability and availability. Requests used
 `https://bots.weisgnosis.ru/api/v1/chat/completions`, process-local credentials,
-4,096 output tokens and a 300-second per-agent budget. Responses are bounded to
-one MiB. Joined cleanup can extend a deadline. Scenarios ran sequentially;
+4,096 output tokens. The original matrix used a 300-second per-agent budget
+and one-MiB response limit; E4/E6 also use one MiB. E5 retains HostAssembly's
+one-minute per-turn deadline, a 300-second aggregate budget and the default
+eight-MiB transport response limit. Joined cleanup can extend a deadline. Scenarios ran sequentially;
 admitted model turns and tools were not retried to obtain a passing receipt.
 
 The fifteen-scenario matrix used
@@ -154,12 +156,132 @@ Interrupted result. The separately verified parent-fiber scenario requires an
 interrupted Exit and repeated cancellation; its
 [existing framework comparison](live-runtime-comparison.md) remains distinct.
 
+## E4: Useful room and Pipeline evidence
+
+The final `LiveCoordinationEvidence` profile passed three separate executions
+of each scenario, twelve successful receipts in total:
+
+| Scenario | Roles | Successful attempts | Requests per attempt |
+| --- | --- | ---: | ---: |
+| Useful room | Qwen analyst/reporter, Qwen checker | 3 | 5 |
+| Useful room | Qwen analyst/reporter, reasoning-LFM checker | 3 | 5 |
+| Useful room | Reasoning-LFM analyst/reporter, Qwen checker | 3 | 5 |
+| Pipeline controls | Qwen | 3 | 10 |
+
+Each room reads evidence once and accepts one model-produced `submit_report`
+proposal per analyst, checker and reporter. The exact report must identify the
+failed security record and preserve all observed evidence IDs in order. A busy
+checker queues attributed evidence without another reasoning request; explicit
+flush delivers it exactly once. Captured receiver requests keep foreign tool
+calls/results inert. Every accepted receipt requires all these assertions.
+
+The Pipeline performs useful sequential evidence/report transfer, then verifies
+fanout with at most two active stages and input-ordered results despite forced
+out-of-order completion. Cancellation waits for held cleanup; suspended or
+interrupted first stages never start their successor. Both sequential roles
+submit one validated report. A failed useful task stops before lifecycle controls.
+
+This is an explicitly host-selected tool profile: each request advertises only
+the current phase's function, uses `ToolChoice.Required` and temperature zero.
+A source reads once before submitting; report admission checks prior successful
+read evidence. The checker wait phase uses exact host input, not quoted peer
+text. The model still supplies the report values; schemas, prerequisites and
+runtime authorization remain authoritative. This proves the selected workflow,
+not autonomous tool selection or provider enforcement of `tool_choice`.
+
+Earlier profiles remain distinct evidence:
+
+| Earlier profile | Same Qwen room | Qwen analyst/LFM checker | LFM analyst/Qwen checker | Qwen Pipeline |
+| --- | --- | --- | --- | --- |
+| Ordinary text, first attempt | Passed | Failed assertion | Failed assertion | Failed assertion |
+| Ordinary text, second attempt | Passed | Unavailable: HTTP 503 | Failed analyst decision | Failed useful sequential task |
+| Unsteered typed report | Failed analyst decision | Passed | Failed analyst decision | Timeout, stage unknown |
+| Host-selected `Specific` object | Failed: HTTP 400 | Failed: HTTP 400 | Failed: HTTP 400 | Failed: HTTP 400 |
+| Single function with `Required`, before field semantics were clarified | Passed | Passed | Failed analyst report | Failed sequential reports |
+
+The second ordinary-text Pipeline passed its four lifecycle controls but failed
+useful collaboration. A separate instruction-LFM 1.2B selection failed both
+rooms where it was analyst; Qwen analyst/instruction-LFM checker exceeded the
+request budget. Its Pipeline timed out in Fanout with six client invocations and
+zero accepted sequential submissions. It is not reasoning-LFM acceptance.
+
+A process-private wire probe confirmed rejection of object-valued `tool_choice`;
+`required` received HTTP 200 headers, without completing an agent turn. Final
+instructions define `releaseAllowed` from all record states, `blockingEvidence`
+from every failed record, and `evidenceIds` from every observed record, without
+supplying the answer values. Prior failed attempts are not retroactively accepted.
+Failed diagnostic invocation counts can include calls blocked before dispatch;
+successful receipts require exact delegated requests.
+
+Reproduce with the enabled live environment and:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveCoordinationEvidence"
+```
+
+## E5: Oversized retrieval and explicit compaction
+
+`LiveContextEvidence` passed three independent attempts on each selected Qwen
+and reasoning-LFM model, six successful attempts in total.
+Each receipt records five model requests and one bounded retrieval, with
+`storageVerified`, `previewVerified`, `summaryVerified`, `recallVerified`,
+`pairingVerified`, `provenanceVerified` and `directoryRemoved` all true.
+
+The fixture stores more than 80,000 characters as actual UTF-8 file bytes and
+checks their content hash and exact retrieval key/path. A fresh middle fact is
+absent from both previews and the immediate post-lookup model request; the model retrieves it
+through the bounded `read_file` tool before completing with the exact fact.
+Separate real summary and answer requests then compact seeded history to one
+summary, preserving the recent occurrence of a repeated tool ID. Serialized
+canonical history is expanded during a recording flush to check both retained
+users' original IDs, metadata and order. Summary fidelity and exact recall are
+separate checks. Joined cleanup removes the owned temporary directory.
+
+Offline controls preserve the full observation after typed persistence failure
+and reject an exact answer delivered as a truncated `Stopped` turn. The fixture
+uses an example-owned single-file store; it does not measure long-term memory
+scaling, general recall, remote storage or concurrent local-store publication.
+
+Reproduce with the enabled live environment and:
+
+```text
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveContextEvidence"
+```
+
+## E6: Active HTTP boundary attempts
+
+The first Qwen attempt failed with an aggregate timeout; the phase causing that
+timeout was not captured. The subsequent reasoning-LFM attempt failed with
+HTTP 400. Neither verifies active-response cancellation. The successful-response
+fixture deliberately withholds later SSE frames; non-success responses retain
+their original status and body.
+
+Both selections passed the separate definite HTTP 503-to-real-model failover
+scenario. Offline malformed, missing-terminal-marker and token-exhausted
+controls passed with one request, released request scope and no local tool
+execution. Offline controls are not live provider failures.
+
+After explicit empty-object tool schema and phase diagnostics were installed,
+both Qwen and reasoning-LFM passed three separate active-boundary attempts. Each used
+one request and reported parsed chunk receipt, pending consumer during held
+cleanup, released request/boundary scopes, zero tool execution, Interrupted state,
+one recovery message and no completed-model event. Both also passed the separate
+definite-rejection failover again. This does not identify the earlier failures'
+causes or retroactively accept them.
+
+All six successful live frames contained zero partial tool calls. Their sanitizer
+and reconciliation predicates are vacuous for that frame; incomplete arguments
+are exercised separately through the actual loopback HTTP fixture. Local request
+cleanup does not establish remote inference cancellation.
+
 ## Remaining evidence and claim limits
 
-Remaining live extensions are busy-recipient queue flushing, useful ordered
-Pipeline collaboration, oversized-output retrieval/compaction and cancellation
-during an active HTTP response. Those remain unchecked in the
-tracker. Local tool cancellation does not prove that remote inference stops.
+E4 has three successful attempts per selected room/Pipeline profile; E5 and E6
+have three successful attempts per selected model. Formatting, full verification
+(1,807 passed, zero failed, one separately excluded native alias test), actual
+PostgreSQL, five-module packaging, archive admission and clean external packaged
+consumption pass with zero compiler warnings.
+Local request cancellation does not prove that remote inference stops.
 
 The gateway is OpenAI-compatible. It does not verify native Anthropic or Gemini
 wire protocols, hosted search/execution, realtime WebSockets or every model
