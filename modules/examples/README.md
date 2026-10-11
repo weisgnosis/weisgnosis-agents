@@ -105,7 +105,15 @@ Run `sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComp
 without live configuration. Require all nine JSON contract fields to be true.
 The [matched Python comparison](../../docs/synthetic-runtime-comparison.md) explains
 the corresponding TaskGroup reference and actual result; this synthetic fixture
-does not close the remaining live E3 scenario.
+does not itself close live E3. The actual
+[LiveRuntimeComparison](src/main/scala/com/weisgnosis/agents/examples/LiveRuntimeComparison.scala)
+now compares useful tasks and repeated parent interruption against real Python
+AgentScope on a common gateway. Run
+`sbt "examples / runMain com.weisgnosis.agents.examples.LiveRuntimeComparison parallel"`
+with the enabled environment, or select `text`, `sequential` or `cancel`.
+[Results and reproduction](../../docs/live-runtime-comparison.md) distinguish
+ordinary turn timing from local scheduling, cancellation and continuation.
+The live cooperative-interruption E3 arm remains open.
 
 [LiveParallelTools](src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala)
 runs the same real-model two-read task in Sequential and Parallel modes. With the

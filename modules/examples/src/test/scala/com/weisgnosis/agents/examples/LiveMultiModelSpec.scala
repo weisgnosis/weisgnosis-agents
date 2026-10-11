@@ -265,4 +265,58 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
     ,
     test("synthetic comparison exercises matched public runtime lifecycle oracles"):
       SyntheticRuntimeComparison.exercise.map(receipt => assertTrue(receipt.allPassed))
+    ,
+    test(
+      "matched live runner checks complete tasks and cancellation without accepting a missing tool batch"
+    ):
+      val calls: TurnOutput = TurnOutput.ToolCalls(
+        Msg.assistant(
+          Chunk(
+            ContentBlock.ToolUse("left", "evidence_left", Json.Obj()),
+            ContentBlock.ToolUse("right", "evidence_right", Json.Obj())
+          )
+        )
+      )
+      val client: LlmClient = inspecting((history, _) =>
+        ZIO.succeed(
+          if history.lastOption.exists(_.text == "Reply with exactly READY.") then
+            TurnOutput.FinalText(Msg.assistant("READY"))
+          else if history.flatMap(_.toolResults).isEmpty then calls
+          else TurnOutput.FinalText(Msg.assistant("37"))
+        )
+      )
+      for
+        receipts <- ZIO.foreach(
+          Chunk(
+            LiveRuntimeComparison.Scenario.Text,
+            LiveRuntimeComparison.Scenario.Sequential,
+            LiveRuntimeComparison.Scenario.Parallel,
+            LiveRuntimeComparison.Scenario.Cancel
+          )
+        )(scenario =>
+          LiveRuntimeComparison.exercise(client, LlmConfig("fixture"), scenario, 5.seconds)
+        )
+        missing <- LiveRuntimeComparison.exercise(
+          inspecting((_, _) => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("37")))),
+          LlmConfig("fixture"),
+          LiveRuntimeComparison.Scenario.Cancel,
+          5.seconds
+        )
+        missingOrdinary <- LiveRuntimeComparison.exercise(
+          inspecting((_, _) => ZIO.succeed(TurnOutput.FinalText(Msg.assistant("37")))),
+          LlmConfig("fixture"),
+          LiveRuntimeComparison.Scenario.Parallel,
+          5.seconds
+        )
+      yield assertTrue(
+        receipts.forall(_.scenarioAccepted),
+        receipts.map(_.peakActive) == Chunk(0, 1, 2, 2),
+        receipts.drop(1).take(2).forall(_.toolPhaseMillis.exists(_ >= 500)),
+        receipts.lastOption.exists(_.sameRuntimeContinuation.contains(true)),
+        !missing.scenarioAccepted,
+        missing.executions.isEmpty,
+        missing.callsPersistedBeforeEntry.isEmpty,
+        missing.cancellationJoinedCleanup.isEmpty,
+        missingOrdinary.failureCategory.contains("model_batch_contract")
+      )
   ) @@ TestAspect.timeout(30.seconds) @@ TestAspect.withLiveClock

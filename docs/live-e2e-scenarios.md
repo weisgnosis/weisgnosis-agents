@@ -143,7 +143,12 @@ exercised. This executable measures peak local activity, not latency or speedup.
 
 ### E3: Cancel a partially completed batch and reuse the agent
 
-**Extension required; reuse the existing cancellation fixture.** One tool completes
+**Parent-interruption arm executed; cooperative arm remains open.**
+[LiveRuntimeComparison](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveRuntimeComparison.scala)
+passes the parent-fiber arm on Qwen in three actual attempts, including repeated
+interruption and same-runtime continuation; the selected LFM task fails full
+acceptance. [Receipts and limits](live-runtime-comparison.md) retain every attempt.
+One tool completes
 with a known payload; another enters a host-owned wait. Wait until the first result
 is committed to canonical history or its terminal event is observed, then cancel.
 A tool body returning does not establish persisted completion.

@@ -167,15 +167,16 @@ The previously selected implementation outcomes above are complete. The newly re
 The [E2E scenario design](../live-e2e-scenarios.md) defines exact task results,
 runtime oracles, bounded model selection and limits on public claims. Existing
 executables and proposed extensions are explicitly separate. One current next
-task: extend the cancellation fixture for E3 partial-completion cancellation and
-same-runtime continuation; preserve completed sibling observations before
-interrupting the held call.
+task: complete the remaining E3 cooperative-interruption arm through a live
+model, signalling runtime.interrupt and joining the original run; retain the
+already verified parent-interruption behavior and failed model profiles.
 
 - [x] Design useful bots E2E scenarios and distinguish runtime guarantees from model/provider behavior and unmatched Python comparisons.
 - [x] **E0:** execute and retain a fresh selected-model baseline with every scenario receipt, including failures and unavailable profiles. The [actual results](../live-e2e-results.md) record three repeated matrices (33/42 passed) and one exploratory reasoning-model matrix (12/14 passed); all eleven failed attempts remain visible.
 - [ ] **E1:** complete the exact evidence/report task over HTTP MCP; verify Ask checkpoint restoration, Deny/Plan refusal and actual authorized effects.
 - [x] **E2:** demonstrate simultaneous concurrency-safe tool entry and persisted calls with a sequential control. [LiveParallelTools](../../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveParallelTools.scala) passes its actual Qwen paired run (peaks 1/2, exact sum 37); both selected LFM paired attempts fail and remain visible in the [results](../live-e2e-results.md). Focused oracle controls and full verify pass; independent FP/ZIO and invariant review apply to this fixture, not all future campaign scenarios.
 - [ ] **E3:** demonstrate partial-completion cancellation, joined cleanup and same-runtime continuation, preserving completed sibling observations.
+- [x] **E3 parent-interruption arm:** three live Qwen runs preserve completed results, reconcile only the held call, join cleanup under repeated fiber interruption and continue the same runtime without tool replay or another recovery. Selected LFM attempts fail full task acceptance and remain visible in the [live comparison](../live-runtime-comparison.md). The separate cooperative-interruption arm above remains unchecked.
 - [ ] **E4:** verify a useful attributed multi-agent result, busy-recipient queue/flush and bounded ordered Pipeline execution/cancellation.
 - [ ] **E5:** verify oversized evidence retrieval and explicit compaction through live model requests, preserving occurrence pairing, provenance and original observations on storage failure.
 - [ ] **E6:** verify selected definite rejection and active-request cancellation boundaries without claiming remote inference cancellation or unsafe replay.
@@ -183,6 +184,8 @@ interrupting the held call.
 - [x] **Explicit synthetic Python comparison:** execute matched overlap, pre-entry persistence, partial-completion cancellation, repeated interruption, joined cleanup, unfinished-only recovery and same-runtime continuation. Both the actual public ReAct runtime and a Python TaskGroup reference pass all nine [documented contracts](../synthetic-runtime-comparison.md); labelled unsafe Python controls reproduce separate ownership risks. This does not establish framework or performance superiority and does not close live E3. Focused tests, standard verify and independent FP/ZIO/invariant/fairness review cover this verification slice.
 
 - [x] **Explicit actual Python AgentScope comparison:** run pinned AgentScope 2.0.9 through public Agent/Toolkit APIs and compare selected lifecycle contracts with the actual Scala runtime. Three Python executions reproduce incomplete cleanup under repeated cancellation and delivered-but-unstored recovery; other selected contracts pass. A fresh Scala repeated-interruption run passes all nine contracts. Independent public-path and evidence review cover the fixture and bounded interpretation. See [results and reproduction](../agentscope-python-comparison.md); the [fifty architectural arguments](../scala-zio-positioning.md) distinguish capabilities from measured wins. This does not close live E3 or establish whole-framework/performance superiority.
+
+- [x] **Explicit live AgentScope comparison:** execute 48 alternating matched attempts on Qwen and instruction LFM through actual Python AgentScope and Scala public HTTP runtimes. Retain every attempt and measure visible-text latency, turn time, local scheduling, repeated cancellation and same-runtime continuation. Local concurrency works on both; no Scala speed advantage is demonstrated in ordinary sampled tasks. Five admitted Scala cancellation attempts finish cleanup; six Python attempts do not. Full task acceptance and storage-policy differences remain explicit. Focused checks, standard verify and independent FP/public-path and evidence review cover this slice. See [results and reproduction](../live-runtime-comparison.md).
 
 ## Verification
 

@@ -7,6 +7,10 @@ provider quality, throughput, token cost, memory consumption or every framework
 feature. The Python release is pinned from
 [PyPI](https://pypi.org/project/agentscope/2.0.9/).
 
+The separate [live comparison](live-runtime-comparison.md) uses real gateway
+models for useful tasks and timing. Its results do not change the offline
+scope of this experiment.
+
 ## Reproduce
 
 From the repository root, use an isolated environment:

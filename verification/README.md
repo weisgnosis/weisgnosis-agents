@@ -16,6 +16,11 @@ framework's public API. Its JSON reports contract failures without converting
 them into process errors; fixture exceptions fail execution. Installation and
 the three cancellation arms are documented in the guide.
 
+The opt-in [live comparison](../docs/live-runtime-comparison.md) uses
+[live_agentscope_comparison.py](live_agentscope_comparison.py) and the actual
+Scala HTTP runtime against a selected common provider. Credentials remain
+process-local. Timings and failed task receipts are separate from acceptance.
+
 ## Native directory aliases
 
 Run the opt-in [PathSafetySpec](../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala)

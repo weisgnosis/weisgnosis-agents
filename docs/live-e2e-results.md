@@ -4,6 +4,11 @@ These are actual gateway runs on 2026-10-11, not offline tests or a Python
 benchmark. The [scenario design](live-e2e-scenarios.md) describes the broader
 campaign; passing this baseline does not complete its proposed extensions.
 
+The separate [live framework comparison](live-runtime-comparison.md) records
+48 actual Python AgentScope/Scala attempts on two models, ordinary task timing,
+local scheduling and repeated parent interruption with continuation. Its failed
+profiles remain visible; it does not establish a universal speed advantage.
+
 ## Execution conditions
 
 The authenticated bots gateway catalog selected `qwen3.8-27b`,
