@@ -1,7 +1,7 @@
 /* Copyright 2024-2026 WeisGnosis. Licensed under the Apache License, Version 2.0. */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.error.{AgentError, TransportFailure}
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.Msg
@@ -60,12 +60,14 @@ final class AnthropicLlmClient private (
             Request.post(url, Body.fromString(JsonBoundary.render(body))).addHeaders(headers)
           )
           .provideSomeEnvironment[Scope](_.add(http))
-          .mapError(_ => AgentError.ModelError(0, "Anthropic HTTP acquisition failed"))
+          .mapError(error =>
+            AgentError
+              .ModelError(0, TransportFailure.describe("Anthropic HTTP acquisition failed", error))
+          )
         output <-
           if response.status.isSuccess then consume(response, publisher, recordPartial)
           else reject(response)
         _ <- publisher.finish(output)
-        _ <- recordPartial(None)
       yield output
 
   private def consume(
@@ -73,35 +75,44 @@ final class AnthropicLlmClient private (
       publisher: ModelStreamPublisher,
       recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): ZIO[Scope, AgentError, TurnOutput] =
-    for
-      _ <- ZIO
-        .fail(
-          AgentError
-            .ModelError(response.status.code, "Expected Anthropic text/event-stream response")
-        )
-        .unless(
-          response.rawHeaders("Content-Type").size == 1 &&
-            response
-              .rawHeaders("Content-Type")
-              .headOption
-              .exists(_.takeWhile(_ != ';').trim.equalsIgnoreCase("text/event-stream"))
-        )
-      state <- bounded(response.body.asStream, response.status.code)
-        .via(SseParser.parseBytes)
-        .mapError:
-          case error: AgentError => error
-          case _ =>
-            AgentError.ModelError(response.status.code, "Failed to read Anthropic UTF-8 stream")
-        .takeUntil(_.event.contains("message_stop"))
-        .runFoldZIO(AnthropicMessageStream.empty(webSearch)): (previous, frame) =>
+    Ref
+      .make(AnthropicMessageStream.empty(webSearch))
+      .flatMap: latest =>
+        (
           for
-            accepted <- ZIO.fromEither(previous.accept(frame))
-            (next, deltas) = accepted
-            _ <- recordPartial(Some(next.partial))
-            _ <- publisher.frame(frame.data, deltas)
-          yield next
-      output <- ZIO.fromEither(state.output)
-    yield output
+            _ <- ZIO
+              .fail(
+                AgentError
+                  .ModelError(response.status.code, "Expected Anthropic text/event-stream response")
+              )
+              .unless(
+                response.rawHeaders("Content-Type").size == 1 &&
+                  response
+                    .rawHeaders("Content-Type")
+                    .headOption
+                    .exists(_.takeWhile(_ != ';').trim.equalsIgnoreCase("text/event-stream"))
+              )
+            state <- bounded(response.body.asStream, response.status.code)
+              .via(SseParser.parseBytes)
+              .mapError:
+                case error: AgentError => error
+                case error =>
+                  AgentError.ModelError(
+                    response.status.code,
+                    TransportFailure.describe("Failed to read Anthropic UTF-8 stream", error)
+                  )
+              .takeUntil(_.event.contains("message_stop"))
+              .runFoldZIO(AnthropicMessageStream.empty(webSearch)): (previous, frame) =>
+                for
+                  accepted <- ZIO.fromEither(previous.accept(frame))
+                  (next, deltas) = accepted
+                  _ <- latest.set(next)
+                  _ <- publisher.frame(frame.data, deltas)
+                yield next
+            output <- ZIO.fromEither(state.output)
+            _      <- recordPartial(Some(TurnOutput.Interrupted(output.message)))
+          yield output
+        ).onInterrupt(latest.get.flatMap(value => recordPartial(Some(value.partial))))
 
   private def bounded(
       bytes: ZStream[Any, Throwable, Byte],
@@ -120,8 +131,11 @@ final class AnthropicLlmClient private (
     response.body.asStream
       .take(limits.errorBodyBytes.toLong)
       .runCollect
-      .mapError(_ =>
-        AgentError.ModelError(response.status.code, "Failed to read Anthropic HTTP rejection")
+      .mapError(error =>
+        AgentError.ModelError(
+          response.status.code,
+          TransportFailure.describe("Failed to read Anthropic HTTP rejection", error)
+        )
       )
       .flatMap(bytes =>
         ZIO.fail(

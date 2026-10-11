@@ -15,15 +15,11 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.error.{AgentError, TransportFailure}
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
-import java.net.{ConnectException, SocketTimeoutException, URI, UnknownHostException}
-import java.net.http.HttpTimeoutException
-import java.nio.channels.UnresolvedAddressException
-import java.util.concurrent.TimeoutException
-import javax.net.ssl.SSLException
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import zio.*
 import zio.http.{Body, Client, Headers, Request, Response, URL}
@@ -358,18 +354,7 @@ object ChatCompletionsTransport:
       context: String,
       error: Throwable
   ): AgentError.ModelError =
-    @scala.annotation.tailrec
-    def category(current: Throwable, remaining: Int): String = current match
-      case _: UnknownHostException | _: UnresolvedAddressException                   => "dns"
-      case _: SSLException                                                           => "tls"
-      case _: ConnectException                                                       => "connection"
-      case _: SocketTimeoutException | _: HttpTimeoutException | _: TimeoutException => "timeout"
-      case _ if remaining > 0 =>
-        Option(current.getCause) match
-          case Some(cause) => category(cause, remaining - 1)
-          case None        => "other"
-      case _ => "other"
-    AgentError.ModelError(status, s"$context (${category(error, 7)})")
+    AgentError.ModelError(status, TransportFailure.describe(context, error))
 
   private enum StreamState:
     case Reading(accumulator: StreamAccumulator, decoder: CompletionEnvelopeDecoder)

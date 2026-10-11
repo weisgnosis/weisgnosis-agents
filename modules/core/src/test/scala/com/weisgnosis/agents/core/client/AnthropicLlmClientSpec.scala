@@ -14,6 +14,9 @@ import zio.stream.ZStream
 import zio.test.*
 
 object AnthropicLlmClientSpec extends ZIOSpecDefault:
+  private enum SearchInterruption:
+    case Proposal, Observation
+
   private enum SearchScenario:
     case Hosted, HostedError, Mixed, MixedError
 
@@ -273,12 +276,397 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
         )
         .map(_.foldLeft(assertTrue(true))(_ && _))
     ,
+    test(
+      "hosted partial projection rejects untrusted markers and mismatched native evidence before HTTP"
+    ):
+      ZIO.scoped:
+        for
+          sent   <- Ref.make(0)
+          search <- ZIO.fromEither(AnthropicWebSearch.make())
+          hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          call = ContentBlock
+            .ToolUse("server-1", "web_search", Json.Obj("query" -> Json.Str("example")))
+            .withServerTool(true)
+          base = Msg
+            .assistant(Chunk(call))
+            .withMetadata("anthropic_interrupted_stream", Json.Bool(true))
+          rawResult = Json.Obj(
+            "type"        -> Json.Str("web_search_tool_result"),
+            "tool_use_id" -> Json.Str("server-1"),
+            "content"     -> Json.Arr()
+          )
+          changedResult = ContentBlock.ToolResult(
+            "server-1",
+            Some("web_search"),
+            Chunk(ContentBlock.Text("[]")),
+            com.weisgnosis.agents.core.model.ToolResultState.Error,
+            Map(
+              "agentscope_server_tool"      -> Json.Bool(true),
+              "anthropic_web_search_result" -> rawResult
+            )
+          )
+          cases = Chunk(
+            (Msg.assistant(Chunk(call)), Some(search)),
+            (base.withMetadata("anthropic_interrupted_stream", Json.Str("true")), Some(search)),
+            (
+              Msg
+                .assistant(Chunk(call.copy(name = "unknown")))
+                .withMetadata("anthropic_interrupted_stream", Json.Bool(true)),
+              Some(search)
+            ),
+            (base, Option.empty[AnthropicWebSearch]),
+            (
+              Msg
+                .assistant(Chunk(call, changedResult))
+                .withMetadata("anthropic_interrupted_stream", Json.Bool(true)),
+              Some(search)
+            ),
+            (
+              base.withMetadata(
+                AnthropicNativeReplay.key,
+                Json.Arr(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str("stale")))
+              ),
+              Some(search)
+            )
+          )
+          rejected <- ZIO.foreach(cases): (message, selected) =>
+            for
+              client <- AnthropicLlmClient.make(
+                HttpClientTestSupport.scripted(_ => sent.update(_ + 1).as(response(finalText))),
+                webSearch = selected
+              )
+              result <- client
+                .streamTurn(
+                  Chunk(Msg.user("x"), message, Msg.user("continue")),
+                  Chunk.empty,
+                  config,
+                  hub,
+                  context
+                )
+                .either
+            yield result
+          count <- sent.get
+        yield assertTrue(rejected.forall(_.isLeft), count == 0)
+    ,
+    test(
+      "same native agent preserves interrupted hosted observations as passive continuation data"
+    ):
+      ZIO
+        .foreach(Chunk.fromArray(SearchInterruption.values)): scenario =>
+          ZIO.scoped:
+            val proposal = start + frame(
+              "content_block_start",
+              """{"index":0,"content_block":{"type":"server_tool_use","id":"server-1","name":"web_search","input":{"query":"example"}}}"""
+            ) + blockStop(0)
+            val observed =
+              searchTurn(mixed = false, failed = false).stripSuffix(finish("end_turn") + stop)
+            for
+              progressed <- Promise.make[Nothing, Unit]
+              requests   <- Ref.make(Chunk.empty[String])
+              search     <- ZIO.fromEither(AnthropicWebSearch.make())
+              client <- AnthropicLlmClient.make(
+                HttpClientTestSupport.scripted(request =>
+                  request.body.asString
+                    .flatMap(raw => requests.modify(previous => previous.size -> (previous :+ raw)))
+                    .map(index =>
+                      if index == 0 then
+                        Response(
+                          headers = Headers("Content-Type" -> "text/event-stream"),
+                          body = Body.fromStreamChunked(
+                            ZStream.fromIterable(
+                              (scenario match
+                                case SearchInterruption.Proposal    => proposal
+                                case SearchInterruption.Observation => observed
+                              ).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                            ) ++ ZStream.never
+                          )
+                        )
+                      else response(finalText)
+                    )
+                ),
+                webSearch = Some(search)
+              )
+              agent <- ReActAgent.make(client = client, llmConfig = config)
+              worker <- agent
+                .streamEvents(Msg.user("search"))
+                .tap:
+                  case event: AgentEvent.ModelResponseChunkEvent =>
+                    val accepted = scenario match
+                      case SearchInterruption.Proposal => event.chunk.contains("server_tool_use")
+                      case SearchInterruption.Observation =>
+                        event.chunk.contains("web_search_tool_result")
+                    ZIO.when(accepted)(progressed.succeed(())).unit
+                  case _ => ZIO.unit
+                .runDrain
+                .forkScoped
+              _       <- progressed.await
+              _       <- agent.interrupt
+              _       <- worker.join
+              before  <- agent.history
+              resumed <- agent.run(Msg.user("continue"))
+              after   <- agent.history
+              sent    <- requests.get
+              native = before.find(_.toolUses.exists(_.isServerTool))
+            yield assertTrue(
+              resumed.reply.text == "answer",
+              sent.size == 2,
+              native.exists(_.toolUses.exists(call => call.isServerTool && call.id == "server-1")),
+              !before.exists(_.role == com.weisgnosis.agents.core.model.Role.Tool),
+              after.take(before.size) == before,
+              sent.lastOption.exists(
+                _.contains("Interrupted provider-hosted proposal; execution outcome unknown")
+              ),
+              sent.lastOption.exists(_.contains("example"))
+            ) && (scenario match
+              case SearchInterruption.Proposal => assertTrue(native.forall(_.toolResults.isEmpty))
+              case SearchInterruption.Observation =>
+                assertTrue(
+                  native.exists(_.toolResults.exists(_.isServerTool)),
+                  sent.lastOption.exists(_.contains("Received provider-hosted observation")),
+                  sent.lastOption.exists(_.contains("opaque-exact-content"))
+                ))
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test(
+      "same native agent continues after cancellation during unsigned thinking without rewriting history"
+    ):
+      ZIO.scoped:
+        for
+          progressed <- Promise.make[Nothing, Unit]
+          requests   <- Ref.make(Chunk.empty[Json])
+          client <- AnthropicLlmClient.make(
+            HttpClientTestSupport.scripted(request =>
+              request.body.asString
+                .flatMap(raw =>
+                  ZIO.fromEither(raw.fromJson[Json]).mapError(AgentError.DeserializationError(_))
+                )
+                .flatMap(body => requests.modify(previous => previous.size -> (previous :+ body)))
+                .map(index =>
+                  if index == 0 then
+                    Response(
+                      headers = Headers("Content-Type" -> "text/event-stream"),
+                      body = Body.fromStreamChunked(
+                        ZStream.fromIterable(
+                          (start + frame(
+                            "content_block_start",
+                            """{"index":0,"content_block":{"type":"thinking","thinking":"unfinished reasoning"}}"""
+                          )).getBytes(java.nio.charset.StandardCharsets.UTF_8)
+                        ) ++ ZStream.never
+                      )
+                    )
+                  else response(finalText)
+                )
+            )
+          )
+          agent <- ReActAgent.make(client = client, llmConfig = config)
+          worker <- agent
+            .streamEvents(Msg.user("first"))
+            .tap:
+              case _: AgentEvent.ThinkingBlockDeltaEvent => progressed.succeed(()).unit
+              case _                                     => ZIO.unit
+            .runDrain
+            .forkScoped
+          _       <- progressed.await
+          _       <- agent.interrupt
+          _       <- worker.join
+          before  <- agent.history
+          resumed <- agent.run(Msg.user("continue"))
+          sent    <- requests.get
+          after   <- agent.history
+        yield assertTrue(
+          resumed.reply.text == "answer",
+          sent.size == 2,
+          before.exists(_.content.exists:
+            case ContentBlock.Thinking("unfinished reasoning", metadata) =>
+              metadata.get("anthropic_incomplete_thinking").contains(Json.Bool(true))
+            case _ => false),
+          after.take(before.size) == before,
+          !sent.lastOption.exists(_.toJson.contains("unfinished reasoning")),
+          !sent.lastOption.exists(_.toJson.contains("anthropic_incomplete_thinking"))
+        )
+    ,
+    test("native acquisition and body failures expose only bounded transport categories"):
+      ZIO.scoped:
+        val secret = "https://private.example/?api_key=private-token"
+        val cases: Chunk[(Throwable, String)] = Chunk(
+          (new java.net.UnknownHostException(secret), "dns"),
+          (new javax.net.ssl.SSLHandshakeException(secret), "tls"),
+          (new java.net.ConnectException(secret), "connection"),
+          (new java.net.SocketTimeoutException(secret), "timeout"),
+          (new java.io.IOException(secret), "other")
+        )
+        for
+          hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          acquired <- ZIO.foreach(cases): (failure, category) =>
+            for
+              client <- AnthropicLlmClient.make(
+                HttpClientTestSupport.scripted(_ => ZIO.fail(failure))
+              )
+              result <- client
+                .streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context)
+                .either
+            yield assertTrue(
+              result == Left(
+                AgentError.ModelError(0, s"Anthropic HTTP acquisition failed ($category)")
+              )
+            )
+          client <- AnthropicLlmClient.make(
+            HttpClientTestSupport.scripted(_ =>
+              ZIO.succeed(
+                Response(
+                  headers = Headers("Content-Type" -> "text/event-stream"),
+                  body = Body.fromStreamChunked(
+                    ZStream.fail(new java.net.SocketTimeoutException(secret))
+                  )
+                )
+              )
+            )
+          )
+          body <- client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context).either
+        yield acquired.foldLeft(
+          assertTrue(
+            body == Left(
+              AgentError.ModelError(200, "Failed to read Anthropic UTF-8 stream (timeout)")
+            )
+          )
+        )(_ && _)
+    ,
+    test(
+      "native replay projection omits only exact incomplete thinking and preserves signed blocks"
+    ):
+      ZIO.scoped:
+        for
+          sent <- Ref.make(Chunk.empty[String])
+          client <- AnthropicLlmClient.make(
+            HttpClientTestSupport.scripted(request =>
+              request.body.asString.flatMap(raw => sent.update(_ :+ raw)).as(response(finalText))
+            )
+          )
+          hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          omitted <- client.streamTurn(
+            Chunk(
+              Msg.user("x"),
+              Msg.assistant(
+                Chunk(
+                  ContentBlock
+                    .Thinking("unfinished", Map("anthropic_incomplete_thinking" -> Json.Bool(true)))
+                )
+              ),
+              Msg.user("continue")
+            ),
+            Chunk.empty,
+            config,
+            hub,
+            context
+          )
+          signed <- client.streamTurn(
+            Chunk(
+              Msg.user("x"),
+              Msg.assistant(
+                Chunk(
+                  ContentBlock
+                    .Thinking("signed", Map("thoughtSignature" -> Json.Str("exact-signature")))
+                )
+              ),
+              Msg.user("continue")
+            ),
+            Chunk.empty,
+            config,
+            hub,
+            context
+          )
+          malformed = Chunk(
+            ContentBlock.Thinking("unsigned"),
+            ContentBlock
+              .Thinking("bad-marker", Map("anthropic_incomplete_thinking" -> Json.Str("true"))),
+            ContentBlock.Thinking(
+              "ambiguous",
+              Map(
+                "anthropic_incomplete_thinking" -> Json.Bool(true),
+                "thoughtSignature"              -> Json.Str("must-not-drop")
+              )
+            ),
+            ContentBlock.Thinking("\uD800", Map("anthropic_incomplete_thinking" -> Json.Bool(true)))
+          )
+          rejected <- ZIO.foreach(malformed)(thinking =>
+            client
+              .streamTurn(
+                Chunk(Msg.user("x"), Msg.assistant(Chunk(thinking)), Msg.user("continue")),
+                Chunk.empty,
+                config,
+                hub,
+                context
+              )
+              .either
+          )
+          bodies <- sent.get
+        yield assertTrue(
+          omitted.message.text == "answer",
+          signed.message.text == "answer",
+          rejected.forall(_.isLeft),
+          bodies.size == 2,
+          bodies.headOption.exists(raw =>
+            !raw.contains("unfinished") && !raw.contains("anthropic_incomplete_thinking")
+          ),
+          bodies.lastOption.exists(raw => raw.contains("signed") && raw.contains("exact-signature"))
+        )
+    ,
+    test("completed native response cleanup cancellation preserves proposals without execution"):
+      ZIO.scoped:
+        for
+          cleaning    <- Promise.make[Nothing, Unit]
+          interrupted <- Promise.make[Nothing, Unit]
+          release     <- Promise.make[Nothing, Unit]
+          closed      <- Ref.make(false)
+          calls       <- Ref.make(0)
+          client <- AnthropicLlmClient.make(
+            HttpClientTestSupport.scripted(_ =>
+              ZIO
+                .addFinalizer(
+                  cleaning.succeed(()) *> ZIO.interruptible(ZIO.never).exit *>
+                    interrupted.succeed(()) *> release.await *> closed.set(true)
+                )
+                .as(response(localTurn))
+            )
+          )
+          tool = Tool.make(ToolDef("lookup", "Count execution", Json.Obj()))(_ =>
+            calls.update(_ + 1).as("unexpected")
+          )
+          agent <- ReActAgent.make(
+            client = client,
+            llmConfig = config,
+            toolkit = Toolkit.single(tool)
+          )
+          worker <- ZIO.uninterruptibleMask: restore =>
+            for
+              running <- restore(agent.run(Msg.user("lookup"))).forkScoped
+              _       <- ZIO.addFinalizer(release.succeed(()).unit)
+            yield running
+          _        <- cleaning.await
+          _        <- worker.interruptFork
+          _        <- interrupted.await
+          _        <- release.succeed(())
+          exit     <- worker.await
+          history  <- agent.history
+          count    <- calls.get
+          released <- closed.get
+        yield assertTrue(
+          exit.isInterrupted,
+          released,
+          count == 0,
+          history.exists(_.text.contains("before")),
+          history.flatMap(_.toolUses).map(_.id) == Chunk("call-1"),
+          history.flatMap(_.toolResults).map(_.state) == Chunk(
+            com.weisgnosis.agents.core.model.ToolResultState.Error
+          ),
+          history.count(_.generateReason.contains("interrupted")) == 1
+        )
+    ,
     test("cancelled native reads retain sanitized progress and join failed request cleanup"):
       val cleanupDefect = new IllegalStateException("native request cleanup")
       ZIO.scoped:
         for
           partial        <- Ref.make(Option.empty[TurnOutput.Interrupted])
-          progressed     <- Promise.make[Nothing, Unit]
           cleanupEntered <- Promise.make[Nothing, Unit]
           releaseCleanup <- Promise.make[Nothing, Unit]
           requestCount   <- Ref.make(0)
@@ -303,7 +691,8 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                 )
             )
           )
-          hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          events <- hub.subscribe
           worker <- ZIO.uninterruptibleMask: restore =>
             for
               running <- restore(
@@ -313,15 +702,14 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                   config,
                   hub,
                   context,
-                  value =>
-                    partial.set(value) *> ZIO
-                      .when(value.exists(_.message.toolUses.nonEmpty))(progressed.succeed(()))
-                      .unit
+                  partial.set
                 )
               ).forkScoped
               _ <- ZIO.addFinalizer(releaseCleanup.succeed(()).unit)
             yield running
-          _          <- progressed.await
+          _ <- events.take.repeatUntil:
+            case event: AgentEvent.ToolCallDeltaEvent => event.delta == "{\"q\":"
+            case _                                    => false
           controller <- ZIO.fiberId
           _          <- worker.interruptAsFork(controller)
           _          <- cleanupEntered.await

@@ -59,6 +59,29 @@ object McpLegacySseTransportSpec extends ZIOSpecDefault:
     )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("Legacy MCP HTTP SSE")(
+    test("legacy acquisition diagnostics omit external text and preserve typed failures"):
+      val sentinel = "Authorization: Bearer diagnostic-sentinel"
+      val domain   = AgentError.McpError("Host supplied domain failure")
+      val cases: Chunk[(Throwable, AgentError)] = Chunk(
+        new java.net.UnknownHostException(sentinel) ->
+          AgentError.McpError("MCP legacy SSE GET failed (dns)"),
+        domain -> domain
+      )
+      ZIO
+        .foreach(cases): (failure, expected) =>
+          ZIO
+            .scoped(
+              McpLegacySseTransport.open(scripted(_ => ZIO.fail(failure)), endpoint)
+            )
+            .exit
+            .map(exit =>
+              assertTrue(
+                exit.causeOption.exists(_.failures == List(expected)),
+                !exit.causeOption.toList.flatMap(_.failures).exists(_.message.contains(sentinel))
+              )
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "endpoint discovery precedes leased alternative decoding and selected-version POST headers"
     ):

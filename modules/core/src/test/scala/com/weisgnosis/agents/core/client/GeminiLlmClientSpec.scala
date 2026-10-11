@@ -618,12 +618,108 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
         snapshot == after
       )
     ,
+    test("native acquisition and body failures expose only bounded transport categories"):
+      ZIO.scoped:
+        val secret = "https://private.example/?api_key=private-token"
+        val cases: Chunk[(Throwable, String)] = Chunk(
+          (new java.net.UnknownHostException(secret), "dns"),
+          (new javax.net.ssl.SSLHandshakeException(secret), "tls"),
+          (new java.net.ConnectException(secret), "connection"),
+          (new java.net.SocketTimeoutException(secret), "timeout"),
+          (new java.io.IOException(secret), "other")
+        )
+        for
+          hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          acquired <- ZIO.foreach(cases): (failure, category) =>
+            for
+              client <- GeminiLlmClient.make(HttpClientTestSupport.scripted(_ => ZIO.fail(failure)))
+              result <- client
+                .streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context)
+                .either
+            yield assertTrue(
+              result == Left(
+                AgentError.ModelError(0, s"Gemini HTTP acquisition failed ($category)")
+              )
+            )
+          client <- GeminiLlmClient.make(
+            HttpClientTestSupport.scripted(_ =>
+              ZIO.succeed(
+                Response(
+                  headers = Headers("Content-Type" -> "text/event-stream"),
+                  body = Body.fromStreamChunked(
+                    ZStream.fail(new java.net.SocketTimeoutException(secret))
+                  )
+                )
+              )
+            )
+          )
+          body <- client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context).either
+        yield acquired.foldLeft(
+          assertTrue(
+            body == Left(AgentError.ModelError(200, "Failed to read Gemini UTF-8 stream (timeout)"))
+          )
+        )(_ && _)
+    ,
+    test("completed native response cleanup cancellation preserves proposals without execution"):
+      ZIO.scoped:
+        for
+          cleaning    <- Promise.make[Nothing, Unit]
+          interrupted <- Promise.make[Nothing, Unit]
+          release     <- Promise.make[Nothing, Unit]
+          closed      <- Ref.make(false)
+          calls       <- Ref.make(0)
+          client <- GeminiLlmClient.make(
+            HttpClientTestSupport.scripted(_ =>
+              ZIO
+                .addFinalizer(
+                  cleaning.succeed(()) *> ZIO.interruptible(ZIO.never).exit *>
+                    interrupted.succeed(()) *> release.await *> closed.set(true)
+                )
+                .as(
+                  response(
+                    frame(Chunk(text("received"), function(Some("call-1"), "x")), Some("STOP"))
+                  )
+                )
+            )
+          )
+          tool = Tool.make(ToolDef("lookup", "Count execution", Json.Obj()))(_ =>
+            calls.update(_ + 1).as("unexpected")
+          )
+          agent <- ReActAgent.make(
+            client = client,
+            llmConfig = config,
+            toolkit = Toolkit.single(tool)
+          )
+          worker <- ZIO.uninterruptibleMask: restore =>
+            for
+              running <- restore(agent.run(Msg.user("lookup"))).forkScoped
+              _       <- ZIO.addFinalizer(release.succeed(()).unit)
+            yield running
+          _        <- cleaning.await
+          _        <- worker.interruptFork
+          _        <- interrupted.await
+          _        <- release.succeed(())
+          exit     <- worker.await
+          history  <- agent.history
+          count    <- calls.get
+          released <- closed.get
+        yield assertTrue(
+          exit.isInterrupted,
+          released,
+          count == 0,
+          history.exists(_.text.contains("received")),
+          history.flatMap(_.toolUses).map(_.id) == Chunk("call-1"),
+          history.flatMap(_.toolResults).map(_.state) == Chunk(
+            com.weisgnosis.agents.core.model.ToolResultState.Error
+          ),
+          history.count(_.generateReason.contains("interrupted")) == 1
+        )
+    ,
     test("cancelled code streams retain partial hosted data and join exact failing HTTP cleanup"):
       for
-        partial    <- Ref.make(Option.empty[TurnOutput.Interrupted])
-        progressed <- Promise.make[Nothing, Unit]
-        cleaning   <- Promise.make[Nothing, Unit]
-        release    <- Promise.make[Nothing, Unit]
+        partial  <- Ref.make(Option.empty[TurnOutput.Interrupted])
+        cleaning <- Promise.make[Nothing, Unit]
+        release  <- Promise.make[Nothing, Unit]
         defect = new IllegalStateException("Gemini request cleanup")
         client <- GeminiLlmClient.make(
           HttpClientTestSupport.scripted(_ =>
@@ -644,7 +740,8 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
           ),
           GeminiCodeExecution.Enabled
         )
-        hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+        hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+        events <- hub.subscribe
         worker <- ZIO.uninterruptibleMask: restore =>
           for
             fiber <- restore(
@@ -654,15 +751,14 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
                 config,
                 hub,
                 context,
-                value =>
-                  partial.set(value) *> ZIO
-                    .when(value.exists(_.message.toolUses.nonEmpty))(progressed.succeed(()))
-                    .unit
+                partial.set
               )
             ).forkScoped
             _ <- ZIO.addFinalizer(release.succeed(()).unit)
           yield fiber
-        _          <- progressed.await
+        _ <- events.take.repeatUntil:
+          case event: AgentEvent.ModelResponseChunkEvent => event.chunk.contains("executableCode")
+          case _                                         => false
         controller <- ZIO.fiberId
         _          <- worker.interruptAsFork(controller)
         _          <- cleaning.await

@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.mcp.transport
 
-import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.error.{AgentError, TransportFailure}
 import com.weisgnosis.agents.mcp.protocol.{
   McpMessage,
   McpPacket,
@@ -147,10 +147,9 @@ object McpLegacySseTransport:
     override def currentProtocolVersion: UIO[McpProtocolVersion]                  = versions.current
     override def acquireProtocolSession: ZIO[Scope, AgentError, McpProtocolLease] = versions.acquire
 
-    private def boundary(operation: String)(error: Throwable): AgentError =
-      AgentError.McpError(
-        s"$operation failed: ${Option(error.getMessage).getOrElse(error.getClass.getName)}"
-      )
+    private def boundary(operation: String)(error: Throwable): AgentError = error match
+      case domain: AgentError => domain
+      case other => AgentError.McpError(TransportFailure.describe(s"$operation failed", other))
 
     def stop(cause: Cause[AgentError]): UIO[Unit] =
       versions.seal *> terminal

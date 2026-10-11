@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.mcp.transport
 
-import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.error.{AgentError, TransportFailure}
 import com.weisgnosis.agents.mcp.protocol.{
   McpBatchMember,
   McpMessage,
@@ -285,9 +285,7 @@ object McpStreamableHttpTransport:
   private def boundary(operation: String)(error: Throwable): AgentError = error match
     case domain: AgentError => domain
     case other =>
-      AgentError.McpError(
-        s"$operation failed (${other.getClass.getName}): ${Option(other.getMessage).getOrElse("no message")}"
-      )
+      AgentError.McpError(TransportFailure.describe(s"$operation failed", other))
 
   private def attemptBoundary(operation: String)(error: Throwable): AttemptError = error match
     case interrupted: ClosedByInterruptException => boundary(operation)(interrupted)

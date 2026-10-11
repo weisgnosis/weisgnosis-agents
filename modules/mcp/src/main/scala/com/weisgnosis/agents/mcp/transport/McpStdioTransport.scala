@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.mcp.transport
 
-import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.error.{AgentError, TransportFailure}
 import com.weisgnosis.agents.mcp.protocol.{
   McpMessage,
   McpPacket,
@@ -123,10 +123,10 @@ object McpStdioTransport:
         _ <- owner.set(Some(transport))
       yield transport
 
-  private def ioError(operation: String, error: Throwable): AgentError =
-    AgentError.McpError(
-      s"MCP stdio $operation failed (${error.getClass.getName}): ${Option(error.getMessage).getOrElse("no message")}"
-    )
+  private def ioError(operation: String, error: Throwable): AgentError = error match
+    case domain: AgentError => domain
+    case other =>
+      AgentError.McpError(TransportFailure.describe(s"MCP stdio $operation failed", other))
 
   /** No caller joins here: an I/O caller may itself be running this cancellation finalizer. */
   private def releaseProcess(process: Process): UIO[Unit] =

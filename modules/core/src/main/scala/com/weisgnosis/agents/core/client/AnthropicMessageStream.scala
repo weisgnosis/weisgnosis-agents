@@ -230,7 +230,13 @@ final private[client] case class AnthropicMessageStream private (
           val input = arguments(initial, fragments).getOrElse(Json.Obj())
           nativeCall(id, name, input, fragments, origin)
         case Block.SearchResult(_, result) => result
-    TurnOutput.Interrupted(Msg.assistant(content, usage = Some(usage)))
+    TurnOutput.Interrupted(
+      Msg.assistant(
+        content,
+        metadata = Map("anthropic_interrupted_stream" -> Json.Bool(true)),
+        usage = Some(usage)
+      )
+    )
 
 private[client] object AnthropicMessageStream:
   private enum Stage:
@@ -244,7 +250,13 @@ private[client] object AnthropicMessageStream:
   private enum Block:
     case Text(value: String)
     case Thinking(value: String, signature: String)
-    case Tool(id: String, name: String, initial: Json.Obj, fragments: String, origin: ToolOrigin)
+    case Tool(
+        id: String,
+        name: String,
+        initial: Json.Obj,
+        fragments: List[String],
+        origin: ToolOrigin
+    )
     case SearchResult(value: Json.Obj, result: ContentBlock.ToolResult)
 
   def empty(webSearch: Option[AnthropicWebSearch]): AnthropicMessageStream =
@@ -327,7 +339,7 @@ private[client] object AnthropicMessageStream:
           input <-
             if origin == ToolOrigin.WebSearch && obj.get("input").isEmpty then Right(Json.Obj())
             else objectField(obj, "input")
-        yield Block.Tool(id, name, input, "", origin)
+        yield Block.Tool(id, name, input, Nil, origin)
       case "web_search_tool_result" =>
         ensure(webSearch.nonEmpty, "Unselected native web-search result").flatMap(_ =>
           searchResult(obj).map(result => Block.SearchResult(obj, result))
@@ -385,7 +397,13 @@ private[client] object AnthropicMessageStream:
           case Block.Tool(id, name, initial, previous, origin) if initial == Json.Obj() =>
             string(delta, "partial_json").map(value =>
               (
-                Block.Tool(id, name, initial, previous + value, origin),
+                Block.Tool(
+                  id,
+                  name,
+                  initial,
+                  if value.isEmpty then previous else value :: previous,
+                  origin
+                ),
                 Chunk(LlmChunk.ToolCallChunk(index, argumentsDelta = value))
               )
             )
@@ -395,11 +413,11 @@ private[client] object AnthropicMessageStream:
             )
       case other => Left(AgentError.DeserializationError(s"Unsupported Anthropic delta: $other"))
 
-  private def arguments(initial: Json.Obj, fragments: String): Either[AgentError, Json.Obj] =
+  private def arguments(initial: Json.Obj, fragments: List[String]): Either[AgentError, Json.Obj] =
     if fragments.isEmpty then Right(initial)
     else
       JsonBoundary
-        .decode(fragments)
+        .decode(fragments.reverse.mkString)
         .left
         .map(AgentError.DeserializationError(_))
         .flatMap(
@@ -527,10 +545,10 @@ private[client] object AnthropicMessageStream:
       id: String,
       name: String,
       input: Json.Obj,
-      fragments: String,
+      fragments: List[String],
       origin: ToolOrigin
   ): ContentBlock.ToolUse =
-    val call = ContentBlock.ToolUse(id, name, input, content = Some(fragments))
+    val call = ContentBlock.ToolUse(id, name, input, content = Some(fragments.reverse.mkString))
     origin match
       case ToolOrigin.Local     => call
       case ToolOrigin.WebSearch => call.withServerTool(true)

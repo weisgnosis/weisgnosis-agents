@@ -49,7 +49,7 @@ private[client] object ModelStreamPublisher:
     case Tool(index: Int)
 
   private enum ToolProgress:
-    case Pending(id: Option[String], name: Option[String], arguments: String)
+    case Pending(id: Option[String], name: Option[String], argumentFragments: List[String])
     case Started(id: String, name: String)
 
   final private case class State(
@@ -94,13 +94,15 @@ private[client] object ModelStreamPublisher:
           if text.isEmpty then (this, Chunk.empty)
           else accept(LlmChunk.ThinkingDelta(text), context)
         case call: LlmChunk.ToolCallChunk =>
-          tools.getOrElse(call.streamIndex, ToolProgress.Pending(None, None, "")) match
+          tools.getOrElse(call.streamIndex, ToolProgress.Pending(None, None, Nil)) match
             case ToolProgress.Started(id, _) =>
               (this, toolDelta(id, call.streamIndex, call.argumentsDelta, context))
-            case ToolProgress.Pending(id, name, arguments) =>
+            case ToolProgress.Pending(id, name, argumentFragments) =>
               val nextId   = call.callId.orElse(id)
               val nextName = call.name.orElse(name)
-              val buffered = arguments + call.argumentsDelta
+              val buffered =
+                if call.argumentsDelta.isEmpty then argumentFragments
+                else call.argumentsDelta :: argumentFragments
               (nextId, nextName) match
                 case (Some(callId), Some(callName)) =>
                   val next = copy(
@@ -114,7 +116,15 @@ private[client] object ModelStreamPublisher:
                     streamIndex = Some(call.streamIndex),
                     context = Some(context)
                   )
-                  (next, Chunk(start) ++ toolDelta(callId, call.streamIndex, buffered, context))
+                  (
+                    next,
+                    Chunk(start) ++ toolDelta(
+                      callId,
+                      call.streamIndex,
+                      buffered.reverse.mkString,
+                      context
+                    )
+                  )
                 case _ =>
                   (
                     copy(tools =

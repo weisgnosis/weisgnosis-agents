@@ -6,6 +6,7 @@ import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.Chunk
+import zio.json.*
 import zio.json.ast.Json
 
 /** Native Messages encoding; canonical history is never rewritten into provider wire roles. */
@@ -31,7 +32,13 @@ private[client] object AnthropicMessagesRequest:
           case (previous, ContentBlock.Text(value)) => previous.map(_ :+ text(value))
           case _ => Left(AgentError.InvalidMessage("Anthropic System content must be text"))
       )
-      messages    <- traverse(history.filterNot(_.role == Role.System))(message(_, webSearch))
+      projected <- traverse(history.filterNot(_.role == Role.System))(message(_, webSearch))
+      messages = projected.flatten
+      _ <- Either.cond(
+        messages.nonEmpty,
+        (),
+        AgentError.InvalidMessage("Anthropic history has no replayable messages")
+      )
       definitions <- traverse(tools)(tool)
       body = Json.Obj(
         Chunk(
@@ -120,24 +127,117 @@ private[client] object AnthropicMessagesRequest:
       )
     )
 
-  private def message(value: Msg, webSearch: Option[AnthropicWebSearch]): Either[AgentError, Json] =
+  private def message(
+      value: Msg,
+      webSearch: Option[AnthropicWebSearch]
+  ): Either[AgentError, Option[Json]] =
     (if value.role == Role.Assistant then AnthropicNativeReplay.content(value, webSearch)
      else Right(None)).flatMap:
       case Some(content) =>
-        Right(Json.Obj("role" -> Json.Str("assistant"), "content" -> Json.Arr(content)))
-      case None => ordinaryMessage(value)
+        Right(Some(Json.Obj("role" -> Json.Str("assistant"), "content" -> Json.Arr(content))))
+      case None => ordinaryMessage(value, webSearch)
 
-  private def ordinaryMessage(value: Msg): Either[AgentError, Json] =
-    traverse(value.content)(block(_, value.role)).flatMap(content =>
-      Either.cond(
-        content.flatten.nonEmpty,
-        Json.Obj(
-          "role"    -> Json.Str(if value.role == Role.Assistant then "assistant" else "user"),
-          "content" -> Json.Arr(content.flatten)
-        ),
-        AgentError.InvalidMessage("Anthropic message has no supported content")
+  /** Incomplete observations are projected as data; canonical history remains unchanged. */
+  private def ordinaryMessage(
+      value: Msg,
+      webSearch: Option[AnthropicWebSearch]
+  ): Either[AgentError, Option[Json]] =
+    for
+      observed <- projectInterruptedHosted(value, webSearch)
+      projected = observed.filterNot:
+        case ContentBlock.Thinking(text, metadata) if value.role == Role.Assistant =>
+          metadata == Map("anthropic_incomplete_thinking" -> Json.Bool(true)) &&
+          JsonBoundary.validUnicode(Json.Str(text))
+        case _ => false
+      output <-
+        if projected.isEmpty && value.content.nonEmpty then Right(None)
+        else
+          traverse(projected)(block(_, value.role)).flatMap(content =>
+            Either.cond(
+              content.flatten.nonEmpty,
+              Some(
+                Json.Obj(
+                  "role" -> Json.Str(if value.role == Role.Assistant then "assistant" else "user"),
+                  "content" -> Json.Arr(content.flatten)
+                )
+              ),
+              AgentError.InvalidMessage("Anthropic message has no supported content")
+            )
+          )
+    yield output
+
+  private def projectInterruptedHosted(
+      value: Msg,
+      webSearch: Option[AnthropicWebSearch]
+  ): Either[AgentError, Chunk[ContentBlock]] =
+    val hosted = value.content.filter:
+      case call: ContentBlock.ToolUse      => call.isServerTool
+      case result: ContentBlock.ToolResult => result.isServerTool
+      case _                               => false
+    if hosted.isEmpty then Right(value.content)
+    else
+      for
+        _ <- Either.cond(
+          value.role == Role.Assistant && webSearch.nonEmpty &&
+            value.metadata.get("anthropic_interrupted_stream").contains(Json.Bool(true)),
+          (),
+          AgentError.InvalidMessage(
+            "Hosted partial replay requires an interrupted native search observation"
+          )
+        )
+        wire <- traverse(hosted):
+          case call: ContentBlock.ToolUse =>
+            Right(
+              Json.Obj(
+                "type"  -> Json.Str("server_tool_use"),
+                "id"    -> Json.Str(call.id),
+                "name"  -> Json.Str(call.name),
+                "input" -> call.input
+              )
+            )
+          case result: ContentBlock.ToolResult =>
+            result.metadata
+              .get("anthropic_web_search_result")
+              .flatMap(_.asObject)
+              .toRight(
+                AgentError.InvalidMessage(
+                  "Hosted partial result lacks its original native observation"
+                )
+              )
+          case _ => Left(AgentError.InvalidMessage("Unsupported hosted partial observation"))
+        canonical <- AnthropicMessageStream.canonicalBlocks(wire, webSearch)
+        _ <- Either.cond(
+          canonical.map(normalizeHosted) == hosted.map(normalizeHosted),
+          (),
+          AgentError.InvalidMessage("Hosted partial observation differs from its native data")
+        )
+        projected <- traverse(value.content):
+          case call: ContentBlock.ToolUse if call.isServerTool =>
+            passiveObservation(
+              "Interrupted provider-hosted proposal; execution outcome unknown",
+              call.copy(content = None)
+            )
+          case result: ContentBlock.ToolResult if result.isServerTool =>
+            passiveObservation("Received provider-hosted observation", result)
+          case other => Right(other)
+      yield projected
+
+  private def normalizeHosted(value: ContentBlock): ContentBlock = value match
+    case call: ContentBlock.ToolUse => call.copy(content = None)
+    case other                      => other
+
+  private def passiveObservation(
+      description: String,
+      value: ContentBlock
+  ): Either[AgentError, ContentBlock] =
+    for
+      data <- JsonBoundary.decode(value.toJson).left.map(AgentError.InvalidMessage(_))
+      _ <- Either.cond(
+        JsonBoundary.validUnicode(data),
+        (),
+        AgentError.InvalidMessage("Malformed Unicode in hosted partial observation")
       )
-    )
+    yield ContentBlock.Text(s"$description: ${JsonBoundary.render(data)}")
 
   private def block(value: ContentBlock, role: Role): Either[AgentError, Chunk[Json]] = value match
     case ContentBlock.Text(value) => Right(Chunk(text(value)))

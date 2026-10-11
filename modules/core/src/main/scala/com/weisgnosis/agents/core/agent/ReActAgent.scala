@@ -1782,18 +1782,25 @@ final class ReActAgent private (
                 yield ()
               case _ => ZIO.unit
 
+        def recoverInterrupted(
+            cause: Cause[AgentError | BeforeResponseRejection]
+        ): IO[AgentError | BeforeResponseRejection, Nothing] =
+          if cause.isInterruptedOnly then
+            preservePartial.exit.flatMap:
+              case Exit.Success(_)             => ZIO.refailCause(cause)
+              case Exit.Failure(recoveryCause) => ZIO.refailCause(cause ++ recoveryCause)
+          else ZIO.refailCause(cause)
+
         def receive(
             request: IO[AgentError | BeforeResponseRejection, TurnOutput]
         ): IO[AgentError | BeforeResponseRejection, TurnOutput] =
           ZIO.uninterruptibleMask: restore =>
             restore(request).exit.flatMap:
-              case Exit.Success(output) => restore(ZIO.succeed(output))
-              case Exit.Failure(cause) =>
-                if cause.isInterruptedOnly then
-                  preservePartial.exit.flatMap:
-                    case Exit.Success(_)             => ZIO.refailCause(cause)
-                    case Exit.Failure(recoveryCause) => ZIO.refailCause(cause ++ recoveryCause)
-                else ZIO.refailCause(cause)
+              case Exit.Success(output) =>
+                restore(ZIO.succeed(output)).exit.flatMap:
+                  case Exit.Success(accepted) => ZIO.succeed(accepted)
+                  case Exit.Failure(cause)    => recoverInterrupted(cause)
+              case Exit.Failure(cause) => recoverInterrupted(cause)
 
         def invoke(
             target: ModelTarget

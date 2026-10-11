@@ -121,6 +121,38 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
           )
         )
     ,
+    test("buffers fragmented arguments until identity without changing published bytes"):
+      val payload = "{\"value\":\"" + "x" * 4096 + "\"}"
+      ZIO.scoped:
+        for
+          hub       <- Hub.unbounded[AgentEvent]
+          queue     <- hub.subscribe
+          publisher <- ModelStreamPublisher.make(hub, context)
+          _ <- ZIO.foreachDiscard(payload.grouped(16).toList)(fragment =>
+            publisher.frame("fragment", Chunk(LlmChunk.ToolCallChunk(2, argumentsDelta = fragment)))
+          )
+          _ <- publisher.frame(
+            "identity",
+            Chunk(LlmChunk.ToolCallChunk(2, Some("call"), Some("lookup")))
+          )
+          _ <- publisher.finish(
+            TurnOutput.ToolCalls(
+              Msg.assistant(
+                Chunk(
+                  ContentBlock.ToolUse("call", "lookup", Json.Obj("value" -> Json.Str("x" * 4096)))
+                )
+              )
+            )
+          )
+          events <- queue.takeAll
+        yield assertTrue(
+          events.collect { case e: AgentEvent.ToolCallStartEvent => e.callId } == Chunk("call"),
+          events.collect { case e: AgentEvent.ToolCallDeltaEvent => e.delta } == Chunk(payload),
+          events.collect { case e: AgentEvent.ToolCallEndEvent => e.arguments } == Chunk(
+            Json.Obj("value" -> Json.Str("x" * 4096))
+          )
+        )
+    ,
     test("fails mismatched completed output without publishing a partial ending batch"):
       ZIO.scoped:
         for

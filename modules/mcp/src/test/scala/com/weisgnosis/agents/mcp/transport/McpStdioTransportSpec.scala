@@ -129,6 +129,18 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
     yield Peer(observed, ready, writeStarted)
 
   def spec: Spec[TestEnvironment, Any] = suite("McpStdioTransportSpec")(
+    test("failed process acquisition diagnostics omit the executable name"):
+      for
+        identity <- Random.nextUUID
+        sentinel = s"missing-mcp-diagnostic-sentinel-$identity"
+        exit <- ZIO.scoped(McpStdioTransport.open(Chunk(sentinel))).exit
+      yield assertTrue(
+        exit.causeOption.exists(
+          _.failures == List(AgentError.McpError("MCP stdio start failed (other)"))
+        ),
+        !exit.causeOption.toList.flatMap(_.failures).exists(_.message.contains(sentinel))
+      )
+    ,
     test("real processes agree supported alternatives without transferring the first client lease"):
       ZIO
         .foreach(Chunk.fromArray(McpProtocolVersion.values)): preferred =>

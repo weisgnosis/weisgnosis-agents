@@ -36,6 +36,48 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
     new ConversationCompactor(_ => ZIO.succeed("summary"), config, counter)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ConversationCompactorSpec")(
+    test(
+      "ordinary coalesced users survive persisted zero-cutoff history and later flush exactly once"
+    ):
+      val users = Chunk(
+        Msg
+          .user("first")
+          .withId(Some("user-a"))
+          .withName("Alice")
+          .withMetadata("source", Json.Str("first-origin")),
+        Msg
+          .user("second")
+          .withId(Some("user-b"))
+          .withName("Bob")
+          .withMetadata("source", Json.Str("second-origin"))
+      )
+      val settings = config.copy(triggerTokens = 1, keepTokens = 1, preserveTailMessages = 3)
+      for
+        flushed   <- Ref.make(Chunk.empty[Msg])
+        summaries <- Ref.make(0)
+        engine = new ConversationCompactor(
+          _ => summaries.update(_ + 1).as("summary"),
+          settings,
+          counter,
+          flush = messages => flushed.update(_ ++ messages.filter(_.role == Role.User))
+        )
+        first          <- engine.compactIfNeeded(users :+ Msg.assistant("old reply"))
+        firstFlush     <- flushed.get
+        firstSummaries <- summaries.get
+        restored <- ZIO
+          .fromEither(first.toJson.fromJson[Chunk[Msg]])
+          .mapError(AgentError.DeserializationError(_))
+        second   <- engine.compactIfNeeded(restored ++ Chunk.fill(3)(Msg.assistant("recent reply")))
+        captured <- flushed.get
+      yield assertTrue(
+        first.count(_.role == Role.User) == 1,
+        firstFlush.isEmpty,
+        firstSummaries == 0,
+        captured == users,
+        captured.map(_.id).distinct.size == 2,
+        second.count(ConversationCompactor.isSummary) == 1
+      )
+    ,
     test("large nonnegative estimates preserve trigger and retained-tail authority") {
       val history = Chunk(
         Msg.user("one"),
@@ -483,8 +525,18 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
         first <- compactor.compactIfNeeded(Chunk(Msg.assistant("old"), user, Msg.assistant("tail")))
         decoded  <- ZIO.fromEither(first.toJson.fromJson[Chunk[Msg]])
         restored <- compactor.compactIfNeeded(decoded)
-        rejected <- compactor.compactIfNeeded(Chunk(malformed)).either
-      yield assertTrue(restored == first, rejected.isLeft)
+        ordinaryMismatch = Msg
+          .user(
+            content = Chunk(ContentBlock.Text("unattributed prefix"), ContentBlock.Text(user.text))
+          )
+          .withMetadata(
+            ConversationCompactor.RetainedUsersKey,
+            Json.Str(Chunk(user).toJson)
+          )
+        rejected <- ZIO.foreach(Chunk(malformed, ordinaryMismatch))(message =>
+          compactor.compactIfNeeded(Chunk(message)).either
+        )
+      yield assertTrue(restored == first, rejected.forall(_.isLeft))
     },
     test("below-threshold histories preserve oversized outputs and arguments exactly") {
       val long    = "x" * 3000

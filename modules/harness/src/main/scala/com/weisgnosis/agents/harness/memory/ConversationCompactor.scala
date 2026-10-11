@@ -148,21 +148,20 @@ final class ConversationCompactor(
         result.lastOption match
           case Some(previous) if previous.role == Role.User && message.role == Role.User =>
             for
-              merged <- previous.withContent(previous.content ++ message.content)
-              metadata <-
-                if ConversationCompactor.isSummary(previous) then
-                  for
-                    retained <- ConversationCompactor.retainedUsers(previous)
-                    json <- (retained :+ message).toJsonAST.left.map(reason =>
-                      AgentError.HistoryPreparationError(
-                        s"Cannot encode retained compaction users: $reason"
-                      )
-                    )
-                  yield (message.metadata ++ previous.metadata).updated(
-                    ConversationCompactor.RetainedUsersKey,
-                    Json.Str(JsonBoundary.render(json))
-                  )
-                else Right(message.metadata ++ previous.metadata)
+              merged   <- previous.withContent(previous.content ++ message.content)
+              retained <- ConversationCompactor.retainedUsers(previous)
+              originals =
+                if ConversationCompactor.isSummary(previous) || retained.nonEmpty then retained
+                else Chunk(previous)
+              json <- (originals :+ message).toJsonAST.left.map(reason =>
+                AgentError.HistoryPreparationError(
+                  s"Cannot encode retained compaction users: $reason"
+                )
+              )
+              metadata = (message.metadata ++ previous.metadata).updated(
+                ConversationCompactor.RetainedUsersKey,
+                Json.Str(JsonBoundary.render(json))
+              )
             yield result.dropRight(1) :+ merged.withMetadata(metadata)
           case _ => Right(result :+ message)
       }
@@ -190,14 +189,15 @@ object ConversationCompactor:
     history.foldLeft[Either[AgentError, Chunk[Msg]]](Right(Chunk.empty)) { (accumulated, message) =>
       for
         previous <- accumulated
-        retained <-
-          if ConversationCompactor.isSummary(message) then retainedUsers(message)
-          else Right(Chunk.empty)
+        retained <- retainedUsers(message)
         retainedContent = retained.flatMap(_.content)
         _ <- Either.cond(
-          retained.forall(_.role == Role.User) && message.content.takeRight(
-            retainedContent.size
-          ) == retainedContent,
+          retained.forall(_.role == Role.User) &&
+            (retained.isEmpty || message.role == Role.User) &&
+            (if retained.isEmpty then true
+             else if isSummary(message) then
+               message.content.takeRight(retainedContent.size) == retainedContent
+             else message.content == retainedContent),
           (),
           AgentError.DeserializationError(
             "Retained compaction users must match the coalesced content"
@@ -205,6 +205,7 @@ object ConversationCompactor:
         )
         result <-
           if retained.isEmpty then Right(previous :+ message)
+          else if !isSummary(message) then Right(previous ++ retained)
           else
             message.withContent(message.content.dropRight(retainedContent.size)).map { summary =>
               previous ++ Chunk(

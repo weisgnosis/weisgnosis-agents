@@ -17,8 +17,11 @@ package com.weisgnosis.agents.mcp.transport
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.json.JsonBoundary
+import com.weisgnosis.agents.core.model.ToolResultState
+import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
 import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
+import com.weisgnosis.agents.mcp.tool.McpTool
 import scala.annotation.unused
 import zio.*
 import zio.http.*
@@ -134,6 +137,45 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
     yield transport
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("McpStreamableHttpTransportSpec")(
+    test("external HTTP failure diagnostics omit secret text in toolkit observations"):
+      val sentinel = "Authorization: Bearer diagnostic-sentinel"
+      val failures: Chunk[(Throwable, String)] = Chunk(
+        new java.net.UnknownHostException(sentinel)                                 -> "dns",
+        new java.net.SocketTimeoutException(sentinel)                               -> "timeout",
+        new java.io.IOException(sentinel, new javax.net.ssl.SSLException(sentinel)) -> "tls",
+        new java.io.IOException(sentinel)                                           -> "other"
+      )
+      ZIO
+        .foreach(failures): (failure, category) =>
+          ZIO.scoped:
+            for
+              initializedClient <- client(
+                scripted(request =>
+                  decode(request).flatMap:
+                    case McpMessage.Request(id, "initialize", _) =>
+                      json(McpMessage.Success(id, initialization))
+                    case McpMessage.Request(_, "tools/call", _) => ZIO.fail(failure)
+                    case _ => ZIO.succeed(Response.status(Status.Accepted))
+                )
+              )
+              toolkit <- ZIO.fromEither(
+                Toolkit.empty.register(
+                  McpTool.bind(
+                    initializedClient,
+                    "remote_echo",
+                    ToolDef("local_echo", "Host-bound echo", Json.Obj("type" -> Json.Str("object")))
+                  )
+                )
+              )
+              result <- toolkit.executeSafe("local_echo", Json.Obj())
+            yield assertTrue(
+              result.state == ToolResultState.Error,
+              result.output.contains(s"MCP HTTP POST failed ($category)"),
+              !result.output.contains(sentinel),
+              !result.output.contains("diagnostic-sentinel")
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("cancelled negotiation seals its lease and joins held HTTP acquisition cleanup"):
       ZIO.scoped:
         for
@@ -575,9 +617,12 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       def projected(error: Throwable): AgentError = error match
         case domain: AgentError => domain
         case other =>
-          AgentError.McpError(
-            s"MCP HTTP GET body failed (${other.getClass.getName}): ${Option(other.getMessage).getOrElse("no message")}"
-          )
+          val category =
+            if other.isInstanceOf[javax.net.ssl.SSLException] ||
+              Option(other.getCause).exists(_.isInstanceOf[javax.net.ssl.SSLException])
+            then "tls"
+            else "other"
+          AgentError.McpError(s"MCP HTTP GET body failed ($category)")
       ZIO.scoped:
         for
           gets          <- Ref.make(0)
@@ -747,7 +792,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
                  result.causeOption.exists(
                    _.failureOption.contains(
                      AgentError.McpError(
-                       "MCP HTTP continuation GET failed (io.netty.handler.codec.PrematureChannelClosureException): GET connection lost"
+                       "MCP HTTP continuation GET failed (other)"
                      )
                    )
                  ))
@@ -766,9 +811,12 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       def projected(error: Throwable): AgentError = error match
         case value: AgentError => value
         case other =>
-          AgentError.McpError(
-            s"MCP HTTP response body failed (${other.getClass.getName}): ${Option(other.getMessage).getOrElse("no message")}"
-          )
+          val category =
+            if other.isInstanceOf[javax.net.ssl.SSLException] ||
+              Option(other.getCause).exists(_.isInstanceOf[javax.net.ssl.SSLException])
+            then "tls"
+            else "other"
+          AgentError.McpError(s"MCP HTTP response body failed ($category)")
       val rows = Chunk(
         (McpHttpContinuation.Disabled, "id: cursor\n\n", Cause.fail(closed)),
         (McpHttpContinuation.OnPrematureEof(2), "id: cursor\n\n", Cause.fail(closed)),
@@ -880,7 +928,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           1,
           Exit.fail(
             AgentError.McpError(
-              "MCP HTTP response body failed (java.io.IOException): unclassified body loss"
+              "MCP HTTP response body failed (other)"
             )
           )
         ),
@@ -890,7 +938,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           1,
           Exit.fail(
             AgentError.McpError(
-              "MCP HTTP continuation GET failed (java.io.IOException): unclassified body loss"
+              "MCP HTTP continuation GET failed (other)"
             )
           )
         )
@@ -962,7 +1010,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
       val loss   = new java.io.IOException("unclassified listener loss")
       val defect = new IllegalStateException("listener cleanup")
       val projected = AgentError.McpError(
-        "MCP HTTP GET body failed (java.io.IOException): unclassified listener loss"
+        "MCP HTTP GET body failed (other)"
       )
       val failedBody: ZIO[Scope, Throwable, Response] = ZIO.succeed(
         stream(
@@ -980,7 +1028,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           2,
           Exit.fail(
             AgentError.McpError(
-              "MCP HTTP GET failed (java.io.IOException): unclassified listener loss"
+              "MCP HTTP GET failed (other)"
             )
           )
         ),
