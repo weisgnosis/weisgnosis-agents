@@ -17,6 +17,7 @@ package com.weisgnosis.agents.harness.eviction
 
 import com.weisgnosis.agents.core.agent.HistoryPreparer
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.{ToolResultPayload, ToolResultProcessor}
 import zio.*
@@ -110,8 +111,8 @@ final class ToolResultEvictor(store: ToolResultStore, agentName: String = "assis
       original: StoredToolResult,
       config: EvictionConfig
   ): ContentBlock.ToolResult =
-    val head = config.previewHeadChars.max(0).min(original.content.length)
-    val tail = config.previewTailChars.max(0).min(original.content.length)
+    val head = JsonBoundary.prefix(original.content, config.previewHeadChars.max(0)).length
+    val tail = JsonBoundary.suffix(original.content, config.previewTailChars.max(0)).length
     result.copy(
       output = result.output.filterNot(_.isInstanceOf[ContentBlock.Text]) :+
         ContentBlock.Text(preview(original, head, tail)),
@@ -124,6 +125,7 @@ final class ToolResultEvictor(store: ToolResultStore, agentName: String = "assis
       )
     )
 
+  // Recognition accepts exact legacy offsets; newly rendered previews always use safe lengths.
   private def preview(original: StoredToolResult, head: Int, tail: Int): String =
     s"Tool output was too large (${original.content.length} chars) and has been saved to `${original.path}`.\nUse `read_file` with path `${original.path}` to inspect the full output.\n\n${original.content.take(head)}\n\n... omitted ...\n\n${original.content.takeRight(tail)}"
 

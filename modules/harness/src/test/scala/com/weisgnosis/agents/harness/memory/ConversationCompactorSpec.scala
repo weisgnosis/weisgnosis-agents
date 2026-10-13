@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.harness.memory
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
 import zio.*
@@ -36,6 +37,76 @@ object ConversationCompactorSpec extends ZIOSpecDefault:
     new ConversationCompactor(_ => ZIO.succeed("summary"), config, counter)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ConversationCompactorSpec")(
+    test("long adjacent user runs retain every original identity for later flushing") {
+      val users = Chunk.fromIterable(
+        (1 to 128).map(index =>
+          Msg
+            .user(s"fact-$index")
+            .withId(Some(s"user-$index"))
+            .withName(s"author-$index")
+            .withMetadata("origin", Json.Num(index))
+            .withMetadata(s"origin-$index", Json.Num(index))
+        )
+      )
+      val settings = config.copy(triggerTokens = 1, keepTokens = 0, preserveTailMessages = 129)
+      for
+        flushed <- Ref.make(Chunk.empty[Msg])
+        engine = new ConversationCompactor(
+          _ => ZIO.succeed("summary"),
+          settings,
+          counter,
+          flush = messages => flushed.update(_ ++ messages)
+        )
+        first    <- engine.compactIfNeeded(users :+ Msg.assistant("retained reply"))
+        restored <- ZIO.fromEither(first.toJson.fromJson[Chunk[Msg]])
+        expanded <- ZIO.fromEither(ConversationCompactor.expandCoalescedUsers(restored))
+        _ <- engine.compactIfNeeded(restored ++ Chunk.fill(129)(Msg.assistant("recent reply")))
+        observed <- flushed.get
+      yield assertTrue(
+        first.count(_.role == Role.User) == 1,
+        first.headOption.exists(message =>
+          message.id.contains("user-1") && message.name.contains("author-1") &&
+            message.metadata.get("origin").contains(Json.Num(1)) &&
+            users.indices.forall(index =>
+              message.metadata.get(s"origin-${index + 1}").contains(Json.Num(index + 1))
+            )
+        ),
+        expanded.take(users.size) == users,
+        observed.filter(_.role == Role.User) == users,
+        observed.filter(_.role == Role.User).flatMap(_.id).distinct.size == users.size
+      )
+    },
+    test("historical output and argument pruning never split supplementary Unicode") {
+      val output    = "\uD83D\uDE00middle\uD83D\uDE00"
+      val arguments = Json.Str(output)
+      val history = Chunk(
+        Msg.assistant(Chunk(ContentBlock.ToolUse("unicode", "search", arguments))),
+        Msg.tool("unicode", "search", output),
+        Msg.assistant("protected tail")
+      )
+      val engine = new ConversationCompactor(
+        _ => ZIO.succeed("unused"),
+        config.copy(
+          triggerTokens = 1,
+          keepTokens = 100,
+          preserveTailMessages = 1,
+          maxPruneOutputChars = 3
+        ),
+        counter
+      )
+      for result <- engine.compactIfNeeded(history)
+      yield assertTrue(
+        result.flatMap(_.toolResults).map(_.text) == Chunk("\n... pruned ...\n\uD83D\uDE00"),
+        result.flatMap(_.toolUses).map(_.input) == Chunk(
+          Json.Obj("_pruned_arguments" -> Json.Str("\"\n... pruned ...\n\""))
+        ),
+        result
+          .flatMap(_.toolResults)
+          .forall(result => JsonBoundary.validUnicode(Json.Str(result.text))),
+        result.flatMap(_.toolUses).forall(call => JsonBoundary.validUnicode(call.input)),
+        result.lastOption == history.lastOption
+      )
+    },
     test(
       "ordinary coalesced users survive persisted zero-cutoff history and later flush exactly once"
     ):

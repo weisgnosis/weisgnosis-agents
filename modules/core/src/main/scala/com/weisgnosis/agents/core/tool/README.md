@@ -8,6 +8,8 @@ Tool keeps its input/output codecs and effectful handler together. [External bin
 
 Tool.fromFunction connects compile-time input/output codecs to the executor and requires an explicit JSON schema. Match its advertised properties and required fields to the input DTO; codecs do not derive or verify that schema automatically. Use Json.Obj() explicitly only when unconstrained schema admission is intended, while input decoding still applies. Runtime schema admission and decoding both run before local execution.
 
+Factory callbacks in Tool.fromFunction and Tool.make are evaluated inside the returned ZIO execution. Callback construction defects therefore belong to that execution; Toolkit retains its existing defect normalization and interruption behavior. Custom Tool implementations remain responsible for suspending their own effects.
+
 Migration: callers that previously omitted the schema argument must supply it. Existing explicit-schema calls remain source compatible; rebuild consumers against the updated factory signature. No reflection or schema-generation dependency is installed.
 
 ## Runtime schema admission

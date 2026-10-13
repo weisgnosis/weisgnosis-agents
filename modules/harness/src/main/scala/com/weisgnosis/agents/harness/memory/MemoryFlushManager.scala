@@ -130,7 +130,7 @@ object MemoryFlushManager:
     case _ => None
 
   private def preview(text: String, limit: Int, suffix: String): String =
-    if text.length <= limit then text else text.take(limit) + suffix
+    if text.length <= limit then text else JsonBoundary.prefix(text, limit) + suffix
 
   private def inputText(
       curated: Option[String],

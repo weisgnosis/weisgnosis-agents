@@ -544,8 +544,8 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
         events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
           (event.delta, event.accumulatedThought)
         } == Chunk(
-          ("first ", Some("first ")),
-          ("summary legacy equal first ", Some("first summary legacy equal first "))
+          ("first ", None),
+          ("summary legacy equal first ", None)
         ),
         events.count(_.isInstanceOf[AgentEvent.ThinkingBlockStartEvent]) == 1,
         events.collect { case event: AgentEvent.ThinkingBlockEndEvent =>

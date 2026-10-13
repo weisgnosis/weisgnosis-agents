@@ -53,8 +53,8 @@ private[client] object ModelStreamPublisher:
     case Started(id: String, name: String)
 
   final private case class State(
-      text: Map[Int, String] = Map.empty,
-      thinking: Map[Int, String] = Map.empty,
+      text: Map[Int, List[String]] = Map.empty,
+      thinking: Map[Int, List[String]] = Map.empty,
       tools: Map[Int, ToolProgress] = Map.empty,
       order: Chunk[Block] = Chunk.empty
   ):
@@ -66,18 +66,17 @@ private[client] object ModelStreamPublisher:
             if started then Chunk.empty
             else Chunk(AgentEvent.TextBlockStartEvent(index, context = Some(context)))
           val next = copy(
-            text = text.updated(index, text.getOrElse(index, "") + value),
+            text = text.updated(index, value :: text.getOrElse(index, Nil)),
             order = if started then order else order :+ Block.Text(index)
           )
           (next, start :+ AgentEvent.TextBlockDeltaEvent(value, index, context = Some(context)))
         case LlmChunk.ThinkingDelta(value, index, _, _) =>
-          val started     = thinking.contains(index)
-          val accumulated = thinking.getOrElse(index, "") + value
+          val started = thinking.contains(index)
           val start =
             if started then Chunk.empty
             else Chunk(AgentEvent.ThinkingBlockStartEvent(index, context = Some(context)))
           val next = copy(
-            thinking = thinking.updated(index, accumulated),
+            thinking = thinking.updated(index, value :: thinking.getOrElse(index, Nil)),
             order = if started then order else order :+ Block.Thinking(index)
           )
           (
@@ -85,8 +84,7 @@ private[client] object ModelStreamPublisher:
             start :+ AgentEvent.ThinkingBlockDeltaEvent(
               value,
               index,
-              context = Some(context),
-              accumulatedThought = Some(accumulated)
+              context = Some(context)
             )
           )
         case LlmChunk.ReasoningDetailsDelta(details, _) =>
@@ -152,7 +150,7 @@ private[client] object ModelStreamPublisher:
                 Right(
                   AgentEvent.TextBlockEndEvent(
                     index,
-                    text.getOrElse(index, ""),
+                    text.getOrElse(index, Nil).reverse.mkString,
                     context = Some(context)
                   )
                 )
@@ -160,7 +158,7 @@ private[client] object ModelStreamPublisher:
                 Right(
                   AgentEvent.ThinkingBlockEndEvent(
                     index,
-                    thinking.getOrElse(index, ""),
+                    thinking.getOrElse(index, Nil).reverse.mkString,
                     context = Some(context)
                   )
                 )

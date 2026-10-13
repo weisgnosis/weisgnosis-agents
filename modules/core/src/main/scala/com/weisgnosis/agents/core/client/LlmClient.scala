@@ -137,4 +137,4 @@ object LlmClient:
           eventHub: Hub[AgentEvent],
           context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
-        f(history, tools, eventHub)
+        ZIO.suspendSucceed(f(history, tools, eventHub))

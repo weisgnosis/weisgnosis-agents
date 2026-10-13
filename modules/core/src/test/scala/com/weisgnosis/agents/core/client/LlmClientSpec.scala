@@ -26,6 +26,35 @@ import zio.test.*
 object LlmClientSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment, Any] = suite("LlmClientSpec")(
+    test("factory construction effectful mock defers callback construction defects"):
+      ZIO.scoped:
+        val client = LlmClient.mockEffectful: (history, _, _) =>
+          val quotient = 1 / history.size
+          ZIO.succeed(TurnOutput.FinalText(Msg.assistant(quotient.toString)))
+        for
+          hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+          constructed <- ZIO
+            .attempt(
+              client.streamTurn(
+                Chunk.empty,
+                Chunk.empty,
+                LlmConfig("fixture"),
+                hub,
+                ModelStreamContext("reply", "request")
+              )
+            )
+            .either
+          result <- constructed match
+            case Left(_) =>
+              ZIO.succeed(assertTrue(false).label("Callback escaped effect construction"))
+            case Right(effect) =>
+              effect.exit.map(exit =>
+                assertTrue(
+                  exit.causeOption.exists(_.dieOption.exists(_.isInstanceOf[ArithmeticException]))
+                )
+              )
+        yield result
+    ,
     test("Mock LlmClient dispatches configured turn outputs in order") {
       val resp1 = TurnOutput.FinalText(Msg.assistant("First response"))
       val resp2 = TurnOutput.FinalText(Msg.assistant("Second response"))

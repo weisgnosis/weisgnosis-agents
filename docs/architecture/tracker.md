@@ -156,7 +156,18 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Current next task: none within the selected library checklist. E4/E5/E6 and the inherited-mask deadline correction are verified below; external publication is user-owned and OS integration remains separate. Any further library capability needs explicit selection or a reproduced defect.
+Current next task: none within the selected library checklist. The audit corrections below have public regressions, independent review, full verification and fresh packaged-consumer checks. External publication remains user-owned; OS integration remains separate.
+
+### Confirmed audit corrections
+
+- [x] Factory-created Tool and effectful mock callbacks remain suspended during effect construction. Public regressions: ToolExecutionSpec and LlmClientSpec.
+- [x] Built-in streamed thinking retains fragments and exact end events without cumulative-prefix amplification. Public regression: ChatCompletionsTransformSpec; custom snapshot codec compatibility remains.
+- [x] Native Anthropic accepts cumulative top-level deltas and rejects conflicts; Gemini refuses invalid initial function-name characters before HTTP acquisition. Public native HTTP suites cover both.
+- [x] Unicode-safe previews survive eviction, pruning, extraction and versioned transcript publication; restored previews retain actual lengths. Existing eviction, compaction, memory-flush and transcript-writer suites cover these paths.
+- [x] Adjacent users coalesce once per run while preserving raw provenance, first identity, metadata priority and later flushing. ConversationCompactorSpec covers the unchanged behavior.
+- [x] HostAssembly projects embedded MCP resources into the next real model request while retaining canonical Custom data. HostAssemblySpec covers the composed MCP/HTTP path; getting-started describes actual deadlines.
+- [x] Python live-comparison acceptance correlates result IDs and names; offline controls reject swapped, missing and duplicate results. Historical receipts are explicitly not requalified by changing the oracle.
+
 
 - [x] Successful MCP initialization and requests finish without waiting for their deadline timers under a masked host acquisition; elapsed deadlines promptly cancel and join the action. Public regressions in [McpClientSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) reproduce the previous delays and retain typed timeout, exact protocol and joined-cleanup checks. Independent FP/ZIO and invariant reviews, full verification, packaged archive admission and a clean external consumer pass. This does not complete the separate OS live-provider outcome.
 

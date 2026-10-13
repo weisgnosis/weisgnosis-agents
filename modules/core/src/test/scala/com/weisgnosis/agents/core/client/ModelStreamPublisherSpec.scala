@@ -71,11 +71,11 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
             events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
               (event.blockIndex, event.delta, event.accumulatedThought, event.context)
             } == Chunk(
-              (2, "I think ", Some("I think "), Some(context)),
-              (0, "", Some(""), Some(context)),
-              (2, "this is ", Some("I think this is "), Some(context)),
-              (0, "separate", Some("separate"), Some(context)),
-              (2, "correct.", Some("I think this is correct."), Some(context))
+              (2, "I think ", None, Some(context)),
+              (0, "", None, Some(context)),
+              (2, "this is ", None, Some(context)),
+              (0, "separate", None, Some(context)),
+              (2, "correct.", None, Some(context))
             ),
             events.collect { case event: AgentEvent.ModelResponseChunkEvent =>
               event.chunk

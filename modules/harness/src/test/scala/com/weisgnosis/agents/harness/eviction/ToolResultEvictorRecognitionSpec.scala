@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.harness.eviction
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.*
 import zio.*
 import zio.json.*
@@ -39,6 +40,58 @@ object ToolResultEvictorRecognitionSpec extends ZIOSpecDefault:
         )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolResultEvictorRecognitionSpec")(
+    test("historical split-surrogate v1 JSON previews are repaired without repersisting") {
+      val text     = "\uD83D\uDE00middle\uD83D\uDE00"
+      val settings = config.copy(maxResultChars = 0, previewHeadChars = 1, previewTailChars = 1)
+      for outcomes <- ZIO.foreach(Chunk(0, 10000)) { threshold =>
+          for
+            saved  <- Ref.make(Map.empty[String, String])
+            writes <- Ref.make(0)
+            store   = memoryStore(saved, writes)
+            evictor = new ToolResultEvictor(store)
+            safe <- evictor.evictResult(
+              ContentBlock.ToolResult.text("unicode", "lookup", text),
+              settings
+            )
+            path <- ZIO
+              .fromOption(safe.metadata.get("eviction_path").flatMap(_.asString))
+              .orElseFail(AgentError.InvalidMessage("Missing Unicode fixture path"))
+            legacyText =
+              s"Tool output was too large (${text.length} chars) and has been saved to `$path`.\nUse `read_file` with path `$path` to inspect the full output.\n\n${text.take(1)}\n\n... omitted ...\n\n${text.takeRight(1)}"
+            legacy = safe.copy(
+              output = Chunk(ContentBlock.Text(legacyText)),
+              metadata = safe.metadata
+                .updated("eviction_preview_head_chars", Json.Num(1))
+                .updated("eviction_preview_tail_chars", Json.Num(1))
+            )
+            decoded <- ZIO.fromEither(Chunk(Msg.tool(Chunk(legacy))).toJson.fromJson[Chunk[Msg]])
+            repaired <- new ToolResultEvictor(store)
+              .evictOversizedToolResults(decoded, settings.copy(maxResultChars = threshold))
+            alteredWidths = safe.copy(metadata =
+              safe.metadata
+                .updated("eviction_preview_head_chars", Json.Num(1))
+                .updated("eviction_preview_tail_chars", Json.Num(1))
+            )
+            unrecognized <- evictor.evictResult(
+              alteredWidths,
+              settings.copy(maxResultChars = 10000)
+            )
+            count <- writes.get
+            files <- saved.get
+          yield assertTrue(
+            unrecognized == alteredWidths,
+            decoded.flatMap(_.toolResults).map(_.text) == Chunk(legacyText),
+            !JsonBoundary.validUnicode(Json.Str(legacyText)),
+            repaired.flatMap(_.toolResults) == Chunk(safe),
+            repaired
+              .flatMap(_.toolResults)
+              .forall(result => JsonBoundary.validUnicode(Json.Str(result.text))),
+            count == 1,
+            files.values.toSet == Set(text)
+          )
+        }
+      yield outcomes.foldLeft(assertTrue(true))(_ && _)
+    },
     test(
       "low-threshold previews remain stable across repeated passes fresh instances and JSON reloads"
     ) {

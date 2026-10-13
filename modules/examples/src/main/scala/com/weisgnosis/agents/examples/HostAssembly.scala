@@ -26,6 +26,7 @@ import com.weisgnosis.agents.harness.storage.VersionedJsonStore
 import com.weisgnosis.agents.harness.transcript.*
 import com.weisgnosis.agents.mcp.client.{McpClient, McpClientManager}
 import com.weisgnosis.agents.mcp.protocol.McpToolDefinition
+import com.weisgnosis.agents.mcp.tool.McpModelInputTransform
 import zio.*
 
 /** Example-owned handles remain usable only inside the Scope supplied to open. */
@@ -137,6 +138,7 @@ object HostAssembly:
         .toolkit(toolkit)
         .toolGroups(installation.groups)
         .toolAuthorizer(dependencies.authorizer)
+        .modelInputTransform(McpModelInputTransform())
         .historyPreparer(evictor.preparer(settings.eviction).andThen(compactor.preparer))
         .toolResultProcessor(evictor.processor(settings.eviction))
         .completionObserver(writer.completionObserver(settings.transcriptPolicy))

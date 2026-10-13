@@ -24,7 +24,7 @@ final private[client] case class AnthropicMessageStream private (
     case Stage.Done(_) => true
     case _             => false
   private def stopReason: Option[String] = stage match
-    case Stage.Finishing(reason) => Some(reason)
+    case Stage.Finishing(reason) => reason
     case Stage.Done(reason)      => Some(reason)
     case _                       => None
 
@@ -68,7 +68,7 @@ final private[client] case class AnthropicMessageStream private (
     case "content_block_start" =>
       for
         _ <- ensure(
-          started && stopReason.isEmpty && closed.size == blocks.size,
+          stage == Stage.Content && closed.size == blocks.size,
           "Content start outside native block sequence"
         )
         index <- integer(obj, "index")
@@ -101,7 +101,7 @@ final private[client] case class AnthropicMessageStream private (
       for
         index <- integer(obj, "index")
         _ <- ensure(
-          started && stopReason.isEmpty && !closed.contains(index),
+          stage == Stage.Content && !closed.contains(index),
           "Delta outside an open block"
         )
         previous <- blocks
@@ -141,22 +141,29 @@ final private[client] case class AnthropicMessageStream private (
           .lift(index)
           .toRight(AgentError.DeserializationError("Stop references an unknown block"))
         _ <- ensure(
-          started && stopReason.isEmpty && !closed.contains(index),
+          stage == Stage.Content && !closed.contains(index),
           "Duplicate or late block stop"
         )
       yield (copy(closed = closed + index), Chunk.empty)
     case "message_delta" =>
       for
         _ <- ensure(
-          started && closed.size == blocks.size && stopReason.isEmpty,
+          started && closed.size == blocks.size,
           "Invalid message_delta sequence"
         )
-        delta     <- objectField(obj, "delta")
-        reason    <- string(delta, "stop_reason")
+        delta <- objectField(obj, "delta")
+        reason <- delta.get("stop_reason") match
+          case None | Some(Json.Null) => Right(None)
+          case Some(value) =>
+            value.as[String].left.map(AgentError.DeserializationError(_)).map(Some(_))
+        _ <- ensure(
+          reason.forall(next => stopReason.forall(_ == next)),
+          "Conflicting Anthropic stop reasons"
+        )
         counts    <- objectField(obj, "usage")
         nextUsage <- updateUsage(counts, usage)
       yield (
-        copy(stage = Stage.Finishing(reason), usage = nextUsage),
+        copy(stage = Stage.Finishing(reason.orElse(stopReason)), usage = nextUsage),
         Chunk(LlmChunk.UsageChunk(nextUsage))
       )
     case "message_stop" =>
@@ -241,7 +248,7 @@ final private[client] case class AnthropicMessageStream private (
 private[client] object AnthropicMessageStream:
   private enum Stage:
     case AwaitingMessage, Content
-    case Finishing(reason: String)
+    case Finishing(reason: Option[String])
     case Done(reason: String)
 
   private enum ToolOrigin:

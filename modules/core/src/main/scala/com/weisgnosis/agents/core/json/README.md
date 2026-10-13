@@ -23,3 +23,5 @@ Compactor retained-user strings and unsigned argument previews, and daily-memory
 ## Verification and acceptance
 
 [JsonBoundarySpec](../../../../../../../test/scala/com/weisgnosis/agents/core/json/JsonBoundarySpec.scala) checks escaping, complete documents and deep-tree rendering; [ExactJsonSpec](../../../../../../../test/scala/com/weisgnosis/agents/core/json/ExactJsonSpec.scala) checks numeric values through domain, checkpoint and event boundaries. External `.toJson`, legacy direct tool encoding and custom encoders with lossy AST conversion are not globally repaired.
+
+The internal prefix/suffix helpers retain UTF-16 budgets while backing off a cut through a surrogate pair. They preserve valid input during preview truncation; they do not validate or repair malformed source strings. Eviction metadata records the actual retained lengths.

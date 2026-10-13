@@ -37,7 +37,7 @@ The repository includes [LiveFileTask](../modules/examples/src/main/scala/com/we
 - `WEISGNOSIS_LIVE_MODEL`: a chat model selected from your endpoint's model catalog.
 - `WEISGNOSIS_LIVE_API_KEY`: a bearer credential when required; never commit it.
 
-Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"`. Success reports one write, one read and removal of the owned fixture. Verification checks actual bytes, the read observation in conversation history and authoritative Completed state. The model receives no path or command capability. The program permits three iterations and a one-minute run deadline; joined native cleanup can extend beyond it. See [example limits and live evidence](../modules/examples/README.md#model-driven-file-task).
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"`. Success reports one write, one read and removal of the owned fixture. Verification checks actual bytes, the read observation in conversation history and authoritative Completed state. The model receives no path or command capability. The program permits three iterations and defaults to a five-minute run deadline. Set `WEISGNOSIS_LIVE_TIMEOUT_SECONDS` to 10–1,800 seconds to select another deadline; joined native cleanup can extend beyond it. See [example limits and live evidence](../modules/examples/README.md#model-driven-file-task).
 
 ## Scripted agent
 
@@ -62,7 +62,7 @@ object ScriptedAgent extends ZIOAppDefault:
       yield ()
 ```
 
-One agent owns one conversation and serializes its runs. Supply initial history explicitly when constructing another runtime; sharing a client does not share conversation state.
+One agent owns one conversation and serializes its runs. Supply initial history explicitly when constructing another runtime; sharing a client does not share conversation state. The default agent run deadline is five minutes; the HTTP example below explicitly selects one minute. Deadline expiration requests cancellation, and returning still joins owned cleanup, which can exceed that budget.
 
 ## HTTP completion with a typed tool
 
@@ -186,6 +186,8 @@ object OwnedMcp extends ZIOAppDefault:
 The acquisition places both transport and initialized client inside manager-owned resources. The final scope closes registrations and reaps the process. Use the returned Toolkit in `ReActAgent.make(toolkit = toolkit, client = client, modelInputTransform = McpModelInputTransform())` **before this scope closes**; import `com.weisgnosis.agents.mcp.tool.McpModelInputTransform`. Pass an existing request hook as `McpModelInputTransform(existingHook)` to retain its settings and scoped behavior. This explicit adapter describes Custom tool data for the request while preserving canonical MCP resources. Typed images still require an ImageParts endpoint profile; unsupported audio remains an error. A copied Toolkit does not transfer ownership. Remote read-only/idempotency annotations do not grant local permissions. Replace the default allow-authorizer with an explicitly configured permission adapter when required.
 
 For HTTP servers, use the [Streamable HTTP transport](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md) under its borrowed HTTP client and owned request/listener scopes. The [resource client contract](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/client/README.md#resource-client-contract) covers resource discovery, reads and scoped change observation. Legacy HTTP/SSE and explicit revision profiles have independently approved source scopes and full verification in the [transport contract](../modules/mcp/src/main/scala/com/weisgnosis/agents/mcp/transport/README.md#legacy-http-sse-and-explicit-revision-selection). Version selection uses an explicit proposal and checked supported alternatives, matching the pinned SDK wire-selection behavior; see the [finite builder-method classification](architecture/test-parity.md#supported-version-builder-methods). Discovery-cache invalidation is separate.
+
+`McpClient.open` defaults to a 30-second budget for initialization and separately for each list/call operation. Use its checked `McpClient.Deadlines` overload to select independent initialization and request budgets. Expiration requests cancellation; returning still joins owned cleanup, which may exceed the selected budget.
 
 ## Streams, approvals and persistence
 

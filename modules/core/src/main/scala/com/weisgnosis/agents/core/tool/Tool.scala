@@ -110,7 +110,7 @@ object Tool:
     val defn = ToolDef(name, description, schema, isConcurrencySafe, isReadOnly)
     new Tool[Any, In, Out]:
       def definition: ToolDef                          = defn
-      def execute(input: In): ZIO[Any, Throwable, Out] = run(input)
+      def execute(input: In): ZIO[Any, Throwable, Out] = ZIO.suspendSucceed(run(input))
       def decodeInput(raw: Json): Either[String, In]   = raw.as[In]
       def encodeOutput(out: Out): String               = out.toJson
       override def encodeResultChecked(out: Out): Either[AgentError, ToolExecutionResult] =
@@ -121,6 +121,6 @@ object Tool:
   )(run: Json => ZIO[Any, Throwable, String]): Tool[Any, Json, String] =
     new Tool[Any, Json, String]:
       def definition: ToolDef                               = defn
-      def execute(input: Json): ZIO[Any, Throwable, String] = run(input)
+      def execute(input: Json): ZIO[Any, Throwable, String] = ZIO.suspendSucceed(run(input))
       def decodeInput(raw: Json): Either[String, Json]      = Right(raw)
       def encodeOutput(out: String): String                 = out

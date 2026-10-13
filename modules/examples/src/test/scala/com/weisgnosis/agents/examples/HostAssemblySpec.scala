@@ -15,7 +15,8 @@
  */
 package com.weisgnosis.agents.examples
 
-import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
+import com.weisgnosis.agents.core.client.{GeminiLlmClient, LlmClient, LlmConfig, TurnOutput}
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
@@ -28,6 +29,7 @@ import com.weisgnosis.agents.mcp.client.McpClient
 import com.weisgnosis.agents.mcp.protocol.*
 import com.weisgnosis.agents.mcp.transport.McpTransport
 import zio.*
+import zio.http.*
 import zio.json.ast.Json
 import zio.stream.ZStream
 import zio.test.*
@@ -48,7 +50,11 @@ object HostAssemblySpec extends ZIOSpecDefault:
     AnonymousTranscriptPolicy.RecordEachSnapshot
   )
 
-  private def peer(text: String, released: UIO[Unit]): ZIO[Scope, AgentError, McpClient] =
+  private def peer(
+      text: String,
+      released: UIO[Unit],
+      resource: Option[Json.Obj] = None
+  ): ZIO[Scope, AgentError, McpClient] =
     for
       _     <- ZIO.acquireRelease(ZIO.unit)(_ => released)
       inbox <- ZIO.acquireRelease(Queue.unbounded[McpMessage])(_.shutdown)
@@ -83,7 +89,8 @@ object HostAssemblySpec extends ZIOSpecDefault:
                 Right(
                   Json.Obj(
                     "content" -> Json.Arr(
-                      Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text))
+                      Chunk(Json.Obj("type" -> Json.Str("text"), "text" -> Json.Str(text))) ++
+                        Chunk.fromIterable(resource)
                     )
                   )
                 )
@@ -147,6 +154,88 @@ object HostAssemblySpec extends ZIOSpecDefault:
               .flatMap(ZIO.fromEither(_))
 
   def spec: Spec[TestEnvironment, Any] = suite("HostAssemblySpec")(
+    test("embedded MCP resources reach the next native HTTP request with canonical content intact"):
+      val resource = Json.Obj(
+        "type" -> Json.Str("resource"),
+        "resource" -> Json.Obj(
+          "uri"      -> Json.Str("test://report"),
+          "mimeType" -> Json.Str("text/plain"),
+          "text"     -> Json.Str("resource evidence")
+        )
+      )
+      val proposal = Json.Obj(
+        "functionCall" -> Json.Obj(
+          "id"   -> Json.Str("call"),
+          "name" -> Json.Str("report"),
+          "args" -> Json.Obj()
+        )
+      )
+      def wire(part: Json): String = "data: " + JsonBoundary.render(
+        Json.Obj(
+          "candidates" -> Json.Arr(
+            Json.Obj(
+              "index"        -> Json.Num(0),
+              "content"      -> Json.Obj("role" -> Json.Str("model"), "parts" -> Json.Arr(part)),
+              "finishReason" -> Json.Str("STOP")
+            )
+          )
+        )
+      ) + "\n\n"
+      ZIO
+        .scoped:
+          for
+            requests <- Ref.make(Chunk.empty[String])
+            port <- Server.install(Routes(Method.POST / "messages" -> handler { (request: Request) =>
+              request.body.asString
+                .orElseSucceed("")
+                .flatMap(body => requests.modify(previous => (previous.size, previous :+ body)))
+                .map(index =>
+                  Response(
+                    headers = Headers("Content-Type" -> "text/event-stream"),
+                    body = Body.fromString(
+                      wire(if index == 0 then proposal else Json.Obj("text" -> Json.Str("done")))
+                    )
+                  )
+                )
+            }))
+            http       <- ZIO.service[Client]
+            model      <- GeminiLlmClient.make(http)
+            stored     <- Ref.make(Map.empty[String, StoredToolResult])
+            transcript <- TranscriptStore.inMemory
+            assembly <- HostAssembly.open(
+              settings.copy(
+                model = LlmConfig("fixture", endpoint = s"http://127.0.0.1:$port/messages"),
+                compaction = CompactorConfig(triggerTokens = 10000, keepTokens = 1000)
+              ),
+              HostAssembly.Dependencies(
+                model,
+                ToolAuthorizer.allow,
+                resultStore(stored),
+                HostAssembly.TranscriptSource.Provided(transcript),
+                _ => ZIO.succeed("unused"),
+                Toolkit.empty
+              ),
+              Chunk(registration(peer("report evidence", ZIO.unit, Some(resource))))
+            )
+            outcome <- assembly.agent.run(Msg.user("report")).either
+            sent    <- requests.get
+          yield assertTrue(
+            outcome.exists(_.reply.text == "done"),
+            outcome.exists(_.history.flatMap(_.toolResults).flatMap(_.output).exists {
+              case ContentBlock.Custom("mcp/resource", payload) =>
+                payload.asObject.exists(_.get("uri").contains(Json.Str("test://report")))
+              case _ => false
+            }),
+            sent.size == 2,
+            sent.lastOption.exists(body =>
+              body.contains("Custom tool content:") &&
+                body.contains("mcp/resource") && body.contains("test://report") && body.contains(
+                  "resource evidence"
+                )
+            )
+          )
+        .provide(Client.default, Server.defaultWithPort(0))
+    ,
     test(
       "registered layouts record completed turns without granting registration or execution authority"
     ) {

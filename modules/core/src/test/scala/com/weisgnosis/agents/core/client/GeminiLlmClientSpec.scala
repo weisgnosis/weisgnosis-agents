@@ -80,6 +80,47 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
     Response(headers = Headers("Content-Type" -> "text/event-stream"), body = Body.fromString(wire))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("GeminiLlmClient")(
+    test("native HTTP rejects invalid initial function names before acquisition"):
+      ZIO
+        .scoped:
+          for
+            requests <- Ref.make(0)
+            port <- Server.install(Routes(Method.POST / "messages" -> handler { (_: Request) =>
+              requests.update(_ + 1).as(response(frame(Chunk(text("done")), Some("STOP"))))
+            }))
+            http   <- ZIO.service[Client]
+            client <- GeminiLlmClient.make(http)
+            hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+            rejected <- ZIO.foreach(Chunk("1lookup", "-lookup"))(name =>
+              client
+                .streamTurn(
+                  Chunk(Msg.user("x")),
+                  Chunk(ToolDef(name, "lookup", Json.Obj())),
+                  config.copy(endpoint = s"http://127.0.0.1:$port/messages"),
+                  hub,
+                  context
+                )
+                .either
+            )
+            before <- requests.get
+            accepted <- ZIO.foreach(Chunk("lookup-1", "_lookup", "Lookup"))(name =>
+              client.streamTurn(
+                Chunk(Msg.user("x")),
+                Chunk(ToolDef(name, "lookup", Json.Obj())),
+                config.copy(endpoint = s"http://127.0.0.1:$port/messages"),
+                hub,
+                context
+              )
+            )
+            after <- requests.get
+          yield assertTrue(
+            rejected.forall(_.left.exists(_.isInstanceOf[AgentError.InvalidConfiguration])),
+            before == 0,
+            accepted.forall(_.message.text == "done"),
+            after == 3
+          )
+        .provide(Client.default, Server.defaultWithPort(0))
+    ,
     test(
       "local parallel calls continue with exact signatures, occurrence identities and error observations"
     ):

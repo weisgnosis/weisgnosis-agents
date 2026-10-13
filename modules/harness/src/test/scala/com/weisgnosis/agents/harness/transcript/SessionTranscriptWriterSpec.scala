@@ -19,6 +19,12 @@ import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg, Role, ToolResultState}
+import com.weisgnosis.agents.harness.eviction.{
+  EvictionConfig,
+  StoredToolResult,
+  ToolResultEvictor,
+  ToolResultStore
+}
 import com.weisgnosis.agents.harness.memory.{CompactorConfig, ConversationCompactor}
 import com.weisgnosis.agents.harness.storage.*
 import zio.*
@@ -378,6 +384,57 @@ object SessionTranscriptWriterSpec extends ZIOSpecDefault:
         )
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("SessionTranscriptWriterSpec")(
+    test(
+      "evicted supplementary Unicode survives versioned transcript publication and cold reading"
+    ) {
+      for
+        storage <- backend
+        address <- ZIO.fromEither(StorageAddress.from(Chunk("unicode-preview"), "transcript"))
+        store   <- ZIO.fromEither(VersionedTranscriptStore.make(storage, address))
+        cached  <- Ref.make(Map.empty[String, String])
+        payloads = new ToolResultStore:
+          def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+            cached.get.map(_.get(key).map(StoredToolResult(_, s"cache/$key.txt")))
+          def persist(key: String, content: String): IO[AgentError, String] =
+            cached.update(_.updated(key, content)).as(s"cache/$key.txt")
+        result <- new ToolResultEvictor(payloads).evictResult(
+          ContentBlock.ToolResult.text("unicode", "shell", "\uD83D\uDE00middle\uD83D\uDE00"),
+          EvictionConfig(maxResultChars = 0, previewHeadChars = 1, previewTailChars = 1)
+        )
+        path <- ZIO
+          .fromOption(result.metadata.get("eviction_path").flatMap(_.asString))
+          .orElseFail(AgentError.InvalidMessage("Missing Unicode fixture path"))
+        original = "\uD83D\uDE00middle\uD83D\uDE00"
+        legacyText =
+          s"Tool output was too large (${original.length} chars) and has been saved to `$path`.\nUse `read_file` with path `$path` to inspect the full output.\n\n${original.take(1)}\n\n... omitted ...\n\n${original.takeRight(1)}"
+        legacy = result.copy(
+          output = Chunk(ContentBlock.Text(legacyText)),
+          metadata = result.metadata
+            .updated("eviction_preview_head_chars", Json.Num(1))
+            .updated("eviction_preview_tail_chars", Json.Num(1))
+        )
+        historical <- ZIO.fromEither(
+          Chunk(Msg.tool(Chunk(legacy), id = Some("unicode-result"))).toJson.fromJson[Chunk[Msg]]
+        )
+        repaired <- new ToolResultEvictor(payloads).evictOversizedToolResults(
+          historical,
+          EvictionConfig(maxResultChars = 10000, previewHeadChars = 1, previewTailChars = 1)
+        )
+        _        <- new SessionTranscriptWriter(store).appendMessages(repaired)
+        cold     <- ZIO.fromEither(VersionedTranscriptStore.make(storage, address))
+        restored <- cold.entries
+      yield assertTrue(
+        restored.map(_.payload) == Chunk(
+          TranscriptPayload.ToolResult(
+            "unicode",
+            Some("shell"),
+            TranscriptPreview.Complete(result.text),
+            Chunk(TranscriptBlockType.Text),
+            ToolResultState.Success
+          )
+        )
+      )
+    },
     test(
       "catalog retirement retains exact reservations and scopes host fencing through publication"
     ):

@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.harness.memory
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
 import java.time.{Instant, LocalDate, ZoneOffset}
@@ -46,6 +47,32 @@ object MemoryFlushManagerSpec extends ZIOSpecDefault:
   private val history: Chunk[Msg] = Chunk(Msg.user("real follow-up"))
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("MemoryFlushManagerSpec")(
+    test("extraction input truncates tool arguments and output at Unicode boundaries") {
+      val emoji     = "\uD83D\uDE00"
+      val arguments = Json.Str("a" * 498 + emoji + "rest")
+      val output    = "b" * 999 + emoji + "rest"
+      for
+        store  <- recording
+        inputs <- Ref.make(Chunk.empty[Msg])
+        manager <- MemoryFlushManager.make(
+          store,
+          MemoryExtractor(input => inputs.set(input).as("NO_REPLY"))
+        )
+        _ <- manager.flush(
+          Chunk(
+            Msg.assistant(Chunk(ContentBlock.ToolUse("unicode", "search", arguments))),
+            Msg.tool("unicode", "search", output)
+          )
+        )
+        observed <- inputs.get
+      yield assertTrue(
+        observed.forall(message => JsonBoundary.validUnicode(Json.Str(message.text))),
+        observed.lastOption.exists(_.text.contains("(\"" + "a" * 498 + "...)")),
+        observed.lastOption.exists(
+          _.text.contains("[tool_result: search] " + "b" * 999 + "...(truncated)")
+        )
+      )
+    },
     test("flushMemories_skipsCompactionSummariesWhenRealMessagesRemain") {
       for
         store  <- recording

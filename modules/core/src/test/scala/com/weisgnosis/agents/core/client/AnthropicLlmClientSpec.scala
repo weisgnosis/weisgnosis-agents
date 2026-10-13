@@ -57,6 +57,63 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
     blockStop(2) + textBlock(3, "after") + finish("tool_use") + stop
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("AnthropicLlmClient")(
+    test("native HTTP accepts cumulative message deltas and rejects conflicting stop reasons"):
+      val intermediate = frame(
+        "message_delta",
+        """{"delta":{"stop_reason":null},"usage":{"output_tokens":3}}"""
+      )
+      val cumulative = frame("message_delta", """{"delta":{},"usage":{"output_tokens":9}}""")
+      val wires = Chunk(
+        start + textBlock(0, "answer") + finish("end_turn") + cumulative + stop,
+        start + textBlock(0, "answer") + intermediate + finish("end_turn") + cumulative + stop,
+        start + textBlock(0, "answer") + finish("end_turn") + finish(
+          "end_turn"
+        ) + cumulative + stop,
+        start + textBlock(0, "answer") + finish("end_turn") + finish("tool_use") + stop,
+        start + textBlock(0, "answer") + intermediate + stop,
+        start + textBlock(0, "answer") + intermediate + textBlock(1, "late") + finish(
+          "end_turn"
+        ) + stop
+      )
+      ZIO
+        .scoped:
+          for
+            requests <- Ref.make(0)
+            port <- Server.install(Routes(Method.POST / "messages" -> handler { (_: Request) =>
+              requests
+                .modify(index => (index, index + 1))
+                .map(index => response(wires.lift(index).getOrElse(finalText)))
+            }))
+            http   <- ZIO.service[Client]
+            client <- AnthropicLlmClient.make(http)
+            hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+            outcomes <- ZIO.foreach(wires)(_ =>
+              client
+                .streamTurn(
+                  Chunk(Msg.user("x")),
+                  Chunk.empty,
+                  config.copy(endpoint = s"http://127.0.0.1:$port/messages"),
+                  hub,
+                  context
+                )
+                .either
+            )
+            count <- requests.get
+          yield assertTrue(
+            outcomes
+              .take(3)
+              .forall(
+                _.exists(output =>
+                  output.message.text == "answer" && output.message.usage.exists(usage =>
+                    usage.inputTokens == 12 && usage.outputTokens == 9 && usage.cachedTokens == 3
+                  )
+                )
+              ),
+            outcomes.drop(3).forall(_.left.exists(_.isInstanceOf[AgentError.DeserializationError])),
+            count == wires.size
+          )
+        .provide(Client.default, Server.defaultWithPort(0))
+    ,
     test(
       "native HTTP tool continuation preserves indexed thinking, signatures, result roles and usage"
     ):

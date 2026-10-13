@@ -12,7 +12,7 @@ three repetitions produced **48 receipts**. Framework order alternated Scala/
 Python, Python/Scala, Scala/Python in successive rounds. Requests were serial;
 the fixtures introduced concurrency only inside the selected tool task.
 Every attempt is retained in [machine-readable results](live-runtime-comparison-results.jsonl).
-All processes exited zero, but only **23 scenario contracts passed**: 14 Scala
+All processes exited zero, but the historical oracle accepted **23 scenario contracts**: 14 Scala
 and 9 Python. Process success does not certify a task or the whole library.
 
 | Model/task | Scala accepted | Python accepted | Scala median successful turn, ms | Python median successful turn, ms |
@@ -133,6 +133,24 @@ authenticated `/api/v1/models` catalog before selecting a model. Neither runner
 retries a failed admitted task. Both emit sanitized JSON; acceptance uses
 `scenarioAccepted`, not process exit or the presence of a final string.
 Unexercised cancellation oracles are absent/null, not successful measurements.
+
+## Call/result correlation
+
+The current Python oracle matches both call ID and tool name, preserving counts
+and allowing concurrent completion order. Run its offline controls before a new
+campaign:
+
+```powershell
+& target/agentscope-comparison-env/Scripts/python.exe -W error verification/live_agentscope_comparison.py text --check-oracle
+```
+
+The controls accept valid and reordered completions and reject swapped IDs,
+missing results and duplicate results. They make no provider requests.
+The stored 48 receipts used the earlier ID-count-only pairing check plus
+separate name/value checks. Their aggregate counts and timings remain historical
+observations; the receipts omit the raw identity correlations needed to
+requalify them under the stronger oracle. A new campaign is required for that
+acceptance claim.
 
 ## Matched task conditions
 

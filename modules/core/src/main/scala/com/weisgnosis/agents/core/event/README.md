@@ -8,9 +8,9 @@
 
 ## Incremental and accumulated thinking
 
-ThinkingBlockDeltaEvent preserves the exact fragment and optional accumulatedThought. The built-in publisher accumulates independent prefixes by block index, resetting them for each model request. Checked reasoning-details events project admitted plaintext only; opaque encrypted/signature data does not become text. Custom publishers may omit the prefix.
+ThinkingBlockDeltaEvent preserves the exact fragment. Built-in publishers emit accumulatedThought=None and retain independent fragment lists by block index; ThinkingBlockEndEvent contains the exact complete plaintext. Consumers needing an incremental full view must append deltas locally instead of retaining every prefix. Checked reasoning-details events project admitted plaintext only; opaque encrypted/signature data does not become text. Custom publishers may still supply accumulatedThought.
 
-The optional field has a trailing constructor default and old JSON decodes its absence as None. Positional extractors and dependent binaries require rebuilding when product signatures change. Sending every accumulated prefix can produce quadratic total text for many small fragments; no constant-memory subscriber guarantee is supplied.
+The optional field has a trailing constructor default and old JSON decodes its absence as None. Positional extractors and dependent binaries require rebuilding when product signatures change. Built-in stream event text grows with received fragments rather than all cumulative prefixes. Event queues remain unbounded, so this does not establish constant-memory delivery for slow consumers. Existing custom accumulated snapshots retain their wire representation and may still incur quadratic retention.
 
 ## Existing event contracts
 

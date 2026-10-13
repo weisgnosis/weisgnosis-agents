@@ -9,6 +9,7 @@ import os
 import platform
 import time
 from urllib.parse import urlsplit
+from types import SimpleNamespace
 
 import agentscope
 from agentscope.agent import Agent, ReActConfig
@@ -37,9 +38,25 @@ def result_text(result):
 
 
 def paired(agent):
-    return Counter(block.id for block in blocks(agent, ToolCallBlock)) == Counter(
-        block.id for block in blocks(agent, ToolResultBlock)
+    return Counter((block.id, block.name) for block in blocks(agent, ToolCallBlock)) == Counter(
+        (block.id, block.name) for block in blocks(agent, ToolResultBlock)
     )
+
+
+
+def check_pairing_oracle():
+    calls = (ToolCallBlock(id="left", name="evidence_left", input="{}"),
+             ToolCallBlock(id="right", name="evidence_right", input="{}"))
+    valid = (ToolResultBlock(id="left", name="evidence_left", output="17", state="success"),
+             ToolResultBlock(id="right", name="evidence_right", output="20", state="success"))
+    swapped = (valid[0].model_copy(update={"id": "right"}), valid[1].model_copy(update={"id": "left"}))
+    cases = (("valid", valid, True), ("completion order", tuple(reversed(valid)), True),
+             ("swapped IDs", swapped, False), ("missing result", valid[:1], False),
+             ("duplicate result", (valid[0], valid[0]), False))
+    for name, results, expected in cases:
+        agent = SimpleNamespace(state=SimpleNamespace(context=(SimpleNamespace(content=calls + results),)))
+        assert paired(agent) == expected, f"Pairing oracle disagrees with {name}"
+    print(json.dumps({"pairingOracle": "Passed", "cases": len(cases)}))
 
 
 def canonical_recoveries(agent):
@@ -315,27 +332,32 @@ async def execute(scenario, model_id, endpoint, key):
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("scenario", choices=("text", "sequential", "parallel", "cancel"))
-    scenario = parser.parse_args().scenario
-    agentscope.logger.disabled = True
-    version = importlib.metadata.version("agentscope")
-    if version != "2.0.9":
-        raise RuntimeError("Run with the isolated pinned AgentScope 2.0.9 interpreter")
-    enabled = os.environ.get("WEISGNOSIS_LIVE_SMOKE")
-    if enabled is None:
-        receipt = {"implementation": "Python AgentScope", "scenario": scenario, "status": "NotRun", "scenarioAccepted": False, "reason": "Live opt-in disabled"}
+    parser.add_argument("--check-oracle", action="store_true", help="Run offline call/result pairing controls")
+    arguments = parser.parse_args()
+    if arguments.check_oracle:
+        check_pairing_oracle()
     else:
-        endpoint = os.environ.get("WEISGNOSIS_LIVE_ENDPOINT", "")
-        model = os.environ.get("WEISGNOSIS_LIVE_MODEL", "")
-        parsed = urlsplit(endpoint)
-        if enabled != "enabled" or not model or len(model) > 256 or parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.query or parsed.fragment or not endpoint.endswith("/chat/completions"):
-            receipt = {"implementation": "Python AgentScope", "scenario": scenario, "status": "Failed", "scenarioAccepted": False, "errorType": "InvalidLiveConfiguration", "failureCategory": "configuration"}
+        scenario = arguments.scenario
+        agentscope.logger.disabled = True
+        version = importlib.metadata.version("agentscope")
+        if version != "2.0.9":
+            raise RuntimeError("Run with the isolated pinned AgentScope 2.0.9 interpreter")
+        enabled = os.environ.get("WEISGNOSIS_LIVE_SMOKE")
+        if enabled is None:
+            receipt = {"implementation": "Python AgentScope", "scenario": scenario, "status": "NotRun", "scenarioAccepted": False, "reason": "Live opt-in disabled"}
         else:
-            try:
-                receipt = await execute(scenario, model, endpoint, os.environ.get("WEISGNOSIS_LIVE_API_KEY"))
-            except Exception as error:
-                receipt = {"implementation": "Python AgentScope", "model": model, "scenario": scenario,
-                           "status": "Failed", "scenarioAccepted": False, "errorType": type(error).__name__, "failureCategory": "fixture-setup-or-cleanup"}
-    print(json.dumps(receipt, sort_keys=True))
+            endpoint = os.environ.get("WEISGNOSIS_LIVE_ENDPOINT", "")
+            model = os.environ.get("WEISGNOSIS_LIVE_MODEL", "")
+            parsed = urlsplit(endpoint)
+            if enabled != "enabled" or not model or len(model) > 256 or parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.query or parsed.fragment or not endpoint.endswith("/chat/completions"):
+                receipt = {"implementation": "Python AgentScope", "scenario": scenario, "status": "Failed", "scenarioAccepted": False, "errorType": "InvalidLiveConfiguration", "failureCategory": "configuration"}
+            else:
+                try:
+                    receipt = await execute(scenario, model, endpoint, os.environ.get("WEISGNOSIS_LIVE_API_KEY"))
+                except Exception as error:
+                    receipt = {"implementation": "Python AgentScope", "model": model, "scenario": scenario,
+                               "status": "Failed", "scenarioAccepted": False, "errorType": type(error).__name__, "failureCategory": "fixture-setup-or-cleanup"}
+        print(json.dumps(receipt, sort_keys=True))
 
 
 if __name__ == "__main__":

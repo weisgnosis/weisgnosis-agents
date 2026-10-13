@@ -76,6 +76,17 @@ private[agents] object JsonBoundary:
       case _ :: rest                => loop(rest)
     loop(List(value))
 
+  /** Retain a UTF-16 budget without cutting a supplementary character in half. */
+  def prefix(text: String, limit: Int): String =
+    val candidate = text.take(limit)
+    if candidate.lastOption.exists(Character.isHighSurrogate) then candidate.dropRight(1)
+    else candidate
+
+  def suffix(text: String, limit: Int): String =
+    val candidate = text.takeRight(limit)
+    if candidate.headOption.exists(Character.isLowSurrogate) then candidate.drop(1)
+    else candidate
+
   /** Exact decimal rendering avoids the dependency's minimum-Long unscaled-value overflow. */
   def render(value: Json): String =
     @annotation.tailrec

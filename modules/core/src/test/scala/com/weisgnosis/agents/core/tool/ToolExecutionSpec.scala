@@ -54,6 +54,35 @@ object ToolExecutionSpec extends ZIOSpecDefault:
   private val toolkit = Toolkit.single(addTool).updated(failingTool)
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolExecutionSpec")(
+    test("factory construction callback defects belong to execution, not effect construction"):
+      val typed = Tool.fromFunction[Int, Int]("divide", "Construction boundary", Json.Obj()):
+        divisor =>
+          val quotient = 1 / divisor
+          ZIO.succeed(quotient)
+      val raw = Tool.make(ToolDef("divide_raw", "Construction boundary", Json.Obj())): input =>
+        val divisor  = if input == Json.Num(0) then 0 else 1
+        val quotient = 1 / divisor
+        ZIO.succeed(quotient.toString)
+      val cases: List[() => ZIO[Any, Throwable, String]] = List(
+        () => typed.execute(0).map(_.toString),
+        () => raw.execute(Json.Num(0))
+      )
+      ZIO
+        .foreach(cases): construct =>
+          ZIO
+            .attempt(construct())
+            .either
+            .flatMap:
+              case Left(_) =>
+                ZIO.succeed(assertTrue(false).label("Callback escaped effect construction"))
+              case Right(effect) =>
+                effect.exit.map(exit =>
+                  assertTrue(
+                    exit.causeOption.exists(_.dieOption.exists(_.isInstanceOf[ArithmeticException]))
+                  )
+                )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("declared schema constraints reject decoder-valid arguments before execution") {
       val schema = Json.Obj(
         "type" -> Json.Str("object"),

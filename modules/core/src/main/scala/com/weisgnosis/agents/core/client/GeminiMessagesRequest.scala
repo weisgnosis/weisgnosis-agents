@@ -91,7 +91,9 @@ private[client] object GeminiMessagesRequest:
     yield checked
 
   def validFunctionName(value: String): Boolean =
-    value.nonEmpty && value.length <= 64 && value.forall(character =>
+    value.headOption.exists(character =>
+      character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character == '_'
+    ) && value.length <= 64 && value.forall(character =>
       character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z' || character >= '0' && character <= '9' || character == '_' || character == '-'
     )
 

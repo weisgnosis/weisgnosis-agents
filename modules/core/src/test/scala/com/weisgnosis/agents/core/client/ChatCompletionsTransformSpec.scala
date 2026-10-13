@@ -69,6 +69,38 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
     agent.streamEvents(Msg.user("question")).runCollect
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransformSpec")(
+    test("many thinking fragments retain linear event text and exact completed output") {
+      val fragmentCount = 2000
+      val thinkingFrame = frame(
+        """{"choices":[{"index":0,"delta":{"reasoning_content":"x"}}]}"""
+      )
+      val expectedThought = "x" * fragmentCount
+      for
+        client <- ChatCompletionsClient.make(
+          scripted(_ =>
+            ZIO.succeed(response(thinkingFrame * fragmentCount + text("answer") + stop + done))
+          )
+        )
+        agent   <- ReActAgent.make(client = client, llmConfig = config)
+        events  <- record(agent)
+        history <- agent.history
+        deltas = events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent => event }
+        retainedThoughtCharacters = deltas.foldLeft(0L)((total, event) =>
+          total + event.delta.length.toLong + event.accumulatedThought.fold(0L)(_.length.toLong)
+        )
+      yield assertTrue(
+        deltas.size == fragmentCount,
+        deltas.map(_.delta).mkString == expectedThought,
+        retainedThoughtCharacters <= fragmentCount.toLong * 2,
+        events.collect { case event: AgentEvent.ThinkingBlockEndEvent => event.fullThought } ==
+          Chunk(expectedThought),
+        events.collect { case event: AgentEvent.TextBlockEndEvent => event.fullText } ==
+          Chunk("answer"),
+        history.lastOption.exists(message =>
+          message.thinking == expectedThought && message.text == "answer"
+        )
+      )
+    },
     test("subscription-local text-delta suppression preserves canonical completion and history") {
       for
         client <- ChatCompletionsClient.make(
@@ -265,9 +297,9 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
         events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent =>
           event.accumulatedThought
         } == Chunk(
-          Some("I think "),
-          Some("I think this is "),
-          Some("I think this is correct.")
+          None,
+          None,
+          None
         )
       )
     },

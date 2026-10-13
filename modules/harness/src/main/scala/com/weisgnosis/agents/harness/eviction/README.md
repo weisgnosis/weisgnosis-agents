@@ -52,3 +52,5 @@ The backend retains and revalidates the canonical directory before each read/wri
 Configuration ownership deliberately belongs to the storage backend rather than EvictionConfig. ResultStorageLocation uses a derived JSON codec; decoded configuration is validated when constructing the store. This additive parameter preserves existing callers. The absolute-directory behavior adapts the upstream trailing-separator scenario, with Scala's flat agent/call/hash filenames and no Java RuntimeContext identity assertion.
 
 Source and paired tests: [ResultStorageLocation.scala](ResultStorageLocation.scala), [ToolResultStore.scala](ToolResultStore.scala), [ResultStorageLocationSpec.scala](../../../../../../../test/scala/com/weisgnosis/agents/harness/eviction/ResultStorageLocationSpec.scala).
+
+Preview cuts preserve supplementary Unicode within the configured UTF-16 budgets. Metadata records actual retained head/tail lengths. Exact historical v1 previews can be regenerated safely only after verifying the stored original, content digest, path and offsets; this does not authenticate arbitrary caller metadata or persist a preview as a new original.

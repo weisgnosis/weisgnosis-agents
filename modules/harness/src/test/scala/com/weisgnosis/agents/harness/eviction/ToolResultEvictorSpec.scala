@@ -15,9 +15,11 @@
  */
 package com.weisgnosis.agents.harness.eviction
 
+import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.*
 import zio.*
+import zio.json.*
 import zio.json.ast.Json
 import zio.test.*
 
@@ -31,6 +33,48 @@ object ToolResultEvictorSpec extends ZIOSpecDefault:
       saved.update(_.updated(key, content)).as(s"large_tool_results/$key.txt")
 
   def spec: Spec[TestEnvironment, Any] = suite("ToolResultEvictorSpec")(
+    test("supplementary Unicode previews respect tiny budgets and restored recognition") {
+      val original = "\uD83D\uDE00middle\uD83D\uDE00"
+      for outcomes <- ZIO.foreach(Chunk(0, 1, 2, 3)) { budget =>
+          for
+            saved  <- Ref.make(Map.empty[String, String])
+            writes <- Ref.make(0)
+            underlying = memoryStore(saved)
+            store = new ToolResultStore:
+              def resolve(key: String): IO[AgentError, Option[StoredToolResult]] =
+                underlying.resolve(key)
+              def persist(key: String, content: String): IO[AgentError, String] =
+                writes.update(_ + 1) *> underlying.persist(key, content)
+            evictor = new ToolResultEvictor(store)
+            settings = EvictionConfig(
+              maxResultChars = 0,
+              previewHeadChars = budget,
+              previewTailChars = budget
+            )
+            result <- evictor.evictResult(
+              ContentBlock.ToolResult.text("unicode", "shell", original),
+              settings
+            )
+            decoded <- ZIO.fromEither(Msg.tool(Chunk(result)).toJson.fromJson[Msg])
+            restored <- ZIO
+              .fromOption(decoded.toolResults.headOption)
+              .orElseFail(AgentError.InvalidMessage("Missing restored Unicode result"))
+            repeated <- evictor.evictResult(restored, settings)
+            count    <- writes.get
+            files    <- saved.get
+            actual = if budget == 1 then 0 else budget
+          yield assertTrue(
+            JsonBoundary.validUnicode(Json.Str(result.text)),
+            result.metadata.get("eviction_preview_head_chars").contains(Json.Num(actual)),
+            result.metadata.get("eviction_preview_tail_chars").contains(Json.Num(actual)),
+            result.text.endsWith(original.takeRight(actual)),
+            repeated == result,
+            count == 1,
+            files.values.toSet == Set(original)
+          )
+        }
+      yield outcomes.foldLeft(assertTrue(true))(_ && _)
+    },
     test(
       "oversized results are persisted with 2k head and tail previews and read_file instructions"
     ) {

@@ -140,32 +140,42 @@ final class ConversationCompactor(
 
   private def preview(text: String, limit: Int): String =
     val head = limit / 2
-    text.take(head) + "\n... pruned ...\n" + text.takeRight(limit - head)
+    JsonBoundary.prefix(text, head) + "\n... pruned ...\n" + JsonBoundary.suffix(text, limit - head)
 
   private def coalesceUsers(history: Chunk[Msg]): Either[AgentError, Chunk[Msg]] =
-    history.foldLeft[Either[AgentError, Chunk[Msg]]](Right(Chunk.empty)) { (accumulated, message) =>
-      accumulated.flatMap { result =>
-        result.lastOption match
-          case Some(previous) if previous.role == Role.User && message.role == Role.User =>
-            for
-              merged   <- previous.withContent(previous.content ++ message.content)
-              retained <- ConversationCompactor.retainedUsers(previous)
-              originals =
-                if ConversationCompactor.isSummary(previous) || retained.nonEmpty then retained
-                else Chunk(previous)
-              json <- (originals :+ message).toJsonAST.left.map(reason =>
-                AgentError.HistoryPreparationError(
-                  s"Cannot encode retained compaction users: $reason"
-                )
-              )
-              metadata = (message.metadata ++ previous.metadata).updated(
-                ConversationCompactor.RetainedUsersKey,
-                Json.Str(JsonBoundary.render(json))
-              )
-            yield result.dropRight(1) :+ merged.withMetadata(metadata)
-          case _ => Right(result :+ message)
-      }
+    val groups = history.foldLeft(List.empty[List[Msg]]) { (accumulated, message) =>
+      accumulated match
+        case (previous :: rest) :: earlier
+            if previous.role == Role.User && message.role == Role.User =>
+          (message :: previous :: rest) :: earlier
+        case _ => List(message) :: accumulated
     }
+    def merge(group: List[Msg]): Either[AgentError, Msg] = group match
+      case first :: second :: rest =>
+        val messages = Chunk.fromIterable(first :: second :: rest)
+        for
+          merged   <- first.withContent(messages.flatMap(_.content))
+          retained <- ConversationCompactor.retainedUsers(first)
+          originals =
+            if ConversationCompactor.isSummary(first) || retained.nonEmpty then retained
+            else Chunk(first)
+          json <- (originals ++ messages.drop(1)).toJsonAST.left.map(reason =>
+            AgentError.HistoryPreparationError(s"Cannot encode retained compaction users: $reason")
+          )
+          metadata = messages.reverse
+            .foldLeft(Map.empty[String, Json])((previous, message) => previous ++ message.metadata)
+            .updated(ConversationCompactor.RetainedUsersKey, Json.Str(JsonBoundary.render(json)))
+        yield merged.withMetadata(metadata)
+      case first :: Nil => Right(first)
+      case Nil => Left(AgentError.HistoryPreparationError("Cannot coalesce an empty user group"))
+    groups.reverse
+      .foldLeft[Either[AgentError, List[Msg]]](Right(Nil)) { (accumulated, group) =>
+        for
+          previous <- accumulated
+          merged   <- merge(group.reverse)
+        yield merged :: previous
+      }
+      .map(messages => Chunk.fromIterable(messages.reverse))
 
 object ConversationCompactor:
   private[memory] val RetainedUsersKey: String = "_compaction_retained_users"
