@@ -203,7 +203,7 @@ sbt "examples / runMain com.weisgnosis.agents.examples.LiveMultiModel"
 
 The runner uses the token/deadline budgets below and schedules scenarios sequentially. It never automatically retries an admitted model turn or tool. Each scenario immediately prints a JSON result: Passed, Failed, Unsupported, Unavailable or NotRun. Require the individual assertions and receipts; process exit alone is not acceptance. Missing peer selection leaves mixed-model/independent-child scenarios NotRun. Cancellation and defects propagate instead of becoming successful reports.
 
-The [current live results](../../docs/live-e2e-results.md) retain all fifteen receipts from the selected Qwen/reasoning-LFM matrix: twelve Passed and three Failed. Selected tool/file flows, local cancellation, persistent hubs, the child chain, definite rejection and paired local overlap passed. Native structured output failed on both models; synthetic structured output failed on LFM. These checks do not establish every model profile or superiority over another language.
+The [current live results](../../docs/live-e2e-results.md) distinguish the 2026-10-15 packaged refresh from other dated profiles. All twenty selected stream/tool/runtime/room/Pipeline outcomes passed on Qwen and reasoning-LFM, including both interruption modes and same-runtime continuation. Mixed rooms ran twice per direction; other cells ran once. Prior native/synthetic failures remain explicit and were not rerun. These checks do not certify every model profile or superiority over another language.
 
 ## Verification and acceptance
 

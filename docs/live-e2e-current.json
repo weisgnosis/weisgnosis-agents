@@ -1,0 +1,536 @@
+{
+  "verifiedOn": "2026-10-15",
+  "libraryRevision": "b77e11d1d5b6cdd2e97ca952a0ff014c696bdd8c",
+  "execution": "Compiled examples with fresh packaged core, harness and MCP JARs; source library class directories replaced.",
+  "models": [
+    "qwen3.8-27b",
+    "lfm2.5-2.6b-mlx"
+  ],
+  "maxOutputTokens": 4096,
+  "runTimeoutSeconds": 300,
+  "responseByteLimit": 1048576,
+  "acceptedStages": 8,
+  "acceptedProfileOutcomes": 20,
+  "stages": [
+    {
+      "model": "qwen3.8-27b",
+      "profile": "smoke",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "toolExecutions": 1,
+          "streamedTextDeltas": 3,
+          "checkedTrimmedReply": "5"
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-27b",
+      "profile": "parallel-tools",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "sequentialPeak": 1,
+          "parallelPeak": 2,
+          "exactSum": 37
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-27b",
+      "profile": "runtime",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "text",
+          "model": "qwen3.8-27b",
+          "firstVisibleMillis": 7620.9953,
+          "totalMillis": 7741.2067,
+          "peakActive": 0,
+          "executions": [],
+          "expectedReply": true,
+          "scenarioAccepted": true,
+          "state": "Completed",
+          "historyComplete": true
+        },
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "parallel",
+          "model": "qwen3.8-27b",
+          "firstVisibleMillis": 3959.4639,
+          "totalMillis": 8515.1754,
+          "toolPhaseMillis": 514.3357,
+          "peakActive": 2,
+          "executions": [
+            "evidence_left",
+            "evidence_right"
+          ],
+          "expectedReply": true,
+          "scenarioAccepted": true,
+          "state": "Completed",
+          "callsPersistedBeforeEntry": true,
+          "historyComplete": true
+        },
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "cancel",
+          "model": "qwen3.8-27b",
+          "firstVisibleMillis": 10495.35,
+          "totalMillis": 12508.2404,
+          "toolPhaseMillis": 630.5672,
+          "peakActive": 2,
+          "executions": [
+            "evidence_left",
+            "evidence_right"
+          ],
+          "expectedReply": false,
+          "scenarioAccepted": true,
+          "state": "Interrupted",
+          "callsPersistedBeforeEntry": true,
+          "completedResultPreserved": true,
+          "unfinishedOnlyReconciled": true,
+          "cancellationJoinedCleanup": true,
+          "interruptionPreserved": true,
+          "recoveryExactlyOnce": true,
+          "historyComplete": true,
+          "cancelJoinedMillis": 132.1829,
+          "sameRuntimeContinuation": true,
+          "continuationMillis": 2545.9759
+        },
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "cooperative-cancel",
+          "model": "qwen3.8-27b",
+          "firstVisibleMillis": 2582.1577,
+          "totalMillis": 4014.4187,
+          "toolPhaseMillis": 503.7691,
+          "peakActive": 2,
+          "executions": [
+            "evidence_left",
+            "evidence_right"
+          ],
+          "expectedReply": false,
+          "scenarioAccepted": true,
+          "state": "Interrupted",
+          "callsPersistedBeforeEntry": true,
+          "completedResultPreserved": true,
+          "unfinishedOnlyReconciled": true,
+          "cancellationJoinedCleanup": true,
+          "interruptionPreserved": true,
+          "recoveryExactlyOnce": true,
+          "historyComplete": true,
+          "cancelJoinedMillis": 4.3992,
+          "sameRuntimeContinuation": true,
+          "continuationMillis": 13035.8624
+        }
+      ]
+    },
+    {
+      "model": "lfm2.5-2.6b-mlx",
+      "profile": "smoke",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "toolExecutions": 1,
+          "streamedTextDeltas": 1,
+          "checkedTrimmedReply": "5"
+        }
+      ]
+    },
+    {
+      "model": "lfm2.5-2.6b-mlx",
+      "profile": "parallel-tools",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "sequentialPeak": 1,
+          "parallelPeak": 2,
+          "exactSum": 37
+        }
+      ]
+    },
+    {
+      "model": "lfm2.5-2.6b-mlx",
+      "profile": "runtime",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "text",
+          "model": "lfm2.5-2.6b-mlx",
+          "firstVisibleMillis": 6394.8629,
+          "totalMillis": 6530.3167,
+          "peakActive": 0,
+          "executions": [],
+          "expectedReply": true,
+          "scenarioAccepted": true,
+          "state": "Completed",
+          "historyComplete": true
+        },
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "parallel",
+          "model": "lfm2.5-2.6b-mlx",
+          "firstVisibleMillis": 3232.4546,
+          "totalMillis": 3241.4655,
+          "toolPhaseMillis": 504.8684,
+          "peakActive": 2,
+          "executions": [
+            "evidence_left",
+            "evidence_right"
+          ],
+          "expectedReply": true,
+          "scenarioAccepted": true,
+          "state": "Completed",
+          "callsPersistedBeforeEntry": true,
+          "historyComplete": true
+        },
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "cancel",
+          "model": "lfm2.5-2.6b-mlx",
+          "totalMillis": 1325.8684,
+          "toolPhaseMillis": 647.5417,
+          "peakActive": 2,
+          "executions": [
+            "evidence_right",
+            "evidence_left"
+          ],
+          "expectedReply": false,
+          "scenarioAccepted": true,
+          "state": "Interrupted",
+          "callsPersistedBeforeEntry": true,
+          "completedResultPreserved": true,
+          "unfinishedOnlyReconciled": true,
+          "cancellationJoinedCleanup": true,
+          "interruptionPreserved": true,
+          "recoveryExactlyOnce": true,
+          "historyComplete": true,
+          "cancelJoinedMillis": 131.6374,
+          "sameRuntimeContinuation": true,
+          "continuationMillis": 1309.3694
+        },
+        {
+          "implementation": "scala-zio-react",
+          "scenario": "cooperative-cancel",
+          "model": "lfm2.5-2.6b-mlx",
+          "totalMillis": 1524.4813,
+          "toolPhaseMillis": 557.3074,
+          "peakActive": 2,
+          "executions": [
+            "evidence_left",
+            "evidence_right"
+          ],
+          "expectedReply": false,
+          "scenarioAccepted": true,
+          "state": "Interrupted",
+          "callsPersistedBeforeEntry": true,
+          "completedResultPreserved": true,
+          "unfinishedOnlyReconciled": true,
+          "cancellationJoinedCleanup": true,
+          "interruptionPreserved": true,
+          "recoveryExactlyOnce": true,
+          "historyComplete": true,
+          "cancelJoinedMillis": 6.3907,
+          "sameRuntimeContinuation": true,
+          "continuationMillis": 4699.2877
+        }
+      ]
+    },
+    {
+      "model": "qwen3.8-27b",
+      "profile": "coordination",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "models": [
+            "qwen3.8-27b",
+            "qwen3.8-27b"
+          ],
+          "scenarioAccepted": true,
+          "requests": 5,
+          "evidenceReads": 1,
+          "acceptedSubmissions": [
+            [
+              "Analyst",
+              1
+            ],
+            [
+              "Checker",
+              1
+            ],
+            [
+              "Reporter",
+              1
+            ]
+          ],
+          "queuedWithoutReasoning": true,
+          "flushedExactlyOnce": true,
+          "foreignToolsInert": true,
+          "exactDecisions": true
+        },
+        {
+          "name": "useful-queued-hub",
+          "models": [
+            "qwen3.8-27b",
+            "qwen3.8-27b"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        },
+        {
+          "models": [
+            "qwen3.8-27b",
+            "lfm2.5-2.6b-mlx"
+          ],
+          "scenarioAccepted": true,
+          "requests": 5,
+          "evidenceReads": 1,
+          "acceptedSubmissions": [
+            [
+              "Analyst",
+              1
+            ],
+            [
+              "Checker",
+              1
+            ],
+            [
+              "Reporter",
+              1
+            ]
+          ],
+          "queuedWithoutReasoning": true,
+          "flushedExactlyOnce": true,
+          "foreignToolsInert": true,
+          "exactDecisions": true
+        },
+        {
+          "name": "useful-queued-hub",
+          "models": [
+            "qwen3.8-27b",
+            "lfm2.5-2.6b-mlx"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        },
+        {
+          "models": [
+            "lfm2.5-2.6b-mlx",
+            "qwen3.8-27b"
+          ],
+          "scenarioAccepted": true,
+          "requests": 5,
+          "evidenceReads": 1,
+          "acceptedSubmissions": [
+            [
+              "Analyst",
+              1
+            ],
+            [
+              "Checker",
+              1
+            ],
+            [
+              "Reporter",
+              1
+            ]
+          ],
+          "queuedWithoutReasoning": true,
+          "flushedExactlyOnce": true,
+          "foreignToolsInert": true,
+          "exactDecisions": true
+        },
+        {
+          "name": "useful-queued-hub",
+          "models": [
+            "lfm2.5-2.6b-mlx",
+            "qwen3.8-27b"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        },
+        {
+          "model": "qwen3.8-27b",
+          "scenarioAccepted": true,
+          "requests": 10,
+          "sequentialUseful": true,
+          "acceptedSubmissions": [
+            [
+              "SequentialSource",
+              1
+            ],
+            [
+              "SequentialTarget",
+              1
+            ]
+          ],
+          "orderedBoundedFanout": true,
+          "cancellationJoined": true,
+          "suspendedSuccessorNotStarted": true,
+          "interruptedSuccessorNotStarted": true
+        },
+        {
+          "name": "pipeline-controls",
+          "models": [
+            "qwen3.8-27b"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        }
+      ]
+    },
+    {
+      "model": "lfm2.5-2.6b-mlx",
+      "profile": "coordination",
+      "exitCode": 0,
+      "accepted": true,
+      "receipts": [
+        {
+          "models": [
+            "lfm2.5-2.6b-mlx",
+            "lfm2.5-2.6b-mlx"
+          ],
+          "scenarioAccepted": true,
+          "requests": 5,
+          "evidenceReads": 1,
+          "acceptedSubmissions": [
+            [
+              "Analyst",
+              1
+            ],
+            [
+              "Checker",
+              1
+            ],
+            [
+              "Reporter",
+              1
+            ]
+          ],
+          "queuedWithoutReasoning": true,
+          "flushedExactlyOnce": true,
+          "foreignToolsInert": true,
+          "exactDecisions": true
+        },
+        {
+          "name": "useful-queued-hub",
+          "models": [
+            "lfm2.5-2.6b-mlx",
+            "lfm2.5-2.6b-mlx"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        },
+        {
+          "models": [
+            "lfm2.5-2.6b-mlx",
+            "qwen3.8-27b"
+          ],
+          "scenarioAccepted": true,
+          "requests": 5,
+          "evidenceReads": 1,
+          "acceptedSubmissions": [
+            [
+              "Analyst",
+              1
+            ],
+            [
+              "Checker",
+              1
+            ],
+            [
+              "Reporter",
+              1
+            ]
+          ],
+          "queuedWithoutReasoning": true,
+          "flushedExactlyOnce": true,
+          "foreignToolsInert": true,
+          "exactDecisions": true
+        },
+        {
+          "name": "useful-queued-hub",
+          "models": [
+            "lfm2.5-2.6b-mlx",
+            "qwen3.8-27b"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        },
+        {
+          "models": [
+            "qwen3.8-27b",
+            "lfm2.5-2.6b-mlx"
+          ],
+          "scenarioAccepted": true,
+          "requests": 5,
+          "evidenceReads": 1,
+          "acceptedSubmissions": [
+            [
+              "Analyst",
+              1
+            ],
+            [
+              "Checker",
+              1
+            ],
+            [
+              "Reporter",
+              1
+            ]
+          ],
+          "queuedWithoutReasoning": true,
+          "flushedExactlyOnce": true,
+          "foreignToolsInert": true,
+          "exactDecisions": true
+        },
+        {
+          "name": "useful-queued-hub",
+          "models": [
+            "qwen3.8-27b",
+            "lfm2.5-2.6b-mlx"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        },
+        {
+          "model": "lfm2.5-2.6b-mlx",
+          "scenarioAccepted": true,
+          "requests": 10,
+          "sequentialUseful": true,
+          "acceptedSubmissions": [
+            [
+              "SequentialSource",
+              1
+            ],
+            [
+              "SequentialTarget",
+              1
+            ]
+          ],
+          "orderedBoundedFanout": true,
+          "cancellationJoined": true,
+          "suspendedSuccessorNotStarted": true,
+          "interruptedSuccessorNotStarted": true
+        },
+        {
+          "name": "pipeline-controls",
+          "models": [
+            "lfm2.5-2.6b-mlx"
+          ],
+          "status": "Passed",
+          "detail": "Public assertions passed"
+        }
+      ]
+    }
+  ]
+}
