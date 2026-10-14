@@ -149,14 +149,22 @@ The current catalog-selected Qwen/reasoning-LFM matrix passed twelve of fifteen 
 | --- | --- | --- |
 | Human participant | An explicit human turn uses a scoped host input callback; passive observation never prompts. | Separate from permission approval; no UI/stdin service implied. |
 | Workspace read/search | Search/read a bounded trusted workspace and answer with source provenance. | Optional capabilities outside core; mutation/process execution need separate authority. |
-| Bounded event streams | Slow/abandoned consumers do not cause unbounded accumulation or prevent joined cancellation. | Specify overflow/backpressure and terminal receipt first; blindly bounding masked forwarding can deadlock. No reproduced-defect claim exists yet. |
 | Realtime WebSocket | A selected native duplex session accepts input/control while receiving output. | Select protocol/use case first; SSE replacement, voice and custom MCP WebSocket are not approved. |
 
 RAG, UI, collector hosting, distributed orchestration, external publication/CI setup and OS/Temporal product integration are excluded. The user handles publication; local artifact integrity and external consumption remain required. Candidates require explicit selection; this table cannot waive original promises.
 
 ## Immediate next work
 
-Current next task: none within the selected library checklist. The audit corrections below have public regressions, independent review, full verification and fresh packaged-consumer checks. External publication remains user-owned; OS integration remains separate.
+Current next task: implement the runtime-owned event publication boundary and atomic diagnostic budget described in the [planned delivery contract](low-level-design.md#planned-bounded-diagnostic-delivery). This user-requested improvement is not implemented or accepted yet. External publication remains user-owned; OS integration remains separate.
+
+### D: Bounded diagnostic delivery
+
+The existing scoped streams preserve events for full consumption without a backlog budget; early termination abandons the remaining tail. A held-consumer public probe demonstrated completed execution with 512 text deltas still pending; subsequent draining preserved FIFO, and cancelling the held reader after execution completion joined stream cleanup. This establishes an accumulation risk, not active-tool cancellation evidence, a heap measurement or a leak after scope closure. The plan below bounds runtime-owned diagnostic backlog while keeping execution and delivery outcomes distinct.
+
+- [x] **D0: Research the delivery contract.** Inspect actual stream, prepared-invocation, model publication, tool lease and child-forwarding paths against pinned ZIO ownership and backpressure behavior. Distinguish admission, reader delivery and canonical execution; document the proposed overflow and cancellation rules in the [design](low-level-design.md#planned-bounded-diagnostic-delivery). This research check does not accept a behavioral implementation.
+- [ ] **D1: Enforce admission at every publisher.** Replace raw-Hub publication on the budgeted path with one runtime-owned port. Apply final source/correlation transformations before atomic count/exact encoded UTF-8 admission; retain reservations across internal forwarding. Validate positive host limits and individual-event limits. Migrate built-in/custom client contracts, tool leases and nested forwarding without an unbounded compatibility bridge.
+- [ ] **D2: Preserve execution through delivery overflow.** Retain the accepted FIFO prefix and first delivery failure without blocking publishers. Keep the full joined execution outcome separately. Emit the stream's delivery failure after owned execution joins; preserve original execution causes, cancellation and completed observations. Overflow must neither replay work nor generate interruption recovery. Early reader termination still cancels and joins attached work.
+- [ ] **D3: Verify the public integration path.** Cover count/byte boundaries, oversized events, concurrent admission, claimed-event reservations, stalled readers, deferred overflow reporting, prepared termination, completed tools, nested forwarding, lease closure and cancellation/cleanup failures. Use existing fixtures and barrier-based regressions. Independently review FP/ZIO and invariant behavior; run focused checks, full verification and fresh packaged consumption. Update changed API/migration docs with explicit exclusions; no global heap or delivery-acknowledgement claim.
 
 ### Confirmed audit corrections
 

@@ -414,6 +414,40 @@ Model text is limited to 4,000 UTF-16 characters with surrogate-safe head/tail p
 
 User request serialization has a bounded [Video URL extension](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#user-video-url-projection) : explicit user Video URLs preserve ordering/spelling through the shared image HTTP(S) syntax guard. The separate [inline video scope](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#inline-video-projection) has explicit format validation and endpoint selection. Other inline video MIME types, Data inference, fetching and universal endpoint support remain excluded. Public signatures/defaults are unchanged.
 
+## Planned bounded diagnostic delivery
+
+This is a proposed contract, not current runtime behavior. Implementation and acceptance are tracked only in [D1-D3](tracker.md#d-bounded-diagnostic-delivery). Existing scoped streams preserve events for full consumption but have unbounded backlog; early termination abandons the remaining tail.
+
+### Authority and admission
+
+Execution owns canonical history, tool observations and the joined invocation outcome. Diagnostic delivery has a separate outcome: admission to a backlog is neither reader receipt nor external acknowledgement. Losing diagnostic capacity must not authorize another model request, tool replay, history rollback or synthetic interruption recovery.
+
+Use one runtime-owned publication port across model clients, runtime events, tool leases and nested forwarding. A raw `Hub[AgentEvent]` cannot enforce this boundary: clients can introduce subscribers and pending publications outside the accounting. Migrate affected client signatures explicitly; do not insert an unbounded legacy bridge and call it budget-compliant.
+
+The host supplies checked positive limits for event count, queued encoded UTF-8 bytes and individual encoded event size. An individual-event limit cannot exceed the aggregate limit. Defaults, if offered, need an explicit documented policy; no performance-derived values are claimed by this research.
+
+Compute each event's cost using the existing exact JSON boundary. Atomically reserve count/bytes and enqueue, or close admission with the first delivery failure. Reuse ZIO STM rather than a separate `Ref` check followed by enqueue. Accepted events keep their reservation while held by any internal forwarding worker; release it when the event leaves the runtime-owned delivery backlog. Parallel publishers cannot oversubscribe the budget. Admission must not wait for the diagnostic consumer, including during masked finalization or lease closure.
+
+Apply final source/correlation transformations before measuring and admitting the event. Nested source-bound ports should publish directly into the owning backlog rather than build another queue and readmit transformed events. If an internal transfer must change an already charged payload, recost it atomically under both byte limits without releasing its reservation first. Verify an event at the byte boundary whose child-source prefix increases the encoded size.
+
+Publication returns an explicit admission status: Accepted, Rejected(reason) for the publication that closes admission, or Closed thereafter. Rejection distinguishes capacity exhaustion from encoding failure; either closes diagnostics with that recorded failure. These statuses do not become model failures or tool Error observations. Preserve lease-specific Closed semantics during migration. A first-failure latch prevents later publications from changing the reported error or extending the accepted prefix.
+
+### Delivery and completion
+
+Deliver the accepted FIFO prefix. Store complete execution `Exit[AgentError, A]` in a separate terminal slot; terminal publication never waits for diagnostic capacity. A successful stream emits the complete Result only if execution and diagnostic delivery both succeeded.
+
+Overflow rejects admission immediately, but the attached stream reports its terminal delivery error only after its owned execution finishes and cleanup joins. Reporting it earlier would close the stream's scope and accidentally cancel execution. Do not promise immediate terminal failure or bounded completion latency: model execution and required observers keep their existing lifecycle contracts. No extra background supervisor is introduced.
+
+On execution failure plus delivery failure, retain the original full execution Cause first and append the distinct delivery failure in a documented sequential composition. Interruption remains interruption. No successful complete-delivery Result follows a diagnostic failure. A retained prepared handle exposes its exact joined execution outcome through `termination`; the convenience stream does not promise independent result retrieval after delivery failure. Prepared stream reading still owns attached execution; merely retaining its handle does not transfer ownership.
+
+Early reader termination, external cancellation and enclosing scope closure cancel attached execution and join cleanup as before. Overflow alone does not. Close diagnostic admission before joining workers so cleanup cannot depend on a paused consumer. Normal completion drains accepted events before terminal delivery; abandonment need not deliver remaining events. End-user receipt and durable acknowledgement remain host responsibilities.
+
+### Boundaries and acceptance
+
+The budget covers runtime-owned queued diagnostics, including claimed events retained by forwarding. It excludes canonical history, full invocation results, producer inputs, temporary encoding allocations and consumer-owned buffers. Encoded byte accounting is not a JVM heap limit, nor a bound on the size of a complete generic result. Avoid releasing many reservations into another internal unaccounted batch.
+
+Public barrier-based scenarios must show overflow while execution is held, continued completed-tool observations, deferred stream failure, exact prepared termination, FIFO admission and stable first failure under concurrency. Exercise nested forwarding, lease closure, early `take`, explicit cancellation, finalizer defects and simultaneous execution/delivery failure. Verify count and byte boundaries independently, including one oversized event and reservation retention while a worker holds an accepted event. Review all actual publication paths, migrate examples/custom clients, and perform the tracker-required full verification and packaged-consumer checks before accepting the behavior.
+
 ## Versioned remote storage
 
 The [versioned publication port](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-json-publication) and optional PostgreSQL backend use explicit host-selected addresses. Memory and transcript aggregates, immutable transcript segments and catalogs retry only definite CAS conflicts; uncertain writes propagate without automatic replay. The [persistent trigger gate](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/memory/README.md#versioned-memory-trigger-gate) shares structural reservations under host-consistent policies and trusted clocks; admission is not execution ownership. [Acting checkpoints](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/storage/README.md#versioned-acting-checkpoints) validate data before one host-expected CAS without read-before-write or retry.
