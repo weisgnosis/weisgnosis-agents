@@ -4,7 +4,7 @@ package com.weisgnosis.agents.examples
 import com.weisgnosis.agents.core.agent.*
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.eviction.*
@@ -93,7 +93,7 @@ object LiveContextEvidence extends ZIOAppDefault:
                   history: Chunk[Msg],
                   tools: Chunk[ToolDef],
                   settings: LlmConfig,
-                  hub: Hub[AgentEvent],
+                  hub: EventPublisher,
                   context: ModelStreamContext
               ): ZIO[Scope, AgentError, TurnOutput] =
                 requests
@@ -107,7 +107,6 @@ object LiveContextEvidence extends ZIOAppDefault:
               ZIO.scoped:
                 for
                   _       <- summaries.update(_ :+ history)
-                  hub     <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
                   reply   <- Random.nextUUID
                   request <- Random.nextUUID
                   data <- ZIO
@@ -122,7 +121,7 @@ object LiveContextEvidence extends ZIOAppDefault:
                     ),
                     Chunk.empty,
                     config,
-                    hub,
+                    EventPublisher.discard,
                     ModelStreamContext(reply.toString, request.toString)
                   )
                   text <- output match

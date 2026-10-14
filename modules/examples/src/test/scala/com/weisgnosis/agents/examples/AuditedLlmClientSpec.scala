@@ -12,7 +12,7 @@ package com.weisgnosis.agents.examples
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.json.ast.Json
@@ -37,10 +37,10 @@ object AuditedLlmClientSpec extends ZIOSpecDefault:
               calls    <- Ref.make(0)
               released <- Ref.make(false)
               records  <- Ref.make(Chunk.empty[(AuditedLlmClient.Observation, Boolean)])
-              hub      <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+              publisher = EventPublisher.discard
               captured <- Ref.make(
                 Chunk.empty[
-                  (Chunk[Msg], Chunk[ToolDef], LlmConfig, Hub[AgentEvent], ModelStreamContext)
+                  (Chunk[Msg], Chunk[ToolDef], LlmConfig, EventPublisher, ModelStreamContext)
                 ]
               )
               history        = Chunk(Msg.user("request content"))
@@ -55,7 +55,7 @@ object AuditedLlmClientSpec extends ZIOSpecDefault:
                     input: Chunk[Msg],
                     definitions: Chunk[ToolDef],
                     selected: LlmConfig,
-                    events: Hub[AgentEvent],
+                    events: EventPublisher,
                     correlation: ModelStreamContext
                 ): ZIO[Scope, AgentError, TurnOutput] =
                   ZIO.acquireRelease(
@@ -74,7 +74,7 @@ object AuditedLlmClientSpec extends ZIOSpecDefault:
               )
               lazyCalls <- calls.get
               result <- wrapped
-                .streamTurn(history, tools, config, hub, context)
+                .streamTurn(history, tools, config, publisher, context)
                 .exit
               invoked   <- calls.get
               observed  <- records.get
@@ -86,7 +86,7 @@ object AuditedLlmClientSpec extends ZIOSpecDefault:
             yield assertTrue(
               lazyCalls == 0,
               invoked == 1,
-              delegated == Chunk((history, tools, config, hub, context)),
+              delegated == Chunk((history, tools, config, publisher, context)),
               observed == Chunk(
                 AuditedLlmClient.Observation(context, Duration.Zero, expected) -> true
               ),
@@ -111,7 +111,6 @@ object AuditedLlmClientSpec extends ZIOSpecDefault:
           entered        <- Promise.make[Nothing, Unit]
           cleanupStarted <- Promise.make[Nothing, Unit]
           releaseCleanup <- Promise.make[Nothing, Unit]
-          hub            <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
           client = LlmClient.mockEffectful((_, _, _) =>
             ZIO.acquireRelease(calls.update(_ + 1))(_ =>
               cleanupStarted.succeed(()).unit *> releaseCleanup.await
@@ -120,7 +119,13 @@ object AuditedLlmClientSpec extends ZIOSpecDefault:
           )
           wrapped = AuditedLlmClient.wrap(client)(record => records.update(_ :+ record))
           running <- wrapped
-            .streamTurn(Chunk.empty, Chunk.empty, LlmConfig("test"), hub, context)
+            .streamTurn(
+              Chunk.empty,
+              Chunk.empty,
+              LlmConfig("test"),
+              EventPublisher.discard,
+              context
+            )
             .forkScoped
           _        <- entered.await
           stopping <- running.interrupt.forkScoped

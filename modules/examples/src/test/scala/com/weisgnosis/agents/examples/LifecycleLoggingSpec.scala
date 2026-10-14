@@ -13,7 +13,7 @@ package com.weisgnosis.agents.examples
 import com.weisgnosis.agents.core.agent.{AgentRunState, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, AgentEvent, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
@@ -82,7 +82,7 @@ object LifecycleLoggingSpec extends ZIOSpecDefault:
               history: Chunk[Msg],
               tools: Chunk[ToolDef],
               config: LlmConfig,
-              eventHub: Hub[AgentEvent],
+              eventHub: EventPublisher,
               context: ModelStreamContext
           ): ZIO[Scope, AgentError, TurnOutput] =
             ZIO.acquireRelease(entered.succeed(()))(_ =>
@@ -104,7 +104,7 @@ object LifecycleLoggingSpec extends ZIOSpecDefault:
               history: Chunk[Msg],
               tools: Chunk[ToolDef],
               config: LlmConfig,
-              eventHub: Hub[AgentEvent],
+              eventHub: EventPublisher,
               context: ModelStreamContext
           ): ZIO[Scope, AgentError, TurnOutput] = ZIO.fail(failure)
         failedAgent <- ReActAgent.builder().model(failing).build

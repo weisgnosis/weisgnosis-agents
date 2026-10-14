@@ -18,7 +18,7 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ToolExecution}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
@@ -81,7 +81,7 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
         history: Chunk[Msg],
         definitions: Chunk[ToolDef],
         config: LlmConfig,
-        events: Hub[AgentEvent],
+        events: EventPublisher,
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] =
       observe(history, definitions, config).as(

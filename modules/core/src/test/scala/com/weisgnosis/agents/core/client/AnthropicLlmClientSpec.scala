@@ -3,7 +3,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentRunState, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -93,7 +93,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                   Chunk(Msg.user("x")),
                   Chunk.empty,
                   config.copy(endpoint = s"http://127.0.0.1:$port/messages"),
-                  hub,
+                  EventPublisher.borrowedHub(hub),
                   context
                 )
                 .either
@@ -249,13 +249,29 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
             config.copy(reasoningEffort = Some(ReasoningEffort.Low))
           )
         )(settings =>
-          client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, settings, hub, context).either
+          client
+            .streamTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              settings,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+            .either
         )
         before <- attempted.get
         invalid <- ZIO.foreach(malformed)(wire =>
           AnthropicLlmClient
             .make(HttpClientTestSupport.scripted(_ => ZIO.succeed(response(wire))))
-            .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context))
+            .flatMap(
+              _.streamTurn(
+                Chunk(Msg.user("x")),
+                Chunk.empty,
+                config,
+                EventPublisher.borrowedHub(hub),
+                context
+              )
+            )
             .either
         )
         search <- ZIO.fromEither(AnthropicWebSearch.make())
@@ -276,7 +292,15 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
               HttpClientTestSupport.scripted(_ => ZIO.succeed(response(wire))),
               webSearch = Some(search)
             )
-            .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context))
+            .flatMap(
+              _.streamTurn(
+                Chunk(Msg.user("x")),
+                Chunk.empty,
+                config,
+                EventPublisher.borrowedHub(hub),
+                context
+              )
+            )
             .either
         )
         rejection <- AnthropicLlmClient
@@ -287,7 +311,15 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
               )
             )
           )
-          .flatMap(_.attemptTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context))
+          .flatMap(
+            _.attemptTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              config,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+          )
           .exit
         initialSignature <- AnthropicLlmClient
           .make(
@@ -303,7 +335,15 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
               )
             )
           )
-          .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context))
+          .flatMap(
+            _.streamTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              config,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+          )
           .either
       yield assertTrue(
         unsupported.forall(_.left.exists(_.isInstanceOf[AgentError.InvalidConfiguration])),
@@ -397,7 +437,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                   Chunk(Msg.user("x"), message, Msg.user("continue")),
                   Chunk.empty,
                   config,
-                  hub,
+                  EventPublisher.borrowedHub(hub),
                   context
                 )
                 .either
@@ -560,7 +600,13 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                 HttpClientTestSupport.scripted(_ => ZIO.fail(failure))
               )
               result <- client
-                .streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context)
+                .streamTurn(
+                  Chunk(Msg.user("x")),
+                  Chunk.empty,
+                  config,
+                  EventPublisher.borrowedHub(hub),
+                  context
+                )
                 .either
             yield assertTrue(
               result == Left(
@@ -579,7 +625,15 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
               )
             )
           )
-          body <- client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context).either
+          body <- client
+            .streamTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              config,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+            .either
         yield acquired.foldLeft(
           assertTrue(
             body == Left(
@@ -613,7 +667,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
             ),
             Chunk.empty,
             config,
-            hub,
+            EventPublisher.borrowedHub(hub),
             context
           )
           signed <- client.streamTurn(
@@ -629,7 +683,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
             ),
             Chunk.empty,
             config,
-            hub,
+            EventPublisher.borrowedHub(hub),
             context
           )
           malformed = Chunk(
@@ -651,7 +705,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                 Chunk(Msg.user("x"), Msg.assistant(Chunk(thinking)), Msg.user("continue")),
                 Chunk.empty,
                 config,
-                hub,
+                EventPublisher.borrowedHub(hub),
                 context
               )
               .either
@@ -757,7 +811,7 @@ object AnthropicLlmClientSpec extends ZIOSpecDefault:
                   Chunk(Msg.user("x")),
                   Chunk.empty,
                   config,
-                  hub,
+                  EventPublisher.borrowedHub(hub),
                   context,
                   partial.set
                 )

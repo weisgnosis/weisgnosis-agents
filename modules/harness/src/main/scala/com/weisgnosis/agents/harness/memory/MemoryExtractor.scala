@@ -17,7 +17,7 @@ package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 
@@ -34,14 +34,13 @@ object MemoryExtractor:
   /** A standalone text request without tools, structured response formatting, or agent mutation. */
   def fromClient(client: LlmClient, config: LlmConfig): MemoryExtractor = MemoryExtractor: input =>
     for
-      hub       <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
       replyId   <- Random.nextUUID.map(_.toString)
       requestId <- Random.nextUUID.map(_.toString)
       output <- client.streamTurn(
         input,
         Chunk.empty,
         config.copy(responseFormat = None),
-        hub,
+        EventPublisher.discard,
         ModelStreamContext(replyId, requestId)
       )
       text <- output match

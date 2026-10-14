@@ -4,7 +4,7 @@ package com.weisgnosis.agents.examples
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, ToolChoice, TurnOutput}
 import com.weisgnosis.agents.core.agent.{AgentConfig, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, ToolReturnMode, Toolkit}
 import zio.*
@@ -18,7 +18,7 @@ object LiveCoordinationEvidenceSpec extends ZIOSpecDefault:
         history: Chunk[Msg],
         tools: Chunk[ToolDef],
         config: LlmConfig,
-        hub: Hub[AgentEvent],
+        hub: EventPublisher,
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] =
       val selected =

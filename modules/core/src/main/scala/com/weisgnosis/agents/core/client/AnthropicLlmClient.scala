@@ -2,7 +2,7 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.{AgentError, TransportFailure}
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
@@ -26,16 +26,16 @@ final class AnthropicLlmClient private (
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext
   ): ZIO[Scope, AgentError, TurnOutput] =
-    attemptTurnWithProgress(history, tools, config, eventHub, context, _ => ZIO.unit)
+    attemptTurnWithProgress(history, tools, config, eventPublisher, context, _ => ZIO.unit)
 
   override private[core] def attemptTurnWithProgress(
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext,
       recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): ZIO[Scope, AgentError, TurnOutput] =
@@ -54,7 +54,7 @@ final class AnthropicLlmClient private (
           "anthropic-version" -> apiVersion
         ) ++
           config.apiKey.fold(Headers.empty)(value => Headers("x-api-key" -> value))
-        publisher <- ModelStreamPublisher.make(eventHub, context)
+        publisher <- ModelStreamPublisher.make(eventPublisher, context)
         response <- Client
           .streaming(
             Request.post(url, Body.fromString(JsonBoundary.render(body))).addHeaders(headers)

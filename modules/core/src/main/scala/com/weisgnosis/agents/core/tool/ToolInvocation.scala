@@ -15,7 +15,13 @@
  */
 package com.weisgnosis.agents.core.tool
 
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.{
+  AgentEvent,
+  EventAdmission,
+  EventPublisher,
+  ModelStreamContext
+}
 import com.weisgnosis.agents.core.model.ContentBlock
 import zio.*
 
@@ -33,19 +39,26 @@ enum ToolInvocation:
 
 enum ToolEventDelivery:
   case Published, Closed
+  case Rejected(reason: AgentError.EventDeliveryError)
 
 /** A revocable publication lease, not an execution owner or a guarantee of consumer delivery. */
 final class ToolEventPort private (
-    hub: Hub[AgentEvent],
+    publisher: EventPublisher,
     gate: Semaphore,
     availability: Ref[ToolEventPort.Availability]
 ):
-  /** Publication and closure are ordered; accepted publication only enqueues on the runtime hub. */
+  /** Publication and closure are ordered; acceptance is diagnostic admission, never consumer acknowledgement. */
   def publish(event: AgentEvent): UIO[ToolEventDelivery] =
     gate.withPermit:
       ZIO.uninterruptible:
         availability.get.flatMap:
-          case ToolEventPort.Availability.Open => hub.publish(event).as(ToolEventDelivery.Published)
+          case ToolEventPort.Availability.Open =>
+            publisher
+              .publish(event)
+              .map:
+                case EventAdmission.Accepted         => ToolEventDelivery.Published
+                case EventAdmission.Rejected(reason) => ToolEventDelivery.Rejected(reason)
+                case EventAdmission.Closed           => ToolEventDelivery.Closed
           case ToolEventPort.Availability.Closed => ZIO.succeed(ToolEventDelivery.Closed)
 
   private def close: UIO[Unit] =
@@ -55,11 +68,11 @@ object ToolEventPort:
   private enum Availability:
     case Open, Closed
 
-  /** Internal runtime boundary: the hub must be unbounded and outlive this lease. */
-  private[core] def open(hub: Hub[AgentEvent]): ZIO[Scope, Nothing, ToolEventPort] =
+  /** Internal runtime boundary: the nonblocking publisher must outlive this lease. */
+  private[core] def open(publisher: EventPublisher): ZIO[Scope, Nothing, ToolEventPort] =
     ZIO.acquireRelease(
       for
         gate         <- Semaphore.make(1)
         availability <- Ref.make(Availability.Open)
-      yield new ToolEventPort(hub, gate, availability)
+      yield new ToolEventPort(publisher, gate, availability)
     )(_.close)

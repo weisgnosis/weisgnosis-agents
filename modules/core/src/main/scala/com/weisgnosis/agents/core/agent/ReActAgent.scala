@@ -25,7 +25,15 @@ import com.weisgnosis.agents.core.client.{
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, InvocationContext, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{
+  AgentEvent,
+  DiagnosticDelivery,
+  EventAdmission,
+  EventDeliveryBudget,
+  EventPublisher,
+  InvocationContext,
+  ModelStreamContext
+}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillLibrary}
 import com.weisgnosis.agents.core.tool.*
@@ -33,7 +41,7 @@ import com.weisgnosis.agents.core.json.JsonBoundary
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
-import zio.stream.{Take, ZStream}
+import zio.stream.{ZChannel, ZStream}
 
 /**
  * Autonomous reasoning and acting agent executing pure functional ReAct loops.
@@ -235,8 +243,8 @@ final class ReActAgent private (
           resumed <- observeInvocation((invocation, complete) =>
             ZIO.scoped:
               for
-                hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-                value <- runResumeWithHub(prepared, hub, complete, invocation)
+                publisher <- ZIO.succeed(EventPublisher.discard)
+                value     <- runResumeWithPublisher(prepared, publisher, complete, invocation)
               yield value
           )
         yield resumed
@@ -265,18 +273,18 @@ final class ReActAgent private (
       tools <- restoredRunTools(checkpoint)
     yield PreparedResume(result, checkpoint, tools._1, tools._2)
 
-  private def runResumeWithHub(
+  private def runResumeWithPublisher(
       prepared: PreparedResume,
-      hub: Hub[AgentEvent],
+      publisher: EventPublisher,
       complete: AgentResult => IO[AgentError, Unit],
       invocation: InvocationContext
   ): ZIO[Scope, AgentError, AgentResult] =
     Ref
       .make(prepared.result.usage)
       .flatMap(usage =>
-        runWithHub(
+        runWithPublisher(
           RunEntry.Resume(prepared.result, prepared.checkpoint, prepared.admitted),
-          hub,
+          publisher,
           prepared.tools,
           usage,
           complete,
@@ -351,11 +359,17 @@ final class ReActAgent private (
       (context, owner) => runAdmitted(messages, Some(context), Some(owner)),
       (context, owner) =>
         streamRun(
-          hub =>
+          publisher =>
             owner.admitted *> requireFreshRun *> observeInvocation(
               (invocation, complete) =>
                 ZIO.scoped(
-                  runOrdinaryWithHub(messages, hub, complete, invocation, Some(owner.cooperative))
+                  runOrdinaryWithPublisher(
+                    messages,
+                    publisher,
+                    complete,
+                    invocation,
+                    Some(owner.cooperative)
+                  )
                 ),
               Some(context)
             ),
@@ -378,10 +392,10 @@ final class ReActAgent private (
         ) *> requireFreshRun *> observeInvocation(
           (invocation, complete) =>
             ZIO.scoped(for
-              hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-              result <- runOrdinaryWithHub(
+              publisher <- ZIO.succeed(EventPublisher.discard)
+              result <- runOrdinaryWithPublisher(
                 messages,
-                hub,
+                publisher,
                 complete,
                 invocation,
                 owner.map(_.cooperative)
@@ -403,8 +417,9 @@ final class ReActAgent private (
   ): ZIO[Scope, AgentError, AgentResult] =
     runLock
       .withPermit(
-        requireFreshRun *> forwardInvocation(destination, source)((hub, complete, invocation) =>
-          runOrdinaryWithHub(messages, hub, complete, invocation)
+        requireFreshRun *> forwardInvocation(destination, source)(
+          (publisher, complete, invocation) =>
+            runOrdinaryWithPublisher(messages, publisher, complete, invocation)
         )
       )
       .publishAfterGate(publishPeers)
@@ -417,8 +432,8 @@ final class ReActAgent private (
     runLock
       .withPermit(
         prepareResume(results).flatMap(prepared =>
-          forwardInvocation(destination, source)((hub, complete, invocation) =>
-            runResumeWithHub(prepared, hub, complete, invocation)
+          forwardInvocation(destination, source)((publisher, complete, invocation) =>
+            runResumeWithPublisher(prepared, publisher, complete, invocation)
           )
         )
       )
@@ -428,27 +443,26 @@ final class ReActAgent private (
       destination: ToolEventPort,
       source: String
   )(
-      invoke: (Hub[AgentEvent], AgentResult => IO[AgentError, Unit], InvocationContext) => ZIO[
+      invoke: (EventPublisher, AgentResult => IO[AgentError, Unit], InvocationContext) => ZIO[
         Scope,
         AgentError,
         AgentResult
       ]
   ): ZIO[Scope, AgentError, AgentResult] =
-    def forward(event: AgentEvent): UIO[Unit] =
-      destination
-        .publish(event.withSource(event.source.fold(source)(nested => s"$source/$nested")))
-        .unit
-
     observeInvocation((invocation, complete) =>
       ZIO.scoped:
-        for
-          hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-          subscription <- hub.subscribe
-          drain        <- AgentEventForwarder.start(subscription, forward)
-          result <- ZIO
-            .scoped(invoke(hub, complete, invocation))
-            .ensuring(drain)
-        yield result
+        invoke(
+          EventPublisher.fromFunction(event =>
+            destination
+              .publish(event.withSource(event.source.fold(source)(nested => s"$source/$nested")))
+              .map:
+                case ToolEventDelivery.Published        => EventAdmission.Accepted
+                case ToolEventDelivery.Rejected(reason) => EventAdmission.Rejected(reason)
+                case ToolEventDelivery.Closed           => EventAdmission.Closed
+          ),
+          complete,
+          invocation
+        )
     )
 
   private[agents] def runForwarding(
@@ -468,18 +482,25 @@ final class ReActAgent private (
       .withPermit(
         requireFreshRun *> observeInvocation((invocation, complete) =>
           ZIO.scoped(for
-            hub    <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-            result <- runStructuredWithHub[A](messages, schema, mode, hub, complete, invocation)
+            publisher <- ZIO.succeed(EventPublisher.discard)
+            result <- runStructuredWithPublisher[A](
+              messages,
+              schema,
+              mode,
+              publisher,
+              complete,
+              invocation
+            )
           yield result)
         )
       )
       .publishAfterGate(publishStructured[A])
 
-  private def runStructuredWithHub[A: JsonCodec](
+  private def runStructuredWithPublisher[A: JsonCodec](
       messages: Chunk[Msg],
       schema: Json,
       mode: StructuredMode,
-      hub: Hub[AgentEvent],
+      publisher: EventPublisher,
       complete: AgentResult => IO[AgentError, Unit],
       invocation: InvocationContext
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
@@ -505,9 +526,9 @@ final class ReActAgent private (
             .flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
 
         def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
-          runWithHub(
+          runWithPublisher(
             RunEntry.Fresh(preparedMessages),
-            hub,
+            publisher,
             runTools,
             usageRef,
             complete,
@@ -525,9 +546,9 @@ final class ReActAgent private (
           ZIO
             .fromEither(runTools.withControl(syntheticTool))
             .flatMap(active =>
-              runWithHub(
+              runWithPublisher(
                 RunEntry.Fresh(input),
-                hub,
+                publisher,
                 active,
                 usageRef,
                 complete,
@@ -618,15 +639,16 @@ final class ReActAgent private (
    * Streams one invocation's events followed by its complete result, after execution cleanup.
    * A fully consumed stream preserves the full failure Cause and emits no Result on failure.
    * Early consumers cancel and join owned work but abandon subsequent output, including terminal
-   * observer failures. This uses the existing unbounded delivery buffers and provides no replay.
+   * observer failures. Diagnostic admission uses the configured count/byte budget; overflow
+   * does not cancel execution, and its terminal error follows joined cleanup. No replay is provided.
    */
   def streamWithResult(
       messages: Chunk[Msg]
   ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
     streamRun(
-      hub =>
+      publisher =>
         requireFreshRun *> observeInvocation((invocation, complete) =>
-          ZIO.scoped(runOrdinaryWithHub(messages, hub, complete, invocation))
+          ZIO.scoped(runOrdinaryWithPublisher(messages, publisher, complete, invocation))
         ),
       publishPeers
     )
@@ -639,10 +661,10 @@ final class ReActAgent private (
       results: Chunk[SuppliedToolResult] = Chunk.empty
   ): ZStream[Scope, AgentError, AgentRunUpdate[AgentResult]] =
     streamRun(
-      hub =>
+      publisher =>
         prepareResume(results).flatMap(prepared =>
           observeInvocation((invocation, complete) =>
-            ZIO.scoped(runResumeWithHub(prepared, hub, complete, invocation))
+            ZIO.scoped(runResumeWithPublisher(prepared, publisher, complete, invocation))
           )
         ),
       publishPeers
@@ -660,9 +682,11 @@ final class ReActAgent private (
       mode: StructuredMode = StructuredMode.Auto
   ): ZStream[Scope, AgentError, AgentRunUpdate[(AgentResult, A)]] =
     streamRun(
-      hub =>
+      publisher =>
         requireFreshRun *> observeInvocation((invocation, complete) =>
-          ZIO.scoped(runStructuredWithHub[A](messages, schema, mode, hub, complete, invocation))
+          ZIO.scoped(
+            runStructuredWithPublisher[A](messages, schema, mode, publisher, complete, invocation)
+          )
         ),
       publishStructured[A]
     )
@@ -694,36 +718,38 @@ final class ReActAgent private (
     streamStructuredEvents[A](Chunk(message), schema, StructuredMode.Auto)
 
   private def streamRun[A](
-      runEffect: Hub[AgentEvent] => ZIO[Scope, AgentError, A],
+      runEffect: EventPublisher => ZIO[Scope, AgentError, A],
       publish: A => IO[AgentError, A],
       owner: Option[PreparedInvocation.Control[A]] = None
   ): ZStream[Scope, AgentError, AgentRunUpdate[A]] =
-    ZStream.unwrapScoped {
-      for
-        hub <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-        sub <- hub.subscribe
-        delivery <- ZIO.acquireRelease(Queue.unbounded[Take[AgentError, AgentRunUpdate[A]]])(
-          _.shutdown
-        )
-        drain <- AgentEventForwarder.start(
-          sub,
-          event => delivery.offer(Take.single(AgentRunUpdate.Event(event))).unit
-        )
-        _ <- ZIO.uninterruptibleMask { restore =>
-          for
-            execute = runLock.withPermit(runEffect(hub)).publishAfterGate(publish)
+    ZStream.unwrapScoped:
+      ZIO.uninterruptibleMask: restore =>
+        for
+          delivery <- DiagnosticDelivery.make(config.eventDeliveryBudget)
+          terminal <- Promise.make[Nothing, Exit[AgentError, A]]
+          _ <- (for
+            execute = runLock.withPermit(runEffect(delivery.publisher)).publishAfterGate(publish)
             exit <- restore(owner.fold(execute)(_.execute(execute))).exit
-            _    <- drain
-            _ <- exit match
-              case Exit.Success(value) =>
-                delivery.offer(Take.single(AgentRunUpdate.Result(value))) *> delivery.offer(
-                  Take.end
-                )
-              case Exit.Failure(cause) => delivery.offer(Take.failCause(cause))
-          yield ()
-        }.forkScoped
-      yield ZStream.fromQueue(delivery).flattenTake
-    }
+            _    <- terminal.succeed(exit)
+            _    <- delivery.finish
+          yield ()).forkScoped
+          // Abandon admission before scoped worker interruption joins its owned finalizers.
+          _ <- ZIO.addFinalizer(delivery.abandon)
+        yield
+          val events = ZStream.repeatZIOOption:
+            delivery.take.flatMap:
+              case Some(event) => ZIO.succeed(AgentRunUpdate.Event(event))
+              case None        => ZIO.fail(None)
+          val result = ZStream.unwrap:
+            terminal.await
+              .zip(delivery.failure)
+              .map:
+                case (Exit.Success(value), None)    => ZStream.succeed(AgentRunUpdate.Result(value))
+                case (Exit.Success(_), Some(error)) => ZStream.fail(error)
+                case (Exit.Failure(cause), None) => ZStream.fromChannel(ZChannel.failCause(cause))
+                case (Exit.Failure(cause), Some(error)) =>
+                  ZStream.fromChannel(ZChannel.failCause(cause ++ Cause.fail(error)))
+          events ++ result
 
   def streamEvents(message: Msg): ZStream[Scope, AgentError, AgentEvent] =
     streamEvents(Chunk(message))
@@ -975,9 +1001,9 @@ final class ReActAgent private (
       _         <- stateRef.set(validated.history)
     yield validated.input
 
-  private def runOrdinaryWithHub(
+  private def runOrdinaryWithPublisher(
       messages: Chunk[Msg],
-      hub: Hub[AgentEvent],
+      publisher: EventPublisher,
       complete: AgentResult => IO[AgentError, Unit],
       invocation: InvocationContext,
       interruptSignal: Option[Promise[Nothing, Unit]] = None
@@ -987,9 +1013,9 @@ final class ReActAgent private (
       preparedMessages <- prepareInvocationInput(invocation, messages)
       runTools         <- makeRunTools
       usage            <- Ref.make[Option[ChatUsage]](None)
-      result <- runWithHub(
+      result <- runWithPublisher(
         RunEntry.Fresh(preparedMessages),
-        hub,
+        publisher,
         runTools,
         usage,
         complete,
@@ -1010,9 +1036,9 @@ final class ReActAgent private (
       case Ordinary             => ZIO.none
       case Structured(response) => response.get
 
-  private def runWithHub[A](
+  private def runWithPublisher[A](
       entry: RunEntry,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       runTools: RunTools,
       usageRef: Ref[Option[ChatUsage]],
       complete: AgentResult => IO[AgentError, Unit],
@@ -1060,8 +1086,8 @@ final class ReActAgent private (
         case _ => RunProgress.Ready)
       result <- ZIO
         .acquireReleaseWith(
-          eventHub.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
-        )(_ => eventHub.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
+          eventPublisher.publish(AgentEvent.AgentStartEvent(agentId, replyId, agentId))
+        )(_ => eventPublisher.publish(AgentEvent.AgentEndEvent(replyId)).unit) { _ =>
           ZIO.uninterruptibleMask { restore =>
             val execute = entry match
               case RunEntry.Fresh(_) =>
@@ -1072,7 +1098,7 @@ final class ReActAgent private (
                       0,
                       0,
                       runTools,
-                      eventHub,
+                      eventPublisher,
                       replyId,
                       invocation,
                       requestConfig,
@@ -1087,7 +1113,7 @@ final class ReActAgent private (
                   result.iterationCount,
                   runTools,
                   admitted,
-                  eventHub,
+                  eventPublisher,
                   pending.context.copy(invocation = Some(invocation)),
                   invocation,
                   requestConfig,
@@ -1125,7 +1151,7 @@ final class ReActAgent private (
               )
               _ <- stateRef.set(completed._1.history)
               _ <- complete(completed._1)
-              _ <- eventHub.publish(AgentEvent.AgentResultEvent(completed._1.reply))
+              _ <- eventPublisher.publish(AgentEvent.AgentResultEvent(completed._1.reply))
             yield completed
           }
         }
@@ -1219,7 +1245,7 @@ final class ReActAgent private (
       completedIterations: Int,
       emptyThinkingRetries: Int,
       runTools: RunTools,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       replyId: String,
       invocation: InvocationContext,
       requestConfig: LlmConfig,
@@ -1229,7 +1255,7 @@ final class ReActAgent private (
   ): ZIO[Scope, AgentError, AgentResult] =
     if completedIterations >= config.maxIterations then
       for
-        _ <- eventHub.publish(
+        _ <- eventPublisher.publish(
           AgentEvent.ExceedMaxItersEvent(replyId, config.maxIterations, completedIterations)
         )
         maxIterMsg <- ZIO.succeed(
@@ -1330,7 +1356,7 @@ final class ReActAgent private (
                                 iteration,
                                 emptyThinkingRetries + 1,
                                 runTools,
-                                eventHub,
+                                eventPublisher,
                                 replyId,
                                 invocation,
                                 requestConfig,
@@ -1367,7 +1393,7 @@ final class ReActAgent private (
                             iteration,
                             runTools,
                             activeToolkit,
-                            eventHub,
+                            eventPublisher,
                             received.context,
                             invocation,
                             requestConfig,
@@ -1392,7 +1418,7 @@ final class ReActAgent private (
                   requestConfig,
                   replyId,
                   invocation,
-                  eventHub,
+                  eventPublisher,
                   usageRef,
                   progressRef
                 )
@@ -1402,7 +1428,7 @@ final class ReActAgent private (
             def requestModel: ZIO[Scope, AgentError, AgentResult] =
               raceWithInterrupt(ZIO.scoped:
                 for
-                  hints <- PhaseHints.open(eventHub)
+                  hints <- PhaseHints.open(eventPublisher)
                   decided <- phaseObserver.around(
                     PhaseContext.Reasoning(invocation, iteration),
                     Some(hints)
@@ -1418,7 +1444,7 @@ final class ReActAgent private (
                           iteration,
                           emptyThinkingRetries,
                           runTools,
-                          eventHub,
+                          eventPublisher,
                           replyId,
                           invocation,
                           requestConfig,
@@ -1456,7 +1482,7 @@ final class ReActAgent private (
                             runTools,
                             activeToolkit,
                             requestConfig,
-                            eventHub,
+                            eventPublisher,
                             progressRef,
                             usageRef,
                             accepted => observeAccepted(accepted, received)
@@ -1473,7 +1499,7 @@ final class ReActAgent private (
       iteration: Int,
       runTools: RunTools,
       activeToolkit: Toolkit,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext,
       invocation: InvocationContext,
       requestConfig: LlmConfig,
@@ -1539,7 +1565,7 @@ final class ReActAgent private (
             position,
             activeToolkit,
             stateRef,
-            eventHub,
+            eventPublisher,
             context,
             argumentPolicy,
             progressRef,
@@ -1579,13 +1605,13 @@ final class ReActAgent private (
           yield waiting ++ initial ++ continued
         phase = ZIO
           .foreach(inlineToProcess) { case (call, indexed) =>
-            processInlineResult(call, indexed, position, context, eventHub).map(
+            processInlineResult(call, indexed, position, context, eventPublisher).map(
               ActingOutcome.Observed(_)
             )
           }
           .zipWith(
             ZIO.foreach(supplied)(recorded =>
-              eventHub.publish(
+              eventPublisher.publish(
                 AgentEvent.ToolResultStartEvent(
                   recorded.call.call.id,
                   recorded.call.call.name,
@@ -1594,7 +1620,7 @@ final class ReActAgent private (
               ) *> processRecordedResult(
                 recorded,
                 context,
-                eventHub,
+                eventPublisher,
                 Toolkit.ProgressDisposition.NoProgress
               ).map(ActingOutcome.Observed(_))
             )
@@ -1642,14 +1668,15 @@ final class ReActAgent private (
                   ),
                   iteration,
                   runTools,
-                  eventHub,
+                  eventPublisher,
                   progressRef,
                   usageRef,
                   stop
                 )
               case false =>
                 stop match
-                  case Some(value) => stoppedToolTurn(position, iteration, value.reason, eventHub)
+                  case Some(value) =>
+                    stoppedToolTurn(position, iteration, value.reason, eventPublisher)
                   case None =>
                     (for
                       completed <-
@@ -1658,7 +1685,7 @@ final class ReActAgent private (
                       _ <- ZIO.when(
                         completed.nonEmpty && completed.forall(_._2.state == ToolResultState.Denied)
                       )(
-                        eventHub.publish(AgentEvent.AllToolsDeniedEvent(completed.map(_._1)))
+                        eventPublisher.publish(AgentEvent.AllToolsDeniedEvent(completed.map(_._1)))
                       )
                       result <-
                         if direct then
@@ -1678,7 +1705,7 @@ final class ReActAgent private (
                                 iteration,
                                 0,
                                 runTools,
-                                eventHub,
+                                eventPublisher,
                                 context.replyId,
                                 invocation,
                                 requestConfig,
@@ -1694,7 +1721,7 @@ final class ReActAgent private (
       pending: PendingActing,
       iteration: Int,
       runTools: RunTools,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       progressRef: Ref[RunProgress],
       usageRef: Ref[Option[ChatUsage]],
       stop: Option[ActingStop]
@@ -1734,12 +1761,12 @@ final class ReActAgent private (
       _ <- stateRef.set(updated) *> pendingRef.set(Some(result))
       _ <- ZIO.foreachDiscard(checkpoint.permissionRequests)(request =>
         ZIO.foreachDiscard(reply.toolUses.lift(request.callOrdinal))(call =>
-          eventHub.publish(
+          eventPublisher.publish(
             AgentEvent.PermissionAskEvent(request.requestId, call.name, request.input)
           )
         )
       )
-      _ <- eventHub.publish(
+      _ <- eventPublisher.publish(
         AgentEvent.RequestStopEvent(pending.reason, GenerateReason.PermissionAsking)
       )
     yield result
@@ -1763,7 +1790,7 @@ final class ReActAgent private (
       requestConfig: LlmConfig,
       replyId: String,
       invocation: InvocationContext,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       usageRef: Ref[Option[ChatUsage]],
       progressRef: Ref[RunProgress]
   ): IO[AgentError, ReceivedModelTurn] =
@@ -1843,13 +1870,13 @@ final class ReActAgent private (
             )
             result <- ZIO.scoped:
               for
-                hints <- PhaseHints.open(eventHub)
+                hints <- PhaseHints.open(eventPublisher)
                 received <- phaseObserver.around(
                   PhaseContext.ModelCall(context, target.config.model),
                   Some(hints)
                 )(
                   for
-                    _ <- eventHub.publish(
+                    _ <- eventPublisher.publish(
                       AgentEvent
                         .ModelRequestStartEvent(target.config.model, 0, context = Some(context))
                     )
@@ -1859,7 +1886,7 @@ final class ReActAgent private (
                           view,
                           tools,
                           projectedConfig,
-                          eventHub,
+                          eventPublisher,
                           context,
                           partialRef.set
                         )
@@ -1870,7 +1897,7 @@ final class ReActAgent private (
                     _ <- output match
                       case _: TurnOutput.Interrupted => ZIO.unit
                       case _ =>
-                        eventHub
+                        eventPublisher
                           .publish(
                             AgentEvent.ModelResponseEndEvent(
                               target.config.model,
@@ -2046,7 +2073,7 @@ final class ReActAgent private (
       runTools: RunTools,
       admitted: Toolkit,
       requestConfig: LlmConfig,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       progressRef: Ref[RunProgress],
       usageRef: Ref[Option[ChatUsage]],
       observe: Msg => IO[AgentError, AcceptedResponseObservation]
@@ -2079,7 +2106,7 @@ final class ReActAgent private (
         case AcceptedResponseObservation.Interrupted =>
           handleInterrupt(stateRef, iteration, progressRef)
         case AcceptedResponseObservation.Completed =>
-          pendingRef.set(Some(result)) *> eventHub
+          pendingRef.set(Some(result)) *> eventPublisher
             .publish(
               AgentEvent.RequestStopEvent(reason, GenerateReason.ReasoningStopRequested)
             )
@@ -2245,7 +2272,7 @@ final class ReActAgent private (
       position: Int,
       iteration: Int,
       reason: String,
-      eventHub: Hub[AgentEvent]
+      eventPublisher: EventPublisher
   ): IO[AgentError, AgentResult] =
     for
       _ <- stateRef.update(_.zipWithIndex.map { case (message, index) =>
@@ -2254,7 +2281,9 @@ final class ReActAgent private (
         else message
       })
       result <- completedToolTurn(position, iteration)
-      _ <- eventHub.publish(AgentEvent.RequestStopEvent(reason, GenerateReason.ActingStopRequested))
+      _ <- eventPublisher.publish(
+        AgentEvent.RequestStopEvent(reason, GenerateReason.ActingStopRequested)
+      )
     yield result.copy(state = AgentRunState.Stopped(reason))
 
   private def processedResult(result: ContentBlock.ToolResult): UIO[ProcessedResult] =
@@ -2271,7 +2300,7 @@ final class ReActAgent private (
       indexed: IndexedToolResult,
       assistantPosition: Int,
       context: ModelStreamContext,
-      eventHub: Hub[AgentEvent]
+      eventPublisher: EventPublisher
   ): UIO[Option[ActingStop]] =
     ZIO.uninterruptibleMask: restore =>
       for
@@ -2281,37 +2310,37 @@ final class ReActAgent private (
             message.mapToolResultAt(indexed.ordinal)(_ => completed.result)
           else message
         })
-        _ <- publishInlineResult(call.call, completed.result, context, eventHub)
+        _ <- publishInlineResult(call.call, completed.result, context, eventPublisher)
       yield completed.stop.map(ActingStop(call.ordinal, _))
 
   private def publishInlineResult(
       call: ContentBlock.ToolUse,
       result: ContentBlock.ToolResult,
       context: ModelStreamContext,
-      eventHub: Hub[AgentEvent]
+      eventPublisher: EventPublisher
   ): UIO[Unit] =
-    eventHub.publish(
+    eventPublisher.publish(
       AgentEvent.ToolResultStartEvent(
         call.id,
         call.name,
         metadata = result.metadata,
         context = Some(context)
       )
-    ) *> publishCompletedResult(call, result, context, eventHub)
+    ) *> publishCompletedResult(call, result, context, eventPublisher)
 
   private def publishCompletedResult(
       call: ContentBlock.ToolUse,
       result: ContentBlock.ToolResult,
       context: ModelStreamContext,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       progress: Toolkit.ProgressDisposition = Toolkit.ProgressDisposition.NoProgress
   ): UIO[Unit] =
     for
       _ <- progress match
         case Toolkit.ProgressDisposition.NoProgress =>
-          publishResultPayload(call, result, context, eventHub)
+          publishResultPayload(call, result, context, eventPublisher)
         case Toolkit.ProgressDisposition.ProgressPublished => ZIO.unit
-      _ <- eventHub.publish(
+      _ <- eventPublisher.publish(
         AgentEvent.ToolResultEndEvent(
           call.id,
           call.name,
@@ -2327,11 +2356,11 @@ final class ReActAgent private (
       call: ContentBlock.ToolUse,
       result: ContentBlock.ToolResult,
       context: ModelStreamContext,
-      eventHub: Hub[AgentEvent]
+      eventPublisher: EventPublisher
   ): UIO[Unit] =
     ZIO.foreachDiscard(result.output):
       case ContentBlock.Text(text) =>
-        eventHub.publish(
+        eventPublisher.publish(
           AgentEvent.ToolResultDeltaEvent(
             call.id,
             text,
@@ -2340,7 +2369,7 @@ final class ReActAgent private (
           )
         )
       case data =>
-        eventHub.publish(
+        eventPublisher.publish(
           AgentEvent.ToolResultDataDeltaEvent(
             context.replyId,
             call.id,
@@ -2440,7 +2469,7 @@ final class ReActAgent private (
       assistantPosition: Int,
       toolkit: Toolkit,
       stateRef: Ref[Chunk[Msg]],
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext,
       argumentPolicy: ArgumentPolicy,
       progressRef: Ref[RunProgress],
@@ -2449,7 +2478,7 @@ final class ReActAgent private (
     ZIO.uninterruptibleMask: restore =>
       val indexed = prepared.indexed
       val call    = indexed.call
-      val start = eventHub.publish(
+      val start = eventPublisher.publish(
         AgentEvent.ToolResultStartEvent(call.id, call.name, context = Some(context))
       )
       def observe(
@@ -2495,7 +2524,7 @@ final class ReActAgent private (
           }) *> restore(
             ZIO.scoped(
               ToolEventPort
-                .open(eventHub)
+                .open(eventPublisher)
                 .flatMap(events =>
                   toolkit.dispatchObserved(
                     call.name,
@@ -2506,7 +2535,7 @@ final class ReActAgent private (
                       call,
                       payload.applyTo(ContentBlock.ToolResult(call.id, Some(call.name))),
                       context,
-                      eventHub
+                      eventPublisher
                     )
                   )
                 )
@@ -2545,11 +2574,11 @@ final class ReActAgent private (
           case Some(request) =>
             authorization match
               case Right((_, ToolAuthorization.Approved(_))) =>
-                eventHub
+                eventPublisher
                   .publish(AgentEvent.PermissionDecisionEvent(request.requestId, allowed = true))
                   .unit
               case Right((_, ToolAuthorization.Denied(reason))) =>
-                eventHub
+                eventPublisher
                   .publish(
                     AgentEvent.PermissionDecisionEvent(
                       request.requestId,
@@ -2576,7 +2605,7 @@ final class ReActAgent private (
                 processRecordedResult(
                   RecordedToolResult(indexed, resultBlock, position),
                   context,
-                  eventHub,
+                  eventPublisher,
                   observed.progress,
                   completed.localCall
                 )
@@ -2587,7 +2616,7 @@ final class ReActAgent private (
   private def processRecordedResult(
       recorded: RecordedToolResult,
       context: ModelStreamContext,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       progress: Toolkit.ProgressDisposition,
       localCall: Option[ContentBlock.ToolUse] = None
   ): IO[AgentError, Option[ActingStop]] =
@@ -2620,7 +2649,7 @@ final class ReActAgent private (
           recorded.call.call,
           completed.result,
           context,
-          eventHub,
+          eventPublisher,
           progress
         )
       yield completed.stop.map(ActingStop(recorded.call.ordinal, _))
@@ -2854,8 +2883,10 @@ object ReActAgent:
     def maxIters(m: Int): Builder                 = copy(_config = _config.copy(maxIterations = m))
     def timeout(d: Duration): Builder             = copy(_config = _config.copy(timeout = d))
     def toolExecution(te: ToolExecution): Builder = copy(_config = _config.copy(toolExecution = te))
-    def toolkit(tk: Toolkit): Builder             = copy(_toolkit = tk)
-    def toolGroups(groups: ToolGroups): Builder   = copy(_toolGroups = Some(groups))
+    def eventDeliveryBudget(budget: EventDeliveryBudget): Builder =
+      copy(_config = _config.copy(eventDeliveryBudget = budget))
+    def toolkit(tk: Toolkit): Builder                         = copy(_toolkit = tk)
+    def toolGroups(groups: ToolGroups): Builder               = copy(_toolGroups = Some(groups))
     def skills(catalog: SkillCatalog | SkillLibrary): Builder = copy(_skills = catalog)
     def model(c: LlmClient): Builder                          = copy(_client = Some(c))
     def client(c: LlmClient): Builder                         = copy(_client = Some(c))

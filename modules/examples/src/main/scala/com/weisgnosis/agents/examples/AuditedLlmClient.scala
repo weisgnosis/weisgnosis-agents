@@ -12,7 +12,7 @@ package com.weisgnosis.agents.examples
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
@@ -35,7 +35,7 @@ object AuditedLlmClient:
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          eventHub: Hub[AgentEvent],
+          eventHub: EventPublisher,
           context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
         for

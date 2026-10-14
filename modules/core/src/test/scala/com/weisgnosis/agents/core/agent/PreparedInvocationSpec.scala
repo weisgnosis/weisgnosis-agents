@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{Msg, Role}
 import com.weisgnosis.agents.core.tool.{ToolDef, Toolkit}
 import zio.*
@@ -178,7 +178,7 @@ object PreparedInvocationSpec extends ZIOSpecDefault:
                 history: Chunk[Msg],
                 tools: Chunk[ToolDef],
                 config: LlmConfig,
-                eventHub: Hub[AgentEvent],
+                eventHub: EventPublisher,
                 context: ModelStreamContext
             ): ZIO[Scope, AgentError, TurnOutput] =
               val label = history.reverse.find(_.role == Role.User).fold("")(_.text)
@@ -278,7 +278,7 @@ object PreparedInvocationSpec extends ZIOSpecDefault:
                 history: Chunk[Msg],
                 tools: Chunk[ToolDef],
                 config: LlmConfig,
-                eventHub: Hub[AgentEvent],
+                eventHub: EventPublisher,
                 context: ModelStreamContext
             ): ZIO[Scope, AgentError, TurnOutput] =
               contexts.update(_ :+ context) *> calls

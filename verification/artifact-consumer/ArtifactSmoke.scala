@@ -37,7 +37,12 @@ import com.weisgnosis.agents.core.client.{
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, FinalAnswerFilter, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{
+  AgentEvent,
+  EventPublisher,
+  FinalAnswerFilter,
+  ModelStreamContext
+}
 import com.weisgnosis.agents.core.json.ExactJson
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, MediaSource, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.{
@@ -317,6 +322,7 @@ object ArtifactSmoke extends ZIOAppDefault:
             agent <- ReActAgent
               .builder()
               .config(AgentConfig(emptyThinkingRetryLimit = 1))
+              .eventDeliveryBudget(com.weisgnosis.agents.core.event.EventDeliveryBudget.default)
               .emptyThinkingRetryLimit(0)
               .model(client)
               .phaseObserver(adapter.phaseObserver)
@@ -414,7 +420,7 @@ object ArtifactSmoke extends ZIOAppDefault:
               history: Chunk[Msg],
               tools: Chunk[ToolDef],
               config: LlmConfig,
-              eventHub: Hub[AgentEvent],
+              eventHub: EventPublisher,
               context: ModelStreamContext
           ): ZIO[Scope, AgentError, TurnOutput] =
             turns

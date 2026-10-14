@@ -58,7 +58,7 @@ object InvocationContextSpec extends ZIOSpecDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent],
+            eventHub: EventPublisher,
             context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           models.update(_ :+ context) *> (
@@ -147,7 +147,7 @@ object InvocationContextSpec extends ZIOSpecDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent],
+            eventHub: EventPublisher,
             context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           models.update(_ :+ context) *> modelCount

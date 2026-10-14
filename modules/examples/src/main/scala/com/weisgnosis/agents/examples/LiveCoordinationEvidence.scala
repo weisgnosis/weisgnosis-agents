@@ -12,7 +12,7 @@ import com.weisgnosis.agents.core.client.{
 }
 import com.weisgnosis.agents.core.coordination.{HubMode, MsgHub, Pipeline}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolHistory, ToolResultState}
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.permission.{CheckpointPermissionAuthorizer, PermissionEngine}
@@ -86,7 +86,7 @@ object LiveCoordinationEvidence extends ZIOAppDefault:
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          hub: Hub[AgentEvent],
+          hub: EventPublisher,
           context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
         requests

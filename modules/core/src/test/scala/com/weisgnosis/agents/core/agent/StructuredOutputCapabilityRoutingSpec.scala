@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -39,7 +39,7 @@ object StructuredOutputCapabilityRoutingSpec extends ZIOSpecDefault:
         history: Chunk[Msg],
         tools: Chunk[ToolDef],
         config: LlmConfig,
-        eventHub: Hub[AgentEvent],
+        eventHub: EventPublisher,
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] =
       val request = Request(history, tools, config)

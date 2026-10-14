@@ -3,7 +3,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.agent.{AgentRunState, AgentRunUpdate, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.{
@@ -97,7 +97,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
                   Chunk(Msg.user("x")),
                   Chunk(ToolDef(name, "lookup", Json.Obj())),
                   config.copy(endpoint = s"http://127.0.0.1:$port/messages"),
-                  hub,
+                  EventPublisher.borrowedHub(hub),
                   context
                 )
                 .either
@@ -108,7 +108,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
                 Chunk(Msg.user("x")),
                 Chunk(ToolDef(name, "lookup", Json.Obj())),
                 config.copy(endpoint = s"http://127.0.0.1:$port/messages"),
-                hub,
+                EventPublisher.borrowedHub(hub),
                 context
               )
             )
@@ -331,7 +331,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
           Chunk(Msg.user("x")),
           Chunk(declaration.copy(name = boundaryName)),
           config,
-          hub,
+          EventPublisher.borrowedHub(hub),
           context
         )
         oversizedDeclaration <- boundaryClient
@@ -339,7 +339,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
             Chunk(Msg.user("x")),
             Chunk(declaration.copy(name = boundaryName + "f")),
             config,
-            hub,
+            EventPublisher.borrowedHub(hub),
             context
           )
           .either
@@ -355,7 +355,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
           Chunk(Msg.user("x")),
           Chunk(declaration),
           config,
-          hub,
+          EventPublisher.borrowedHub(hub),
           context
         )
         invalidHistory = Chunk(
@@ -388,7 +388,15 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
         )
         before <- requests.get
         histories <- ZIO.foreach(invalidHistory)(history =>
-          client.streamTurn(history, Chunk(declaration), config, hub, context).either
+          client
+            .streamTurn(
+              history,
+              Chunk(declaration),
+              config,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+            .either
         )
         after <- requests.get
         unsupported <- client
@@ -396,7 +404,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
             Chunk(Msg.user("x")),
             Chunk(declaration),
             config.copy(parallelToolCalls = Some(ToolCallParallelism.Disabled)),
-            hub,
+            EventPublisher.borrowedHub(hub),
             context
           )
           .either
@@ -419,7 +427,15 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
             .make(
               HttpClientTestSupport.scripted(_ => ZIO.succeed(response(frame(parts, Some("STOP")))))
             )
-            .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk(declaration), config, hub, context))
+            .flatMap(
+              _.streamTurn(
+                Chunk(Msg.user("x")),
+                Chunk(declaration),
+                config,
+                EventPublisher.borrowedHub(hub),
+                context
+              )
+            )
             .either
         )
         dispatches <- Ref.make(0)
@@ -447,7 +463,13 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
           GeminiCodeExecution.Enabled
         )
         combined <- hosted
-          .streamTurn(Chunk(Msg.user("x")), Chunk(declaration), config, hub, context)
+          .streamTurn(
+            Chunk(Msg.user("x")),
+            Chunk(declaration),
+            config,
+            EventPublisher.borrowedHub(hub),
+            context
+          )
           .either
         finalRequests <- requests.get
       yield assertTrue(
@@ -603,7 +625,17 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
             config.copy(thinkingBudget = ThinkingBudget.fromInt(1024).toOption),
             config.copy(seed = Some(1L))
           )
-        )(value => client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, value, hub, context).either)
+        )(value =>
+          client
+            .streamTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              value,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+            .either
+        )
         before <- requests.get
         malformed = Chunk(
           frame(Chunk(text("unfinished"))),
@@ -624,7 +656,15 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
               HttpClientTestSupport.scripted(_ => ZIO.succeed(response(wire))),
               GeminiCodeExecution.Enabled
             )
-            .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context))
+            .flatMap(
+              _.streamTurn(
+                Chunk(Msg.user("x")),
+                Chunk.empty,
+                config,
+                EventPublisher.borrowedHub(hub),
+                context
+              )
+            )
             .either
         )
         disabled <- GeminiLlmClient
@@ -635,9 +675,23 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
               )
             )
           )
-          .flatMap(_.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context))
+          .flatMap(
+            _.streamTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              config,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+          )
           .either
-        generated <- client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context)
+        generated <- client.streamTurn(
+          Chunk(Msg.user("x")),
+          Chunk.empty,
+          config,
+          EventPublisher.borrowedHub(hub),
+          context
+        )
         changed = generated.message.withTextContent("changed")
         snapshot <- requests.get
         replay <- client
@@ -645,7 +699,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
             Chunk(Msg.user("x"), changed, Msg.user("next")),
             Chunk.empty,
             config,
-            hub,
+            EventPublisher.borrowedHub(hub),
             context
           )
           .either
@@ -675,7 +729,13 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
             for
               client <- GeminiLlmClient.make(HttpClientTestSupport.scripted(_ => ZIO.fail(failure)))
               result <- client
-                .streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context)
+                .streamTurn(
+                  Chunk(Msg.user("x")),
+                  Chunk.empty,
+                  config,
+                  EventPublisher.borrowedHub(hub),
+                  context
+                )
                 .either
             yield assertTrue(
               result == Left(
@@ -694,7 +754,15 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
               )
             )
           )
-          body <- client.streamTurn(Chunk(Msg.user("x")), Chunk.empty, config, hub, context).either
+          body <- client
+            .streamTurn(
+              Chunk(Msg.user("x")),
+              Chunk.empty,
+              config,
+              EventPublisher.borrowedHub(hub),
+              context
+            )
+            .either
         yield acquired.foldLeft(
           assertTrue(
             body == Left(AgentError.ModelError(200, "Failed to read Gemini UTF-8 stream (timeout)"))
@@ -790,7 +858,7 @@ object GeminiLlmClientSpec extends ZIOSpecDefault:
                 Chunk(Msg.user("x")),
                 Chunk.empty,
                 config,
-                hub,
+                EventPublisher.borrowedHub(hub),
                 context,
                 partial.set
               )

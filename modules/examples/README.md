@@ -40,7 +40,7 @@ The observer is an uninterruptible finalizer and must terminate. Its defects pro
 
 [LifecycleLogging](src/main/scala/com/weisgnosis/agents/examples/LifecycleLogging.scala) consumes result-bearing events through EOF using ZIO structured logging. Use LifecycleLogging.run within the agent's owner scope. It preserves the complete result, failure cause, cancellation, and joined cleanup without replaying turns.
 
-Its static allowlist excludes prompts, reasoning, outputs, metadata, raw tool/model names, and error causes. Runtime correlation IDs are observational. AgentEnd means closure, not success. A slow or failing logger affects consumption, and existing event buffers are unbounded. Hosts own inherited annotations, third-party logs, exporter privacy, retention, and access. ZIO log spans are not a distributed tracing implementation.
+Its static allowlist excludes prompts, reasoning, outputs, metadata, raw tool/model names, and error causes. Runtime correlation IDs are observational. AgentEnd means closure, not success. A slow logger can exhaust the agent's diagnostic budget; the stream then reports delivery failure after owned execution joins. A failing logger abandons the reader and cancels attached execution. See the [stream contract](../core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#result-bearing-streams). Hosts own inherited annotations, third-party logs, exporter privacy, retention, and access. ZIO log spans are not a distributed tracing implementation.
 
 [LifecycleLoggingSpec](src/test/scala/com/weisgnosis/agents/examples/LifecycleLoggingSpec.scala) covers correlation, redaction, failure preservation, and cleanup during cancellation; it does not establish a privacy boundary for unrelated host logging.
 

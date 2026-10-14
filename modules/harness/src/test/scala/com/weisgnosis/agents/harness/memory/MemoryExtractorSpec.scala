@@ -17,7 +17,12 @@ package com.weisgnosis.agents.harness.memory
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{
+  EventPublisher,
+  AgentEvent,
+  EventAdmission,
+  ModelStreamContext
+}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
@@ -30,18 +35,18 @@ object MemoryExtractorSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("MemoryExtractorSpec")(
     test(
-      "client extraction forwards input without tools or response formatting and closes its hub"
+      "client extraction forwards input without tools or response formatting and discards diagnostics"
     ) {
       for
         observed <- Ref.make(
-          Chunk.empty[(Chunk[Msg], Chunk[ToolDef], LlmConfig, ModelStreamContext, Hub[AgentEvent])]
+          Chunk.empty[(Chunk[Msg], Chunk[ToolDef], LlmConfig, ModelStreamContext, EventPublisher)]
         )
         client = new LlmClient:
           def streamTurn(
               history: Chunk[Msg],
               tools: Chunk[ToolDef],
               settings: LlmConfig,
-              hub: Hub[AgentEvent],
+              hub: EventPublisher,
               context: ModelStreamContext
           ): ZIO[Scope, AgentError, TurnOutput] =
             observed
@@ -56,7 +61,9 @@ object MemoryExtractorSpec extends ZIOSpecDefault:
         first    <- ZIO.scoped(extractor.extract(input))
         second   <- ZIO.scoped(extractor.extract(input))
         requests <- observed.get
-        shutdown <- ZIO.foreach(requests)(value => value._5.isShutdown)
+        admissions <- ZIO.foreach(requests)(value =>
+          value._5.publish(AgentEvent.AgentEndEvent("probe"))
+        )
       yield assertTrue(
         first == "- fact",
         second == "- fact",
@@ -66,7 +73,7 @@ object MemoryExtractorSpec extends ZIOSpecDefault:
         ),
         requests.map(_._4.requestId).toSet.size == 2,
         requests.map(_._4.replyId).toSet.size == 2,
-        shutdown.forall(identity)
+        admissions.forall(_ == EventAdmission.Closed)
       )
     },
     test("thinking-only output produces no extracted memory") {

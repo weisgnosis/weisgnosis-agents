@@ -23,7 +23,7 @@ import com.weisgnosis.agents.core.client.{
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{EventPublisher, AgentEvent}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -249,7 +249,7 @@ object ReActAgentToolAuthorizerSpec extends ZIOSpecDefault:
               cancelled    <- Promise.make[Nothing, Unit]
               hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
               subscription <- hub.subscribe
-              destination  <- ToolEventPort.open(hub)
+              destination  <- ToolEventPort.open(EventPublisher.borrowedHub(hub))
               model        <- client(Chunk(call))
               agent <- ReActAgent.make(
                 client = model,

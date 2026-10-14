@@ -10,7 +10,7 @@ import com.weisgnosis.agents.core.agent.{
   StructuredMode
 }
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -192,7 +192,13 @@ object TokenBudgetSpec extends ZIOSpecDefault:
                 model <- client(provider, missing, requests)
                 hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
                 output <- model
-                  .streamTurn(Chunk(Msg.user("work")), Chunk.empty, config, hub, context)
+                  .streamTurn(
+                    Chunk(Msg.user("work")),
+                    Chunk.empty,
+                    config,
+                    EventPublisher.borrowedHub(hub),
+                    context
+                  )
                   .either
               yield assertTrue(output.isLeft)
         structured <- ZIO.foreach(Chunk(StructuredMode.Native, StructuredMode.SyntheticTool)):

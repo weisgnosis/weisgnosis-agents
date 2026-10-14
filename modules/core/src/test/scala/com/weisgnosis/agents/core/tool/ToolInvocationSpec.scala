@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.tool
 
 import com.weisgnosis.agents.core.agent.{AgentConfig, ReActAgent, ToolExecution}
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{EventPublisher, AgentEvent}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import zio.*
 import zio.json.ast.Json
@@ -167,7 +167,7 @@ object ToolInvocationSpec extends ZIOSpecDefault:
         hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
         subscription <- hub.subscribe
         owner        <- Scope.make
-        port         <- owner.extend(ToolEventPort.open(hub))
+        port         <- owner.extend(ToolEventPort.open(EventPublisher.borrowedHub(hub)))
         first        <- port.publish(marker)
         raced <- ZIO
           .foreachPar(1 to 16)(_ => port.publish(marker))

@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.skill.{SkillCatalog, SkillDefinition}
 import com.weisgnosis.agents.core.tool.*
@@ -83,7 +83,7 @@ object ModelResponseObserverSpec extends ZIOSpecDefault:
                 history: Chunk[Msg],
                 tools: Chunk[ToolDef],
                 config: LlmConfig,
-                eventHub: Hub[AgentEvent],
+                eventHub: EventPublisher,
                 context: ModelStreamContext
             ): ZIO[Scope, AgentError, TurnOutput] =
               selected

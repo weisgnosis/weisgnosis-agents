@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{EventPublisher, AgentEvent}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -363,7 +363,7 @@ object ReActAgentReturnDirectSpec extends ZIOSpecDefault:
               .unit
             hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
             subscription <- hub.subscribe
-            destination  <- ToolEventPort.open(hub)
+            destination  <- ToolEventPort.open(EventPublisher.borrowedHub(hub))
             agent <- ReActAgent.make(
               client = LlmClient.mockFunction((_, _) =>
                 TurnOutput.ToolCalls(Msg.assistant(Chunk(call("first"))))

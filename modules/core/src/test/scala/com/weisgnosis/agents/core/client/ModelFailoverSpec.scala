@@ -24,7 +24,7 @@ import com.weisgnosis.agents.core.agent.{
   StructuredMode
 }
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{Msg, Role}
 import com.weisgnosis.agents.core.tool.{
   Tool,
@@ -439,19 +439,19 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                     history: Chunk[Msg],
                     tools: Chunk[ToolDef],
                     config: LlmConfig,
-                    eventHub: Hub[AgentEvent],
+                    eventPublisher: EventPublisher,
                     context: ModelStreamContext
                 ): ZIO[Scope, AgentError, TurnOutput] =
-                  live.streamTurn(history, tools, config, eventHub, context)
+                  live.streamTurn(history, tools, config, eventPublisher, context)
                 override private[core] def attemptTurn(
                     history: Chunk[Msg],
                     tools: Chunk[ToolDef],
                     config: LlmConfig,
-                    eventHub: Hub[AgentEvent],
+                    eventPublisher: EventPublisher,
                     context: ModelStreamContext
                 ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
                   ZIO.addFinalizer(ZIO.die(defect)) *> live
-                    .attemptTurn(history, tools, config, eventHub, context)
+                    .attemptTurn(history, tools, config, eventPublisher, context)
               target <- ChatCompletionsClient.make(
                 scripted(_ => targetCalls.update(_ + 1).as(response(answer)))
               )

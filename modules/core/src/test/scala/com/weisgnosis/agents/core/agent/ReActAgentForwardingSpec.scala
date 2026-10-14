@@ -17,7 +17,16 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{
+  AgentEvent,
+  DiagnosticDelivery,
+  EventAdmission,
+  EventDeliveryBudget,
+  EventPublisher,
+  ModelStreamContext
+}
+import com.weisgnosis.agents.core.json.ExactJson
+import java.nio.charset.StandardCharsets
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -34,7 +43,7 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
       for
         hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
         subscription <- hub.subscribe
-        destination  <- ToolEventPort.open(hub)
+        destination  <- ToolEventPort.open(EventPublisher.borrowedHub(hub))
         requests     <- Ref.make(0)
         observed     <- Ref.make(Chunk.empty[TurnCompletion])
         contexts     <- Ref.make(Chunk.empty[ModelStreamContext])
@@ -64,7 +73,7 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
               history: Chunk[Msg],
               tools: Chunk[ToolDef],
               config: LlmConfig,
-              eventHub: Hub[AgentEvent],
+              eventHub: EventPublisher,
               context: ModelStreamContext
           ): ZIO[Scope, AgentError, TurnOutput] =
             contexts.update(_ :+ context) *> requests
@@ -128,7 +137,7 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
       for
         hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
         subscription <- hub.subscribe
-        destination  <- ToolEventPort.open(hub)
+        destination  <- ToolEventPort.open(EventPublisher.borrowedHub(hub))
         observed     <- Ref.make(Chunk.empty[TurnCompletion])
         observer = TurnCompletionObserver(value =>
           observed.update(_ :+ value) *> ZIO.refailCause(observationCause)
@@ -187,12 +196,56 @@ object ReActAgentForwardingSpec extends ZIOSpecDefault:
         first.size == 1
       ) && cancellation
     },
+    test(
+      "nested forwarding charges its source prefix without interrupting completed child history"
+    ) {
+      val marker = AgentEvent.HintBlockEvent("x" * 4096)
+      for
+        json <- ZIO.fromEither(ExactJson.encode(marker))
+        bytes = json.getBytes(StandardCharsets.UTF_8).length.toLong
+        budget      <- ZIO.fromEither(EventDeliveryBudget.fromLimits(64, bytes * 64, bytes))
+        direct      <- DiagnosticDelivery.make(budget)
+        fits        <- direct.publisher.publish(marker)
+        delivery    <- DiagnosticDelivery.make(budget)
+        leaseOwner  <- ZIO.acquireRelease(Scope.make)(_.close(Exit.unit))
+        destination <- leaseOwner.extend(ToolEventPort.open(delivery.publisher))
+        admission   <- Ref.make[Option[EventAdmission]](None)
+        child <- ReActAgent.make(
+          client = LlmClient.mockEffectful((_, _, publisher) =>
+            publisher.publish(marker).flatMap(status => admission.set(Some(status))) *>
+              ZIO.succeed(TurnOutput.FinalText(Msg.assistant("child completed")))
+          )
+        )
+        result       <- child.runForwarding(Msg.user("work"), destination, "parent/child")
+        history      <- child.history
+        status       <- admission.get
+        firstFailure <- delivery.failure
+        _            <- leaseOwner.close(Exit.unit)
+        closed       <- destination.publish(marker)
+        finalFailure <- delivery.failure
+      yield assertTrue(
+        fits == EventAdmission.Accepted,
+        status.exists {
+          case EventAdmission.Rejected(reason) =>
+            reason.reason == AgentError.EventDeliveryFailure.CapacityExhausted
+          case _ => false
+        },
+        firstFailure.exists(_.reason == AgentError.EventDeliveryFailure.CapacityExhausted),
+        firstFailure == finalFailure,
+        closed == ToolEventDelivery.Closed,
+        result.state == AgentRunState.Completed,
+        result.reply.text == "child completed",
+        result.history == history,
+        history.exists(_.getTextContent == "child completed"),
+        !history.exists(_.metadata.contains("agentscope_generate_reason"))
+      )
+    },
     test("closed destinations discard events without cancelling execution or losing its result") {
       for
         hub          <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
         subscription <- hub.subscribe
         owner        <- Scope.make
-        destination  <- owner.extend(ToolEventPort.open(hub))
+        destination  <- owner.extend(ToolEventPort.open(EventPublisher.borrowedHub(hub)))
         _            <- owner.close(Exit.unit)
         calls        <- Ref.make(0)
         observations <- Ref.make(0)

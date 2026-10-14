@@ -15,7 +15,7 @@
  */
 package com.weisgnosis.agents.core.client
 
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import zio.*
 import zio.json.ast.Json
@@ -31,7 +31,7 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
           for
             hub       <- Hub.unbounded[AgentEvent]
             queue     <- hub.subscribe
-            publisher <- ModelStreamPublisher.make(hub, context)
+            publisher <- ModelStreamPublisher.make(EventPublisher.borrowedHub(hub), context)
             _ <- publisher.frame(
               "frame-1",
               Chunk(
@@ -87,7 +87,7 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
         for
           hub       <- Hub.unbounded[AgentEvent]
           queue     <- hub.subscribe
-          publisher <- ModelStreamPublisher.make(hub, context)
+          publisher <- ModelStreamPublisher.make(EventPublisher.borrowedHub(hub), context)
           _ <- publisher.frame(
             "calls",
             Chunk(
@@ -127,7 +127,7 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
         for
           hub       <- Hub.unbounded[AgentEvent]
           queue     <- hub.subscribe
-          publisher <- ModelStreamPublisher.make(hub, context)
+          publisher <- ModelStreamPublisher.make(EventPublisher.borrowedHub(hub), context)
           _ <- ZIO.foreachDiscard(payload.grouped(16).toList)(fragment =>
             publisher.frame("fragment", Chunk(LlmChunk.ToolCallChunk(2, argumentsDelta = fragment)))
           )
@@ -158,7 +158,7 @@ object ModelStreamPublisherSpec extends ZIOSpecDefault:
         for
           hub       <- Hub.unbounded[AgentEvent]
           queue     <- hub.subscribe
-          publisher <- ModelStreamPublisher.make(hub, context)
+          publisher <- ModelStreamPublisher.make(EventPublisher.borrowedHub(hub), context)
           _ <- publisher.frame(
             "calls",
             Chunk(

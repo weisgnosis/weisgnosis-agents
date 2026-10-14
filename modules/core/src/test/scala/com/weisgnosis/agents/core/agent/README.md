@@ -42,7 +42,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala runtime regres
 
 - [ReActAgentToolGroupsSpec](ReActAgentToolGroupsSpec.scala)
 - [AgentRunUpdateSpec](AgentRunUpdateSpec.scala)
-- [AgentEventForwarderSpec](AgentEventForwarderSpec.scala)
+- [ReActAgentDeliverySpec](ReActAgentDeliverySpec.scala): bounded diagnostic delivery, independent execution outcomes and joined cancellation scenarios.
 - [PostReasoningHookSpec](PostReasoningHookSpec.scala)
 - [ReActAgentReasoningHookSpec](ReActAgentReasoningHookSpec.scala)
 - [AgentConfigSpec](AgentConfigSpec.scala)
@@ -77,7 +77,7 @@ The added deferred-reader runtime group verifies ordinary authorization before r
 
 - Three AgentRunUpdateSpec groups verify one actual ordinary execution with full history/aggregate usage and cleanup-before-result, a cooperatively interrupted result with one recovery, decoded structured values and exact mixed terminal causes, and held cleanup on early consumer completion or caller cancellation. No result is fabricated on failure.
 
-[AgentEventForwarderSpec](AgentEventForwarderSpec.scala) adds three groups using real Hub/Promise barriers: one consumer delivers a held claimed prefix before the queued suffix while finish waits; empty and claimed-only shutdown complete without leaking queue-shutdown interruption; delivery defects retain their exact cause and caller cancellation joins held publication. Both direct forwarding and result-bearing streams now signal completion to this sole consumer and join delivery before termination.
+[ReActAgentDeliverySpec](ReActAgentDeliverySpec.scala) specifies barrier-based overflow, execution authority and cancellation scenarios through public streams. Direct forwarding now publishes through the source-bound destination without an intermediate forwarding worker. The [diagnostic queue scenarios](../event/README.md#diagnostic-publication-and-budget) cover admission and exact byte accounting separately. Execution and delivery failures remain distinct, including when cleanup also fails.
 
 - Separate [harness integration evidence](../../../../../../../../../harness/src/test/scala/com/weisgnosis/agents/harness/subagent/README.md) covers child forwarding and promotion wiring. Existing early-consumer abandonment of later observer errors is unchanged.
 

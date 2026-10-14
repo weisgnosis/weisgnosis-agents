@@ -18,7 +18,7 @@ package com.weisgnosis.agents.core.client
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import zio.*
 import zio.json.*
@@ -480,9 +480,12 @@ object ReasoningDetailSpec extends ZIOSpecDefault:
             ReasoningReplay.OpenRouterDetails
           )
         )
-        hub       <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
-        queue     <- hub.subscribe
-        publisher <- ModelStreamPublisher.make(hub, ModelStreamContext("reply", "request"))
+        hub   <- ZIO.acquireRelease(Hub.unbounded[AgentEvent])(_.shutdown)
+        queue <- hub.subscribe
+        publisher <- ModelStreamPublisher.make(
+          EventPublisher.borrowedHub(hub),
+          ModelStreamContext("reply", "request")
+        )
         _ <- ZIO.foreachDiscard(frames.zip(chunks))((raw, values) => publisher.frame(raw, values))
         _ <- publisher.finish(output)
         events <- queue.takeAll

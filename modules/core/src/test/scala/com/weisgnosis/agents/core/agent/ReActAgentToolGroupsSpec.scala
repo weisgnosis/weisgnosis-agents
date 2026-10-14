@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.*
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.skill.{
   SkillCatalog,
@@ -61,7 +61,7 @@ object ReActAgentToolGroupsSpec extends ZIOSpecDefault:
         history: Chunk[Msg],
         tools: Chunk[ToolDef],
         config: LlmConfig,
-        eventHub: Hub[AgentEvent],
+        eventHub: EventPublisher,
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] =
       val request = Request(tools, config, history)

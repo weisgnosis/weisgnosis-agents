@@ -1,5 +1,9 @@
 # Agent event verification
 
+## Diagnostic publication and budget
+
+[DiagnosticDeliverySpec](DiagnosticDeliverySpec.scala) specifies checked limit decoding, concurrent count admission, exact encoded UTF-8 byte accounting, source transformation before admission, individual-event rejection, stable encoding failure, FIFO retention and abandoned-reader release. The public integration scenarios are in [ReActAgentDeliverySpec](../agent/ReActAgentDeliverySpec.scala). These scenarios do not establish a global heap bound or durable acknowledgement. The [publication contract](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md#diagnostic-publication-and-budget) defines the accounting boundary.
+
 The [current invocation contract](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#invocation-identity-and-prepared-execution) adds typed UUID correlation without runtime authority. InvocationContextSpec supplies runtime and codec evidence; ModelStreamContextSpec extends its existing sixteen-variant/source-copy table and legacy/malformed wire group. Missing invocation remains None for legacy context data; runtime resumes have fresh invocation identity and preserved saved acting reply/request correlation.
 
 The [incremental and accumulated thinking contract](../../../../../../../main/scala/com/weisgnosis/agents/core/event/README.md#incremental-and-accumulated-thinking) preserves exact fragments and adds an optional per-index accumulated plaintext prefix. Existing test groups cover both pinned observations, interleaving, old/new codecs and public agent streaming; opaque reasoning stays outside plaintext.

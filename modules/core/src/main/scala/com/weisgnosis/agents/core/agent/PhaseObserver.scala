@@ -16,7 +16,12 @@
 package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, InvocationContext, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{
+  AgentEvent,
+  InvocationContext,
+  ModelStreamContext,
+  EventPublisher
+}
 import com.weisgnosis.agents.core.tool.{ToolEventDelivery, ToolEventPort}
 import zio.*
 
@@ -32,8 +37,8 @@ final class PhaseHints private (events: ToolEventPort):
     events.publish(AgentEvent.HintBlockEvent(hint, source))
 
 object PhaseHints:
-  private[agent] def open(hub: Hub[AgentEvent]): ZIO[Scope, Nothing, PhaseHints] =
-    ToolEventPort.open(hub).map(new PhaseHints(_))
+  private[agent] def open(publisher: EventPublisher): ZIO[Scope, Nothing, PhaseHints] =
+    ToolEventPort.open(publisher).map(new PhaseHints(_))
 
 /** Runs once after the observed work, before this observer's scope closes. */
 trait PhaseCompletion:
@@ -55,7 +60,7 @@ object PhaseCompletion:
 /**
  * Scoped phase participation without an execution continuation. Registration order is outermost
  * first: each observer enters before the next and finishes/closes after the next. Invocation has
- * no Hint capability because its event hub does not yet exist. Callbacks must not await the run lock.
+ * no Hint capability. Callbacks must not await the run lock.
  */
 final class PhaseObserver private (private val callbacks: Chunk[PhaseObserver.Callback]):
   def andThen(next: PhaseObserver): PhaseObserver = new PhaseObserver(callbacks ++ next.callbacks)

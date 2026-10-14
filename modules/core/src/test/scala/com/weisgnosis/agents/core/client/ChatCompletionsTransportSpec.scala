@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg}
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import zio.json.*
 import zio.json.ast.Json
 import java.nio.charset.StandardCharsets
@@ -92,7 +92,7 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
                 history,
                 Chunk.empty,
                 config,
-                hub,
+                EventPublisher.borrowedHub(hub),
                 ModelStreamContext("reply", "request")
               )
               body <- sent.get

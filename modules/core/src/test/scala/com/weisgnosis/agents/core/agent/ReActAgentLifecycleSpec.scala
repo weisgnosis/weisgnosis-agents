@@ -17,7 +17,12 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{
+  EventPublisher,
+  AgentEvent,
+  EventAdmission,
+  ModelStreamContext
+}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.{Tool, ToolDef, Toolkit}
 import zio.*
@@ -136,16 +141,16 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
     },
     test("each model request releases resources and readers before the next request starts") {
       for
-        activeReaders    <- Ref.make(0)
-        stoppedReaders   <- Ref.make(0)
-        resourceCount    <- Ref.make(0)
-        resourcesAtStart <- Ref.make(Chunk.empty[Int])
-        observedHub      <- Ref.make[Option[Hub[AgentEvent]]](None)
+        activeReaders     <- Ref.make(0)
+        stoppedReaders    <- Ref.make(0)
+        resourceCount     <- Ref.make(0)
+        resourcesAtStart  <- Ref.make(Chunk.empty[Int])
+        observedPublisher <- Ref.make[Option[EventPublisher]](None)
         model = LlmClient.mockEffectful { (history, _, hub) =>
           for
             previous <- resourceCount.get
             _        <- resourcesAtStart.update(_ :+ previous)
-            _        <- observedHub.set(Some(hub))
+            _        <- observedPublisher.set(Some(hub))
             _ <- ZIO.acquireRelease(resourceCount.update(_ + 1))(_ => resourceCount.update(_ - 1))
             readerStarted <- Promise.make[Nothing, Unit]
             _ <- (activeReaders.update(_ + 1) *> readerStarted.succeed(()) *> ZIO.never)
@@ -162,15 +167,15 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
         stopped   <- stoppedReaders.get
         resources <- resourceCount.get
         previous  <- resourcesAtStart.get
-        hub       <- observedHub.get
-        hubClosed <- ZIO.foreach(hub)(_.isShutdown)
+        publisher <- observedPublisher.get
+        late      <- ZIO.foreach(publisher)(_.publish(AgentEvent.AgentEndEvent("probe")))
       yield assertTrue(
         result.reply.text == "done",
         active == 0,
         stopped == 2,
         resources == 0,
         previous == Chunk(0, 0),
-        hubClosed.contains(true)
+        late.contains(EventAdmission.Closed)
       )
     },
     test("fiber cancellation releases model resources and scoped readers before returning") {
@@ -231,7 +236,7 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent],
+            eventHub: EventPublisher,
             context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           if config.responseFormat.isDefined && tools.isEmpty then
@@ -252,7 +257,7 @@ object ReActAgentLifecycleSpec extends ZIOSpecDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent],
+            eventHub: EventPublisher,
             context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           if config.responseFormat.isDefined then

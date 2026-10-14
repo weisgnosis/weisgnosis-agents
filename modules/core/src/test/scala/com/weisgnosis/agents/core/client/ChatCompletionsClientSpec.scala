@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.agent.{ModelInputTransform, ReActAgent}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ChatUsage, ContentBlock, Msg, Role, ToolResultState}
 import com.weisgnosis.agents.core.tool.{
   Tool,
@@ -688,7 +688,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
                     Chunk(Msg.user("q")),
                     Chunk.empty,
                     config,
-                    hub,
+                    EventPublisher.borrowedHub(hub),
                     ModelStreamContext("reply", "request")
                   )
                   events   <- queue.takeAll
@@ -741,7 +741,7 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
             Chunk(Msg.user("q")),
             Chunk.empty,
             config,
-            hub,
+            EventPublisher.borrowedHub(hub),
             ModelStreamContext("reply", "request")
           )
           events <- queue.takeAll

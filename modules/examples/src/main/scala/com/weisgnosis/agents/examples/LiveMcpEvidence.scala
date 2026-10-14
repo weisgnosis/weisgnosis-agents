@@ -10,7 +10,7 @@ import com.weisgnosis.agents.core.client.{
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.permission.*
@@ -156,7 +156,7 @@ object LiveMcpEvidence extends ZIOAppDefault:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             llm: LlmConfig,
-            hub: Hub[AgentEvent],
+            hub: EventPublisher,
             context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           requests

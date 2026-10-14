@@ -13,7 +13,7 @@ package com.weisgnosis.agents.examples
 import com.weisgnosis.agents.core.agent.{AgentRunState, StructuredOutput}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
@@ -32,7 +32,7 @@ object LiveProviderProfilesSpec extends ZIOSpecDefault:
         history: Chunk[Msg],
         tools: Chunk[ToolDef],
         config: LlmConfig,
-        hub: Hub[AgentEvent],
+        hub: EventPublisher,
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] =
       requests.update(_ :+ ((tools.map(_.name), config, context))) *>

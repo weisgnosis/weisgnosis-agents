@@ -4,7 +4,7 @@ package com.weisgnosis.agents.examples
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.agent.ToolExecution
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.model.ContentBlock
 import com.weisgnosis.agents.core.tool.ToolDef
@@ -22,7 +22,7 @@ object LiveMultiModelSpec extends ZIOSpecDefault:
         history: Chunk[Msg],
         tools: Chunk[ToolDef],
         config: LlmConfig,
-        hub: Hub[AgentEvent],
+        hub: EventPublisher,
         context: ModelStreamContext
     ): ZIO[Scope, AgentError, TurnOutput] = respond(history, config)
 

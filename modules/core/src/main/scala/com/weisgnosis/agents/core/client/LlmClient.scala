@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.ToolDef
 import scala.annotation.unused
@@ -64,7 +64,7 @@ trait LlmClient:
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext
   ): ZIO[Scope, AgentError, TurnOutput]
 
@@ -73,21 +73,21 @@ trait LlmClient:
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext
   ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
-    streamTurn(history, tools, config, eventHub, context)
+    streamTurn(history, tools, config, eventPublisher, context)
 
   /** Attempt-local validated progress; legacy overrides retain their existing failover capability. */
   private[core] def attemptTurnWithProgress(
       history: Chunk[Msg],
       tools: Chunk[ToolDef],
       config: LlmConfig,
-      eventHub: Hub[AgentEvent],
+      eventPublisher: EventPublisher,
       context: ModelStreamContext,
       @unused recordPartial: Option[TurnOutput.Interrupted] => UIO[Unit]
   ): ZIO[Scope, AgentError | BeforeResponseRejection, TurnOutput] =
-    attemptTurn(history, tools, config, eventHub, context)
+    attemptTurn(history, tools, config, eventPublisher, context)
 
 object LlmClient:
 
@@ -99,7 +99,7 @@ object LlmClient:
             history: Chunk[Msg],
             tools: Chunk[ToolDef],
             config: LlmConfig,
-            eventHub: Hub[AgentEvent],
+            eventPublisher: EventPublisher,
             context: ModelStreamContext
         ): ZIO[Scope, AgentError, TurnOutput] =
           queueRef.modify { chunk =>
@@ -120,21 +120,21 @@ object LlmClient:
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          eventHub: Hub[AgentEvent],
+          eventPublisher: EventPublisher,
           context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
         ZIO.succeed(f(history, tools))
 
   /** Creates a mock client returning outputs determined by an effectful function. */
   def mockEffectful(
-      f: (Chunk[Msg], Chunk[ToolDef], Hub[AgentEvent]) => ZIO[Scope, AgentError, TurnOutput]
+      f: (Chunk[Msg], Chunk[ToolDef], EventPublisher) => ZIO[Scope, AgentError, TurnOutput]
   ): LlmClient =
     new LlmClient:
       def streamTurn(
           history: Chunk[Msg],
           tools: Chunk[ToolDef],
           config: LlmConfig,
-          eventHub: Hub[AgentEvent],
+          eventPublisher: EventPublisher,
           context: ModelStreamContext
       ): ZIO[Scope, AgentError, TurnOutput] =
-        ZIO.suspendSucceed(f(history, tools, eventHub))
+        ZIO.suspendSucceed(f(history, tools, eventPublisher))

@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.event.EventDeliveryBudget
 import zio.*
 import zio.json.*
 
@@ -36,7 +37,8 @@ final case class AgentConfig(
     maxIterations: Int = 20,
     timeout: Duration = 5.minutes,
     emptyThinkingRetryLimit: Int = 2,
-    toolExecution: ToolExecution = ToolExecution.Parallel
+    toolExecution: ToolExecution = ToolExecution.Parallel,
+    eventDeliveryBudget: EventDeliveryBudget = EventDeliveryBudget.default
 ) derives JsonCodec:
 
   /** Parity convenience check for parallel tool execution. */

@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, InvocationContext, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, InvocationContext, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.*
 import zio.*
@@ -173,7 +173,7 @@ object InvocationPreparerSpec extends ZIOSpecDefault:
               history: Chunk[Msg],
               tools: Chunk[ToolDef],
               config: LlmConfig,
-              eventHub: Hub[AgentEvent],
+              eventHub: EventPublisher,
               context: ModelStreamContext
           ): ZIO[Scope, AgentError, TurnOutput] =
             rounds.update(_ :+ history) *>
@@ -336,7 +336,7 @@ object InvocationPreparerSpec extends ZIOSpecDefault:
                     history: Chunk[Msg],
                     tools: Chunk[ToolDef],
                     config: LlmConfig,
-                    eventHub: Hub[AgentEvent],
+                    eventHub: EventPublisher,
                     context: ModelStreamContext
                 ): ZIO[Scope, AgentError, TurnOutput] =
                   modelContexts.update(_ :+ context) *> childModels

@@ -16,30 +16,30 @@
 package com.weisgnosis.agents.core.client
 
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
 import zio.*
 
 /** Serial publication after frame validation; only completed output closes content blocks. */
 final private[client] class ModelStreamPublisher private (
     state: Ref[ModelStreamPublisher.State],
-    hub: Hub[AgentEvent],
+    publisher: EventPublisher,
     context: ModelStreamContext
 ):
   def frame(raw: String, deltas: Chunk[LlmChunk]): UIO[Unit] =
-    hub.publish(AgentEvent.ModelResponseChunkEvent(raw, context = Some(context))) *>
+    publisher.publish(AgentEvent.ModelResponseChunkEvent(raw, context = Some(context))) *>
       ZIO.foreachDiscard(deltas): delta =>
         state
           .modify(current =>
             val (next, events) = current.accept(delta, context)
             (events, next)
           )
-          .flatMap(events => hub.publishAll(events).unit)
+          .flatMap(events => publisher.publishAll(events))
 
   def finish(output: TurnOutput): IO[AgentError, Unit] =
     for
       current <- state.get
       events  <- ZIO.fromEither(current.endEvents(output, context))
-      _       <- hub.publishAll(events)
+      _       <- publisher.publishAll(events)
     yield ()
 
 private[client] object ModelStreamPublisher:
@@ -201,5 +201,5 @@ private[client] object ModelStreamPublisher:
         )
       )
 
-  def make(hub: Hub[AgentEvent], context: ModelStreamContext): UIO[ModelStreamPublisher] =
-    Ref.make(State()).map(new ModelStreamPublisher(_, hub, context))
+  def make(publisher: EventPublisher, context: ModelStreamContext): UIO[ModelStreamPublisher] =
+    Ref.make(State()).map(new ModelStreamPublisher(_, publisher, context))

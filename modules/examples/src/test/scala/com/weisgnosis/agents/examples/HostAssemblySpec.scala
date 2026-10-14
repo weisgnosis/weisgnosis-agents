@@ -18,7 +18,7 @@ package com.weisgnosis.agents.examples
 import com.weisgnosis.agents.core.client.{GeminiLlmClient, LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.json.JsonBoundary
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.{AgentEvent, ModelStreamContext}
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, ToolResultState}
 import com.weisgnosis.agents.core.tool.*
 import com.weisgnosis.agents.harness.eviction.{EvictionConfig, StoredToolResult, ToolResultStore}
@@ -256,7 +256,7 @@ object HostAssemblySpec extends ZIOSpecDefault:
                     history: Chunk[Msg],
                     tools: Chunk[ToolDef],
                     config: LlmConfig,
-                    eventHub: Hub[AgentEvent],
+                    eventHub: EventPublisher,
                     context: ModelStreamContext
                 ): ZIO[Scope, AgentError, TurnOutput] =
                   calls
@@ -370,7 +370,7 @@ object HostAssemblySpec extends ZIOSpecDefault:
                 history: Chunk[Msg],
                 tools: Chunk[ToolDef],
                 config: LlmConfig,
-                eventHub: Hub[AgentEvent],
+                eventHub: EventPublisher,
                 context: ModelStreamContext
             ): ZIO[Scope, AgentError, TurnOutput] =
               snapshots

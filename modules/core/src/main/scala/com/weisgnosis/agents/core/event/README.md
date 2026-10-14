@@ -10,7 +10,17 @@
 
 ThinkingBlockDeltaEvent preserves the exact fragment. Built-in publishers emit accumulatedThought=None and retain independent fragment lists by block index; ThinkingBlockEndEvent contains the exact complete plaintext. Consumers needing an incremental full view must append deltas locally instead of retaining every prefix. Checked reasoning-details events project admitted plaintext only; opaque encrypted/signature data does not become text. Custom publishers may still supply accumulatedThought.
 
-The optional field has a trailing constructor default and old JSON decodes its absence as None. Positional extractors and dependent binaries require rebuilding when product signatures change. Built-in stream event text grows with received fragments rather than all cumulative prefixes. Event queues remain unbounded, so this does not establish constant-memory delivery for slow consumers. Existing custom accumulated snapshots retain their wire representation and may still incur quadratic retention.
+The optional field has a trailing constructor default and old JSON decodes its absence as None. Positional extractors and dependent binaries require rebuilding when product signatures change. Built-in stream event text grows with received fragments rather than all cumulative prefixes. The diagnostic budget below limits queued encoded event payloads; it does not bound complete history, results or JVM heap. Existing custom accumulated snapshots retain their wire representation.
+
+## Diagnostic publication and budget
+
+[EventPublisher](EventPublisher.scala) supplies publication without subscription or execution ownership. Accepted means admission to a diagnostic backlog, not reader receipt or external acknowledgement. The first Rejected(reason) distinguishes capacity exhaustion from encoding failure and closes admission; later calls return Closed. Ordinary calls without a diagnostic reader use EventPublisher.discard, which returns Closed without encoding or queueing events. Runtime execution does not turn these receipts into model failures or tool Error observations.
+
+[EventDeliveryBudget](EventDeliveryBudget.scala) validates positive event-count, aggregate encoded-byte and individual-event limits, with the individual limit no greater than the aggregate limit. Its default host policy is 256 events, 4 MiB queued encoded UTF-8 bytes and 1 MiB per event; these values are not a measured optimum. [DiagnosticDelivery](DiagnosticDelivery.scala) atomically reserves count and exact JSON UTF-8 bytes before queueing each event. Final source/correlation transformations precede admission. The reader takes one event at a time, transferring ownership and releasing its reservation; there is no intermediate runtime forwarding batch.
+
+Capacity rejection never waits for the reader. Accepted events form a FIFO prefix, and the first delivery failure remains stable. Complete invocation Exit/result, canonical history, producer inputs, temporary encoding allocations and consumer-owned buffers are outside these limits. This is an encoded backlog bound, not a heap limit or a guarantee of complete delivery. The [agent stream contract](../agent/README.md#result-bearing-streams) covers deferred errors, cancellation and retained prepared outcomes.
+
+EventPublisher.borrowedHub adapts an explicitly host-owned standalone collector; that hub and any of its subscriptions are outside runtime accounting. Do not use an unbounded adapter bridge inside a budgeted runtime path. Custom clients must migrate their publication parameter from Hub[AgentEvent] to EventPublisher and rebuild dependent binaries. AgentEvent wire payloads are unchanged.
 
 ## Existing event contracts
 
