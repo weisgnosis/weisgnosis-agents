@@ -34,19 +34,32 @@ final class DiagnosticDelivery private (
   val publisher: EventPublisher = EventPublisher.fromFunction(admit)
 
   def take: UIO[Option[AgentEvent]] =
-    (for
+    poll.commit.flatMap:
+      case Read.Event(event) => ZIO.some(event)
+      case Read.Closed       => ZIO.none
+      case Read.Await        => awaitReady.commit *> take
+
+  // A suspended transaction only observes readiness; a fresh synchronous poll owns the dequeue.
+  private def poll: USTM[Read] =
+    for
       current <- state.get
       entry   <- queue.poll
       event <- entry match
         case Some((event, bytes)) =>
           state
             .set(current.copy(count = current.count - 1, bytes = current.bytes - bytes))
-            .as(Some(event))
+            .as(Read.Event(event))
         case None =>
           current.lifecycle match
-            case Lifecycle.Finished(_) | Lifecycle.Abandoned(_) => STM.succeed(None)
-            case _                                              => STM.retry
-    yield event).commit
+            case Lifecycle.Finished(_) | Lifecycle.Abandoned(_) => STM.succeed(Read.Closed)
+            case _                                              => STM.succeed(Read.Await)
+    yield event
+
+  private def awaitReady: USTM[Unit] =
+    state.get.flatMap: current =>
+      current.lifecycle match
+        case Lifecycle.Finished(_) | Lifecycle.Abandoned(_) => STM.unit
+        case _                                              => STM.check(current.count > 0)
 
   def finish: UIO[Unit] = state
     .update(current =>
@@ -135,6 +148,10 @@ final class DiagnosticDelivery private (
         case _ => STM.succeed(EventAdmission.Closed)
 
 object DiagnosticDelivery:
+  private enum Read:
+    case Event(value: AgentEvent)
+    case Closed, Await
+
   private enum Lifecycle:
     case Accepting
     case Rejected(error: EventDeliveryError)

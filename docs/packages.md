@@ -1,9 +1,10 @@
 # Installing release packages
 
-The selected first candidate is `0.1.0-RC1` (planned Git tag `v0.1.0-RC1`).
-Publication is pending; the packages, tag and release downloads are not yet
-available. Installation and tag-checkout instructions below apply after successful
-publication recorded in the [completion checklist](architecture/tracker.md).
+This guide targets `0.1.0-RC1` (Git tag `v0.1.0-RC1`). Check the
+[release page](https://github.com/weisgnosis/weisgnosis-agents/releases) for
+published versions and downloadable files. Installation and tag-checkout
+instructions below apply only when that version is listed there; preparing
+source artifacts does not establish publication.
 Use JDK 21,
 Scala 3.9.0 and sbt 1.12.11. Candidate APIs are not frozen; rebuild consumers
 when upgrading. Artifacts are unsigned and are not published to Maven Central.

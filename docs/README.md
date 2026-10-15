@@ -1,6 +1,6 @@
 # Documentation
 
-Start with [Getting started](getting-started.md) for development snapshots and complete scripted, HTTP/tool and MCP applications. [Candidate package installation](packages.md) is prepared for the pending first release. Candidate APIs are not frozen.
+Start with [Getting started](getting-started.md) for development snapshots and complete scripted, HTTP/tool and MCP applications. See [candidate package installation](packages.md) for distribution options and how to check published versions. Candidate APIs are not frozen.
 
 ## Guides and contracts
 

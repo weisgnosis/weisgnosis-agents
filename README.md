@@ -27,7 +27,7 @@ The principle is simple: **the runtime owns state and completion; the model prop
 
 ## Quickstart
 
-**Requirements:** JDK 21, Scala 3.9.0 and sbt 1.12.11. Artifacts currently install from source; Maven Central coordinates are not published. Public API changes may require rebuilding consumers.
+**Requirements:** JDK 21, Scala 3.9.0 and sbt 1.12.11. See [package installation](docs/packages.md) for GitHub Packages, the downloadable Maven archive and published-version availability. The source quickstart below builds a development snapshot. Public API changes may require rebuilding consumers.
 
 ### 1. Install core locally
 

@@ -234,6 +234,7 @@ object McpClientSpec extends ZIOSpecDefault:
                 .open(transport, identity, deadlines)
                 .flatMap(_.listToolsPage())
                 .map(_.tools)
+              // Keep virtual time frozen so a successful request cannot wait for its deadline.
               started <- Clock.nanoTime
               discovered <- caller match
                 case CallerInterruption.Interruptible   => operation.interruptible
@@ -246,11 +247,11 @@ object McpClientSpec extends ZIOSpecDefault:
                 case _                                  => "unexpected"
             yield assertTrue(
               discovered.map(_.name) == Chunk("echo"),
-              elapsed < 1.second.toNanos,
+              elapsed == 0L,
               methods == Chunk("initialize", "notifications/initialized", "tools/list")
             )
         .map(results => results.foldLeft(assertTrue(true))(_ && _))
-    } @@ TestAspect.withLiveClock @@ TestAspect.timeout(10.seconds),
+    } @@ TestAspect.timeout(10.seconds),
     test("discovery timeout joins cleanup promptly under either caller interruption state") {
       ZIO
         .foreach(Chunk.fromArray(CallerInterruption.values)): caller =>
@@ -258,20 +259,26 @@ object McpClientSpec extends ZIOSpecDefault:
             for
               peer      <- wire
               cleaned   <- Ref.make(false)
+              entered   <- Promise.make[Nothing, Unit]
               deadlines <- ZIO.fromEither(McpClient.Deadlines.make(2.seconds, 500.millis))
               transport = peer.transport:
                 case request @ McpMessage.Request(_, "initialize", _) =>
                   peer.reply(request, initialization())
                 case request @ McpMessage.Request(_, "tools/list", _) =>
-                  (ZIO.sleep(2.seconds) *> peer.reply(request, page(Chunk("echo"))))
+                  (entered.succeed(()) *> ZIO.sleep(2.seconds) *> peer
+                    .reply(request, page(Chunk("echo"))))
                     .ensuring(cleaned.set(true))
                 case _ => ZIO.unit
               client  <- McpClient.open(transport, identity, deadlines)
               started <- Clock.nanoTime
-              result <- caller match
+              pending <- (caller match
                 case CallerInterruption.Interruptible => client.listToolsPage().interruptible.either
                 case CallerInterruption.Uninterruptible =>
                   client.listToolsPage().uninterruptible.either
+              ).forkScoped
+              _       <- entered.await
+              _       <- TestClock.adjust(500.millis)
+              result  <- pending.join
               elapsed <- Clock.nanoTime.map(_ - started)
               joined  <- cleaned.get
             yield assertTrue(
@@ -279,11 +286,11 @@ object McpClientSpec extends ZIOSpecDefault:
                 case _: AgentError.TimeoutError => true
                 case _                          => false
               },
-              elapsed < 1.second.toNanos,
+              elapsed == 500.millis.toNanos,
               joined
             )
         .map(results => results.foldLeft(assertTrue(true))(_ && _))
-    } @@ TestAspect.withLiveClock @@ TestAspect.timeout(10.seconds),
+    } @@ TestAspect.timeout(10.seconds),
     test(
       "publishes only after initialized notification completes, then preserves tool pages and error distinctions"
     ) {

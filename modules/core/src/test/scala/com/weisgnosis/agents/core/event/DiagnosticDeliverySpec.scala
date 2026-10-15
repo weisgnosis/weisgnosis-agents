@@ -27,6 +27,8 @@ import zio.test.*
 
 object DiagnosticDeliverySpec extends ZIOSpecDefault:
   private val event: AgentEvent = AgentEvent.TextBlockDeltaEvent("escaped \" Unicode 🌍", 0)
+  private enum DeliveryCase:
+    case Raw, RawObserved, BareStream, ProjectedStream
 
   private def drain(
       read: UIO[Option[AgentEvent]],
@@ -37,42 +39,94 @@ object DiagnosticDeliverySpec extends ZIOSpecDefault:
       case None        => ZIO.succeed(Chunk.fromIterable(retained.reverse))
 
   def spec: Spec[TestEnvironment, Any] = suite("DiagnosticDeliverySpec")(
-    test("concurrent FIFO delivery preserves every occurrence through raw reads and streams"):
-      checkAll(Gen.boolean): streamed =>
-        val expected = Chunk
-          .fromIterable(0 until 2000)
-          .map(index => AgentEvent.TextBlockDeltaEvent(index.toString, 0))
-        ZIO
-          .foreach(0 until 20): _ =>
-            ZIO.scoped:
-              for
-                budget <- ZIO.fromEither(
-                  EventDeliveryBudget.fromLimits(expected.size + 8, 2L * 1024 * 1024, 4096)
+    suite("concurrent FIFO delivery preserves every occurrence through raw reads and streams")(
+      DeliveryCase.values.toList.map { scenario =>
+        test(scenario.toString) {
+          val expected = Chunk
+            .fromIterable(0 until 2000)
+            .map(index => AgentEvent.TextBlockDeltaEvent(index.toString, 0))
+          ZIO
+            .foreach(0 until 20): _ =>
+              ZIO.scoped:
+                for
+                  budget <- ZIO.fromEither(
+                    EventDeliveryBudget.fromLimits(expected.size + 8, 2L * 1024 * 1024, 4096)
+                  )
+                  delivery <- DiagnosticDelivery.make(budget)
+                  reading  <- Promise.make[Nothing, Unit]
+                  trace <-
+                    if scenario == DeliveryCase.RawObserved then
+                      Ref.make(Vector.empty[(AgentEvent, EventAdmission)]).map(Some(_))
+                    else ZIO.none
+                  publish = trace match
+                    case None => delivery.publisher.publish
+                    case Some(recorded) =>
+                      (event: AgentEvent) =>
+                        delivery.publisher
+                          .publish(event)
+                          .tap(admission => recorded.update(_ :+ (event -> admission)))
+                  producer <- ZIO
+                    .foreachDiscard(expected.zipWithIndex) { case (event, index) =>
+                      publish(event) *> ZIO.when(index == 0)(reading.await)
+                    }
+                    .ensuring(delivery.finish)
+                    .forkScoped
+                  read = delivery.take.tap(value => ZIO.when(value.nonEmpty)(reading.succeed(())))
+                  actual <- scenario match
+                    case DeliveryCase.Raw | DeliveryCase.RawObserved => drain(read)
+                    case DeliveryCase.BareStream =>
+                      ZStream
+                        .repeatZIOOption(read.flatMap:
+                          case Some(event) => ZIO.succeed(event)
+                          case None        => ZIO.fail(None))
+                        .runCollect
+                    case DeliveryCase.ProjectedStream =>
+                      (ZStream
+                        .repeatZIOOption(read.flatMap:
+                          case Some(event) => ZIO.succeed(AgentRunUpdate.Event(event))
+                          case None        => ZIO.fail(None))
+                        ++ ZStream.succeed(AgentRunUpdate.Result(()))).collect {
+                        case AgentRunUpdate.Event(event) => event
+                      }.runCollect
+                  _        <- producer.join
+                  failure  <- delivery.failure
+                  recorded <- ZIO.foreach(trace)(_.get)
+                  producerExact = recorded.forall(entries =>
+                    entries.map(_._1) == expected.toVector && entries.forall(
+                      _._2 == EventAdmission.Accepted
+                    )
+                  )
+                  producerCount = recorded.map(_.size)
+                  producerMismatch = recorded.flatMap(
+                    _.zipWithIndex
+                      .find { case ((value, admission), index) =>
+                        !expected
+                          .lift(index)
+                          .contains(value) || admission != EventAdmission.Accepted
+                      }
+                      .map { case (entry, index) => (index, entry, expected.lift(index)) }
+                  )
+                  exactMatch    = actual == expected
+                  actualCount   = actual.size
+                  expectedCount = expected.size
+                  firstMismatch = actual.zipWithIndex
+                    .find { case (value, index) =>
+                      !expected.lift(index).contains(value)
+                    }
+                    .map { case (value, index) => (index, value, expected.lift(index)) }
+                yield assertTrue(
+                  exactMatch,
+                  actualCount == expectedCount,
+                  firstMismatch.isEmpty,
+                  producerExact,
+                  producerCount.forall(_ == expectedCount),
+                  producerMismatch.isEmpty,
+                  failure.isEmpty
                 )
-                delivery <- DiagnosticDelivery.make(budget)
-                reading  <- Promise.make[Nothing, Unit]
-                producer <- ZIO
-                  .foreachDiscard(expected.zipWithIndex) { case (event, index) =>
-                    delivery.publisher.publish(event) *> ZIO.when(index == 0)(reading.await)
-                  }
-                  .ensuring(delivery.finish)
-                  .forkScoped
-                read = delivery.take.tap(value => ZIO.when(value.nonEmpty)(reading.succeed(())))
-                actual <-
-                  if streamed then
-                    (ZStream
-                      .repeatZIOOption(read.flatMap:
-                        case Some(event) => ZIO.succeed(AgentRunUpdate.Event(event))
-                        case None        => ZIO.fail(None))
-                      ++ ZStream.succeed(AgentRunUpdate.Result(()))).collect {
-                      case AgentRunUpdate.Event(event) => event
-                    }.runCollect
-                  else drain(read)
-                _       <- producer.join
-                failure <- delivery.failure
-              yield assertTrue(actual == expected, failure.isEmpty)
-          .map(_.foldLeft(assertTrue(true))(_ && _))
-    ,
+            .map(_.foldLeft(assertTrue(true))(_ && _))
+        }
+      }*
+    ),
     test("host limits and decoded limits reject invalid configurations") {
       val invalid = List((0, 10L, 1L), (1, 0L, 1L), (1, 10L, 0L), (1, 10L, 11L))
       assertTrue(

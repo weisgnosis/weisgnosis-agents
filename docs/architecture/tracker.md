@@ -155,16 +155,17 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Current next task: resolve the reproduced Linux diagnostic/subagent lifecycle
-failures before publishing the first candidate. Scala verification tooling is
-complete; OS integration remains separate.
+Current next task: verify the corrected diagnostic FIFO in Linux, then publish
+the first candidate. Scala verification tooling is complete; OS integration
+remains separate.
 
-- [ ] Preserve exact thinking-delta delivery under concurrent publication and
-  consumption. The Linux run observed 2,001 deltas for 2,000 fragments in
-  `ChatCompletionsTransformSpec`; identify and verify the actual cause. The
-  [failing run](https://github.com/weisgnosis/weisgnosis-agents/actions/runs/38714925606)
-  remains unresolved; raw, observed-identical and indexed boundary checks are
-  retained without claiming that passing repeats fixed it.
+- [ ] Verify exact FIFO delivery after separating non-suspending dequeue from
+  single-reference, read-only readiness waiting. Overlapping asynchronous STM
+  retries could return an uncommitted adjacent event. The
+  [raw-read regression](https://github.com/weisgnosis/weisgnosis-agents/actions/runs/38721763713)
+  replaced event 1399 with a second 1400; model-level coverage also observed an
+  extra thinking delta. The correction and producer/consumer boundary scenarios
+  have independent review; final Linux verification remains required.
 - [x] Join interrupted foreground child lifecycle publication before the parent's
   forwarding capability closes. `SubagentForwardingSpec` observed a missing
   `SubagentEndEvent` despite joined child cleanup; preserve promoted task ownership.
