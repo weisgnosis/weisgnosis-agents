@@ -54,3 +54,7 @@ jobs:
       - name: Verify External Packaged API Consumer
         working-directory: verification/artifact-consumer
         run: sbt scalafmtCheckAll scalafmtSbtCheck compile run
+
+      - name: Compile First Agent Directly from README
+        working-directory: verification/readme-example
+        run: sbt scalafmtSbtCheck checkReadmeExtraction clean compile

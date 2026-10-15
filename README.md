@@ -19,17 +19,30 @@ WeisGnosis Agents is a Scala 3 / ZIO 2 library for agents that call your service
 
 ## First agent
 
-Requires **JDK 21 and sbt 1.12.11**; the build uses Scala 3.9.0. RC1 has no Scala 3.3 LTS build. In a new sbt project, add this to `build.sbt`:
+Tested with **JDK 21 and sbt 1.12.11**; the build uses Scala 3.9.0. RC1 has no Scala 3.3 LTS build. In a new sbt project, add this to `build.sbt`:
 
+<!-- first-agent-build:start -->
 ```scala
 scalaVersion := "3.9.0"
 libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.0-RC1"
 ```
+<!-- first-agent-build:end -->
 
 Set `sbt.version=1.12.11` in `project/build.properties`. The signed artifacts resolve from Maven Central with no token or custom resolver.
 
-Set `OPENAI_API_KEY` and `OPENAI_MODEL` in the process environment, selecting an OpenAI model that supports Chat Completions tool calling and `temperature=0.7` (the default in `LlmConfig`). Save the following as `src/main/scala/FirstAgent.scala`. It connects to OpenAI, exposes one tool and asks the model to assess a release. The tool supplies fixed demonstration data; replace its handler with your service function to read real evidence.
+Use an OpenAI-compatible Chat Completions endpoint with streaming and tool calling. Configure these process environment variables:
 
+| Variable | Configuration used in the [recorded live checks](docs/live-e2e-results.md#execution-conditions-and-reproduction) |
+| --- | --- |
+| `AGENT_ENDPOINT` | `https://bots.weisgnosis.ru/api/v1/chat/completions` |
+| `AGENT_MODEL` | `qwen3.8-27b` |
+| `AGENT_API_KEY` | Your credential for the selected endpoint. |
+
+The recorded gateway requires access; use your own compatible deployment if you do not have it. The example explicitly uses `temperature=0`, 4,096 output tokens and a five-minute deadline, as used in the recorded coordination checks. For OpenAI, set `AGENT_ENDPOINT` to `https://api.openai.com/v1/chat/completions` and use an OpenAI model that accepts these parameters. RC1 always sends temperature; it cannot yet be omitted for models that reject it.
+
+Save the following as `src/main/scala/FirstAgent.scala`. It exposes one tool and asks the model to assess a release. The tool supplies fixed demonstration data; replace its handler with your service function to read real evidence.
+
+<!-- first-agent-source:start -->
 ```scala
 package example
 
@@ -61,22 +74,32 @@ object FirstAgent extends ZIOAppDefault:
   def run: ZIO[Any, Throwable, Unit] =
     val program: ZIO[Client & Scope, Throwable, Unit] =
       for
-        key <- ZIO.config(Config.string("OPENAI_API_KEY"))
-        model <- ZIO.config(Config.string("OPENAI_MODEL"))
+        key <- ZIO.config(Config.string("AGENT_API_KEY"))
+        model <- ZIO.config(Config.string("AGENT_MODEL"))
+        endpoint <- ZIO.config(Config.string("AGENT_ENDPOINT"))
         http <- ZIO.service[Client]
         client <- ChatCompletionsClient.make(http)
         agent <- ReActAgent.builder()
           .client(client)
-          .llmConfig(LlmConfig(model, apiKey = Some(key)))
+          .llmConfig(LlmConfig(
+            model,
+            endpoint = endpoint,
+            apiKey = Some(key),
+            temperature = 0,
+            maxTokens = Some(4096)
+          ))
           .toolkit(Toolkit.single(evidence))
           .maxIterations(4)
-          .timeout(1.minute)
+          .timeout(5.minutes)
           .build
         result <- agent.run(Msg.user("Use read_release_evidence for RC1 and explain whether to release."))
         _ <- Console.printLine(s"${result.state}: ${result.reply.text}")
       yield ()
     ZIO.scoped(program).provide(Client.default)
 ```
+<!-- first-agent-source:end -->
+
+A [compile-only CI check](verification/README.md#readme-first-agent-compilation) extracts this exact source and compiles it against published RC1 with only core declared.
 
 Run:
 
@@ -84,15 +107,15 @@ Run:
 sbt "runMain example.FirstAgent"
 ```
 
-An example reply is `Completed: RC1 should be blocked because SEC-1 reports a high-severity finding.` The wording and tool selection depend on the model. This makes real API requests and can incur provider charges.
+An example reply is `Completed: RC1 should be blocked because SEC-1 reports a high-severity finding.` The prefix is the runtime state: `Completed`, `Suspended`, `Interrupted` or `Stopped`. The reply wording and tool selection depend on the model. This makes real API requests and can incur provider charges.
 
 RC1 requires an explicit JSON Schema for tool arguments: `JsonCodec` handles JSON encoding/decoding, while the schema declares allowed inputs; automatic schema derivation is not yet implemented.
 
-For another compatible endpoint, set `LlmConfig.endpoint` to its complete Chat Completions URL. Native Anthropic and Gemini setup is covered in the [client guide](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md). See the [release assistant](docs/getting-started.md#release-evidence-assistant) for a larger integration with an injected service function.
+Native Anthropic and Gemini setup is covered in the [client guide](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md). See the [release assistant](docs/getting-started.md#release-evidence-assistant) for a larger integration with an injected service function.
 
 ## Verify runtime guarantees (no credentials)
 
-This offline example uses a scripted model to interrupt two running tools and check the resulting history. It is useful for evaluating cancellation behavior before connecting a provider. From a checkout of this repository:
+This offline example uses a scripted model to interrupt two running tools and check the resulting history. It is useful for evaluating cancellation behavior before connecting a provider. Clone and run:
 
 ```sh
 git clone https://github.com/weisgnosis/weisgnosis-agents.git
@@ -193,8 +216,7 @@ Artifact names are `weisgnosis-agents-<module>`, using organization `com.weisgno
 
 - **Application responsibilities:** configure authorization for restricted tools; the default tool authorizer allows execution. Your application also owns authentication, business tools, deciding which worker may resume a saved checkpoint, and preventing duplicate business operations. There is no bundled general shell/file/web toolkit or RAG engine.
 - **Cancellation and persistence:** cancellation waits for resources owned by the run to be released, so elapsed time can exceed its deadline. The offline example covers in-process history; external side effects are not rolled back. Stored history and checkpoints do not restart fibers or recover executing work after a process restart. Process-local approvals and hub queues need host-managed durable equivalents to survive restarts.
-- **Runtime outcomes:** `AgentResult.state` reports `Completed`, `Suspended`, `Interrupted` or `Stopped`. Applications should inspect it alongside the model's reply when deciding what to do next.
-- **Models and providers:** the first example uses fixed evidence, and the three-agent example uses application-selected turns. Selected live results cover their documented models and configurations. Compatible endpoints and native adapters have [documented profiles](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md); local interruption does not guarantee cancellation of remote inference.
+- **Models and providers:** Selected live results cover their documented models and configurations. Compatible endpoints and native adapters have [documented profiles](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md); local interruption does not guarantee cancellation of remote inference.
 - **Infrastructure and compatibility:** path checks are not an atomic filesystem sandbox. PostgreSQL needs an application-owned pool and schema. RC APIs may change; rebuild consumers when upgrading. Frozen binary compatibility and Scala 3.3 cross-builds are not supplied.
 
 ## Learn more and contribute
