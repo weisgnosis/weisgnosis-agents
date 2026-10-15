@@ -151,21 +151,21 @@ The current packaged Qwen/reasoning-LFM refresh passes all twenty selected strea
 | Workspace read/search | Search/read a bounded trusted workspace and answer with source provenance. | Optional capabilities outside core; mutation/process execution need separate authority. |
 | Realtime WebSocket | A selected native duplex session accepts input/control while receiving output. | Select protocol/use case first; SSE replacement, voice and custom MCP WebSocket are not approved. |
 
-RAG, UI, collector hosting, distributed orchestration, external publication/CI setup and OS/Temporal product integration are excluded. The user handles publication; local artifact integrity and external consumption remain required. Candidates require explicit selection; this table cannot waive original promises.
+RAG, UI, collector hosting, distributed orchestration and OS/Temporal product integration are excluded. GitHub Release and GitHub Packages publication are explicitly selected; Maven Central is excluded. Artifact integrity and external consumption remain required. Candidates require explicit selection; this table cannot waive original promises.
 
 ## Immediate next work
 
-Current next task: verify the scoped tool execution migration through the public
-Toolkit/ReAct path, using the existing official ZIO 2.1.26 dependency. Dependency
-forks, backports and third-party source changes are excluded. Publication remains
-pending; OS integration remains separate.
+The selected first-release checklist is complete. No additional library task is
+selected. Scoped tool execution is verified on official ZIO 2.1.26 without
+dependency forks, backports or third-party source changes. OS integration remains
+separate.
 
 - [x] Preserve exact diagnostic FIFO delivery through non-suspending dequeue and
   single-reference, read-only readiness waiting. Independent raw, producer-observed
   and projected-stream scenarios pass, including the full Linux candidate CI,
   archive/consumer checks and a separate cold-JVM Linux stress run. See
   [delivery scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/DiagnosticDeliverySpec.scala).
-- [ ] Preserve a tool resource's cleanup defect when cancellation arrives during
+- [x] Preserve a tool resource's cleanup defect when cancellation arrives during
   acquisition. Replace streamWithContext/ToolExecutionUpdate with executeScoped:
   an injected provisional-output callback and one typed final effect result.
   Toolkit must own scoped cleanup, serialize progress and revoke its callback
@@ -174,9 +174,9 @@ pending; OS integration remains separate.
   requiring exactly-once joined cleanup and the complete interrupted cause.
   Preserve public progress ordering, final history/End metadata, repeated-ID and
   parallel isolation, fixed wrappers, ordinary delegation and late-callback
-  revocation. Complete focused and full verification, independent FP/ZIO and
-  invariant review, Linux checks, archive admission and fresh external consumption
-  before accepting the migration. The [API contract and migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution)
+  revocation. Focused and full verification, independent FP/ZIO and invariant
+  review, Linux checks, archive admission and fresh external consumption pass.
+  The [API contract and migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution)
   define the source/binary changes; a dependency limitation is not a waiver.
 - [x] Join interrupted foreground child lifecycle publication before the parent's
   forwarding capability closes. `SubagentForwardingSpec` observed a missing
@@ -184,10 +184,10 @@ pending; OS integration remains separate.
 - [x] Correct `SubagentTaskBarrierSpec` readiness: join the completed task,
   lifecycle milestones and notification before asserting removal. Publication
   alone does not guarantee readiness; retain the existing `Unnotified` contract.
-- [ ] Publish `v0.1.0-RC1` and five Maven modules through GitHub Packages after
+- [x] Publish `v0.1.0-RC1` and five Maven modules through GitHub Packages after
   candidate verification, actual PostgreSQL checks, archive admission and fresh
   authenticated registry consumption. Attach selected-version artifacts and
-  checksums to the GitHub prerelease. No Maven Central publication is selected.
+  checksums to the [GitHub prerelease](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1). The [candidate workflow](https://github.com/weisgnosis/weisgnosis-agents/actions/runs/38739998504) passes, including clean-cache registry installation. All 24 remote asset digests and the public Maven ZIP download match the verified files. No Maven Central publication is selected.
 
 - [x] **Scala-only verification tooling:** [artifact preparation and reversible
   negative fixtures](../../verification/artifact-consumer/README.md) run through
@@ -243,7 +243,7 @@ These contracts have focused integration, independent FP/ZIO and invariant revie
 - [x] **Scaladoc toolchain diagnostic:** the isolated [documentation driver](../../verification/scaladoc-driver/README.md) supplies the pinned generator's classpath once without suppressing diagnostics or weakening source compilation. Focused generation, a visible invalid-option failure, five licensed documentation archives and fresh packaged consumption pass. Canonical verification also checks the nonpublished driver. Independent FP/ZIO and invariant review covers the build boundary; remove the adapter when the selected official generator contains the upstream fix.
 - [x] **Gemini local function calling:** local declarations, canonical indexed calls, grouped parallel results and exact native parts/signatures continue through the public HTTP client/ReAct/Toolkit path. Existing [Gemini scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/GeminiLlmClientSpec.scala) cover repeated IDs, Error observations, malformed input, truncation and joined cancellation while preserving exclusive hosted code execution. Independent FP/ZIO and invariant review, consolidated checks with actual PostgreSQL, five-module packaging and fresh consumption pass. This explicit P3 addition does not include native media, realtime or a live Gemini run.
 
-The previously selected implementation outcomes above are complete. The real-model evidence campaign below has executed selected profiles; failed profiles and unverified provider boundaries remain explicit in the results. The separate OS migration continues in its own roadmap; it is not library acceptance. External publication is user-owned. Future candidate features require explicit selection. Current code verification includes full verify, five-module packaging and fresh archive admission/consumer; its unconfigured PostgreSQL/native-alias scenarios are not fresh backend/platform evidence. Earlier scoped PostgreSQL checks remain separate; the documented selected real-model matrix and prior Windows junction fixture remain separate evidence. Native-provider live execution needs suitable host credentials and is not claimed by gateway checks.
+The previously selected implementation outcomes above are complete. The real-model evidence campaign below has executed selected profiles; failed profiles and unverified provider boundaries remain explicit in the results. The separate OS migration continues in its own roadmap; it is not library acceptance. The selected GitHub prerelease and GitHub Packages publication are complete; see [installation](../packages.md). Future candidate features require explicit selection. The published candidate passes full Linux verification with all 27 PostgreSQL scenarios, five-module packaging, archive admission and fresh registry consumption. One platform-specific fixture is skipped on Linux; the prior Windows junction checks and selected real-model matrix remain separate evidence. Native-provider live execution needs suitable host credentials and is not claimed by gateway checks.
 
 ### Real-model usefulness and publication evidence
 
@@ -265,7 +265,7 @@ runtime oracles, bounded model selection and limits on public claims. Executed p
 
 E4/E5/E6 source and oracle controls retain independent FP/ZIO and invariant-focused review. The current packaged refresh reruns E3/E4, not E1/E5/E6. Current code verification, five-module packaging, archive admission and fresh external consumption pass with zero compiler warnings; its 28 unconfigured PostgreSQL/native-alias skips were subsequently exercised in the focused checks below. These checks apply to selected fixtures and contracts, not every model or platform.
 
-- [x] Retain a [sanitized measured summary](../live-e2e-results.md) of all current selected attempts, exact supported claims and explicit unverified cells. Remote publication remains user-owned.
+- [x] Retain a [sanitized measured summary](../live-e2e-results.md) of all current selected attempts, exact supported claims and explicit unverified cells. Selected GitHub publication is verified separately from model evidence.
 - [x] **Historical synthetic Python comparison:** recorded matched overlap, pre-entry persistence, partial-completion cancellation, repeated interruption, joined cleanup, unfinished-only recovery and same-runtime continuation. Both the actual public ReAct runtime and a Python TaskGroup reference pass all nine [documented contracts](../synthetic-runtime-comparison.md); labelled unsafe Python controls reproduce separate ownership risks. This does not establish framework or performance superiority and does not by itself establish live E3. Focused tests, standard verify and independent FP/ZIO/invariant/fairness review cover this verification slice.
 
 - [x] **Historical actual Python AgentScope comparison:** ran pinned AgentScope 2.0.9 through public Agent/Toolkit APIs and compared selected lifecycle contracts with the actual Scala runtime. Three Python executions reproduce incomplete cleanup under repeated cancellation and delivered-but-unstored recovery; other selected contracts pass. The recorded Scala repeated-interruption run passed all nine contracts. Independent public-path and evidence review cover the fixture and bounded interpretation. See [results and reproduction](../agentscope-python-comparison.md); the [fifty architectural arguments](../scala-zio-positioning.md) distinguish capabilities from measured wins. This does not by itself establish live E3 or establish whole-framework/performance superiority.
@@ -288,4 +288,4 @@ Hosts supply authentication, approval delivery, exclusive durable execution clai
 
 ## Current acceptance
 
-Implemented capabilities are listed above; remaining outcomes are not accepted merely because component tests pass. The selected library scope, including the H reliability improvements, has independent review, warning-free consolidated verification, actual PostgreSQL execution and fresh five-module artifact consumption. Standard verification leaves external fixtures unconfigured. Separate 2026-10-15 checks exercised all 27 PostgreSQL scenarios and all nine PathSafety scenarios, including actual Windows junctions, without skips against the current source. These focused runs do not establish other operating systems or deployment environments. No public distribution or frozen binary API is claimed. Report each delivery's actual review/verification in its PR/task conversation without a package-hash journal.
+Implemented capabilities are listed above; remaining outcomes are not accepted merely because component tests pass. The selected library scope, including the H reliability improvements, has independent review, warning-free consolidated verification, actual PostgreSQL execution and fresh five-module artifact consumption. The release workflow exercises all 27 PostgreSQL scenarios against PostgreSQL 16 without skips. One platform-specific fixture is skipped on Linux. Separate Windows checks on 2026-10-15 exercised all nine PathSafety scenarios, including actual junctions, without skips. These focused runs do not establish other operating systems or deployment environments. The first GitHub prerelease and five GitHub Packages modules are published; the binary API is not frozen. Report each delivery's actual review/verification in its PR/task conversation without a package-hash journal.

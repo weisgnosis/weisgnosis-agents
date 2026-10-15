@@ -1,10 +1,10 @@
 # Installing release packages
 
-This guide targets `0.1.0-RC1` (Git tag `v0.1.0-RC1`). Check the
-[release page](https://github.com/weisgnosis/weisgnosis-agents/releases) for
-published versions and downloadable files. Installation and tag-checkout
-instructions below apply only when that version is listed there; preparing
-source artifacts does not establish publication.
+This guide targets the published `0.1.0-RC1` (Git tag `v0.1.0-RC1`). The
+[release page](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1)
+provides the Maven archive, individual artifacts and checksums. All five modules
+are also available through GitHub Packages; installation from that registry was
+verified in a separate consumer with fresh dependency caches.
 Use JDK 21,
 Scala 3.9.0 and sbt 1.12.11. Candidate APIs are not frozen; rebuild consumers
 when upgrading. Artifacts are unsigned and are not published to Maven Central.
