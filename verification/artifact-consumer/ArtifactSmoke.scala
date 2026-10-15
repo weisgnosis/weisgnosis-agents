@@ -53,6 +53,8 @@ import com.weisgnosis.agents.core.tool.{
   ToolAuthorizationRequest,
   ToolAuthorizer,
   ToolDef,
+  ToolInvocation,
+  ToolResultPayload,
   ToolSchemaStrictness,
   Toolkit
 }
@@ -111,6 +113,26 @@ object ArtifactSmoke extends ZIOAppDefault:
         .unless(
           rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && count == 1
         )
+    yield ()
+
+  private def verifyScopedTool: IO[AgentError, Unit] =
+    for
+      closed <- Ref.make(false)
+      tool = new Tool[Any, Json, String]:
+        def definition: ToolDef = ToolDef("scoped", "Packaged scoped execution", Json.Obj())
+        def decodeInput(input: Json): Either[String, Json] = Right(input)
+        def encodeOutput(output: String): String           = output
+        def execute(input: Json): UIO[String]              = ZIO.succeed("legacy")
+        override def executeScoped(input: Json, invocation: ToolInvocation)(
+            publish: ToolResultPayload => UIO[Unit]
+        ): ZIO[Scope, Throwable, String] =
+          ZIO.acquireRelease(ZIO.unit)(_ => closed.set(true)) *>
+            publish(ToolResultPayload(Chunk(ContentBlock.Text("working")))).as("scoped final")
+      result   <- Toolkit.single(tool).executeSafe("scoped", Json.Obj())
+      released <- closed.get
+      _ <- ZIO
+        .fail(failure("Packaged scoped execution or joined cleanup failed"))
+        .unless(result == ToolExecutionResult("scoped final") && released)
     yield ()
 
   private def verifyMcpDeadlines: ZIO[Scope, AgentError, Unit] =
@@ -305,6 +327,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         manifest <- loadManifest
         _        <- verifyClasspath
         _        <- verifySchemaAdmission
+        _        <- verifyScopedTool
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines
         _        <- verifyReliabilityContracts

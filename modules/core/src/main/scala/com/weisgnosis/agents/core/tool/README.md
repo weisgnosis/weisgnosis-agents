@@ -101,11 +101,13 @@ ToolDef.returnMode is a host-selected Continue (default) or Direct policy, not m
 
 ## Incremental execution
 
-`Tool.streamWithContext(input, invocation)` produces `ToolExecutionUpdate.Progress(payload)` followed by exactly one `Completed(out)`. The default delegates to executeWithContext once; existing implementations need no new abstract method. Fixed-argument wrappers retain the stream override and existing input policy. Toolkit consumes the stream inside an owned scope; missing completion, any update after completion, stream failure or cleanup failure prevents that value becoming a successful final observation. Only EOF and successful cleanup admit encodeResultChecked, whose existing Success/Error restriction remains.
+`Tool.executeScoped(input, invocation)(publish)` returns `ZIO[R & Scope, Throwable, Out]`. Its `publish: ToolResultPayload => UIO[Unit]` argument supplies provisional output; the typed effect result supplies the single final value. The default delegates to executeWithContext once, and fixed-argument wrappers forward the scoped override with the existing input policy. Toolkit owns the execution scope and joins its resources and scoped children before final encoding. Execution or cleanup failure prevents a returned value from becoming a successful final observation. Only successful scoped completion admits encodeResultChecked, whose existing Success/Error restriction remains.
 
 Progress contains provisional content and metadata, not call IDs or execution state. The runtime supplies identity/context and strips reserved control metadata. Nonempty output blocks publish ordered text/data deltas; metadata-only updates publish nothing. Progress never enters canonical history, result processors or later model input. Exactly one authoritative final result is persisted and processed. After any nonempty progress for that invocation occurrence, the final aggregate payload is not replayed as deltas; ToolResultEnd still carries final text/state/metadata. Complete typed final content remains in history/result, so provisional deltas are not a reconstruction of the final payload. Empty progress and ordinary tools retain aggregate final publication. Repeated call IDs do not share suppression state; inline provider results retain their separate path.
 
-Migration: streamWithContext is a defaulted source-compatible method, but dependent binaries should be rebuilt. ToolExecutionUpdate has no wire codec; no event schema, public callback setter, mutable emitter or hook fanout is added. Existing executeSafe remains a final-result operation and discards progress. Caller cancellation joins stream-owned cleanup and must preserve its complete cause; errors without interruption remain Error observations. Consumers cancelling an event stream still abandon later output.
+Progress callbacks are serialized for each execution and remain available through tool cleanup. After the execution scope closes, Toolkit revokes the callback before final encoding; later uses of a captured callback are no-ops. The callback grants no background-task ownership: tools acquire resources in the supplied Scope and use structured concurrency for children.
+
+Migration: replace streamWithContext overrides and ToolExecutionUpdate values with executeScoped, invoke publish for provisional payloads and return Out directly. ToolExecutionUpdate is removed; missing, repeated or late Completed markers are no longer representable by this API. Ordinary execute/executeWithContext implementations inherit the default and need no new method. Rebuild dependent binaries. No event schema, mutable callback setter or hook fanout is added. Existing executeSafe remains a final-result operation and discards progress. Caller cancellation joins tool-owned cleanup and must preserve its complete cause; errors without interruption remain Error observations. Consumers cancelling an event stream still abandon later output. Final verification of the scoped-effect migration is tracked in the [repository tracker](../../../../../../../../../../docs/architecture/tracker.md#immediate-next-work).
 
 ## Typed execution observations
 
@@ -137,7 +139,6 @@ ReAct creates `Active(context, call, callOrdinal, events)` only for approved loc
 - [ToolResultProcessor](ToolResultProcessor.scala)
 - [ToolAuthorizer](ToolAuthorizer.scala)
 - [ToolExecutionResult](ToolExecutionResult.scala)
-- [ToolExecutionUpdate](ToolExecutionUpdate.scala)
 - [Toolkit](Toolkit.scala)
 
 See the [repository architecture](../../../../../../../../../../ARCHITECTURE.md) for integration boundaries and invariant definitions.

@@ -22,7 +22,6 @@ import com.weisgnosis.agents.core.model.{ContentBlock, MediaSource, Msg, Role, T
 import com.weisgnosis.agents.core.tool.*
 import zio.*
 import zio.json.ast.Json
-import zio.stream.ZStream
 import zio.test.*
 
 object ReActAgentToolEventSpec extends ZIOSpecDefault:
@@ -34,18 +33,19 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
       else TurnOutput.ToolCalls(Msg.assistant(calls))
     )
 
-  private def streamingTool(
+  private def progressTool(
       name: String,
       result: ToolExecutionResult,
-      updates: ZStream[Any, Throwable, ToolExecutionUpdate[ToolExecutionResult]]
+      run: (ToolResultPayload => UIO[Unit]) => ZIO[Scope, Throwable, ToolExecutionResult]
   ): Tool[Any, Json, ToolExecutionResult] = new Tool[Any, Json, ToolExecutionResult]:
-    def definition: ToolDef = ToolDef(name, "Stream provisional output", Json.Obj())
+    def definition: ToolDef = ToolDef(name, "Publish provisional output", Json.Obj())
     def decodeInput(raw: Json): Either[String, Json]   = Right(raw)
     def execute(input: Json): UIO[ToolExecutionResult] = ZIO.succeed(result)
-    override def streamWithContext(
+    override def executeScoped(
         input: Json,
         invocation: ToolInvocation
-    ): ZStream[Any, Throwable, ToolExecutionUpdate[ToolExecutionResult]] = updates
+    )(publish: ToolResultPayload => UIO[Unit]): ZIO[Scope, Throwable, ToolExecutionResult] =
+      run(publish)
     def encodeOutput(out: ToolExecutionResult): String                       = out.output
     override def encodeResult(out: ToolExecutionResult): ToolExecutionResult = out
 
@@ -70,12 +70,9 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           snapshots     <- Ref.make(Chunk.empty[Msg])
           received      <- Ref.make(Chunk.empty[Msg])
           closedAtModel <- Ref.make(false)
-          updates = ZStream
-            .acquireReleaseWith(ZIO.unit)(_ => closed.set(true))
-            .flatMap(_ =>
-              ZStream.succeed(ToolExecutionUpdate.Progress(progress)) ++
-                ZStream.fromZIO(release.await.as(ToolExecutionUpdate.Completed(result)))
-            )
+          run = (publish: ToolResultPayload => UIO[Unit]) =>
+            ZIO.acquireRelease(ZIO.unit)(_ => closed.set(true)) *>
+              publish(progress) *> release.await.as(result)
           client = LlmClient.mockEffectful((history, _, _) =>
             if history.exists(_.role == Role.Tool) then
               received.set(history) *> closed.get
@@ -85,7 +82,7 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           )
           agent <- ReActAgent.make(
             client = client,
-            toolkit = Toolkit.single(streamingTool("lookup", result, updates))
+            toolkit = Toolkit.single(progressTool("lookup", result, run))
           )
           events <- agent
             .streamEvents(Msg.user("q"))
@@ -134,23 +131,19 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           release <- Promise.make[Nothing, Unit]
           result   = ToolExecutionResult("stream final")
           progress = ToolResultPayload(Chunk(ContentBlock.Text("provisional")))
-          streaming = streamingTool(
+          streaming = progressTool(
             "streaming",
             result,
-            ZStream.succeed(ToolExecutionUpdate.Progress(progress)) ++
-              ZStream.fromZIO(release.await.as(ToolExecutionUpdate.Completed(result)))
+            publish => publish(progress) *> release.await.as(result)
           )
           otherResult = ToolExecutionResult("other final")
-          other = streamingTool(
+          other = progressTool(
             "other",
             otherResult,
-            ZStream.fromZIO(release.await).drain ++
-              ZStream(
-                ToolExecutionUpdate.Progress(
-                  ToolResultPayload(Chunk(ContentBlock.Text("other progress")))
-                ),
-                ToolExecutionUpdate.Completed(otherResult)
-              )
+            publish =>
+              release.await *>
+                publish(ToolResultPayload(Chunk(ContentBlock.Text("other progress"))))
+                  .as(otherResult)
           )
           ordinary = Tool.make(ToolDef("ordinary", "Ordinary output", Json.Obj()))(_ =>
             release.await.as("ordinary final")
@@ -191,33 +184,25 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
           history.flatMap(_.toolResults).size == 3
         )
     ,
-    test("concurrent agents sharing one toolkit isolate streamed output and request context"):
+    test("concurrent agents sharing one toolkit isolate progress output and request context"):
       ZIO.scoped:
         for
           entered <- ZIO.acquireRelease(Queue.unbounded[String])(_.shutdown)
           release <- Promise.make[Nothing, Unit]
           shared = new Tool[Any, String, String]:
-            def definition: ToolDef = ToolDef("lookup", "Stream isolated output", Json.Obj())
+            def definition: ToolDef = ToolDef("lookup", "Publish isolated output", Json.Obj())
             def decodeInput(raw: Json): Either[String, String] =
               raw.asString.toRight("Expected a label")
             def encodeOutput(output: String): String = output
             def execute(input: String): UIO[String]  = ZIO.succeed(s"done-$input")
-            override def streamWithContext(
+            override def executeScoped(
                 input: String,
                 invocation: ToolInvocation
-            ): ZStream[Any, Throwable, ToolExecutionUpdate[String]] =
-              ZStream.succeed(
-                ToolExecutionUpdate.Progress(
-                  ToolResultPayload(Chunk(ContentBlock.Text(s"chunk-$input")))
-                )
-              ) ++
-                ZStream.fromZIO(entered.offer(input) *> release.await).drain ++
-                ZStream(
-                  ToolExecutionUpdate.Progress(
-                    ToolResultPayload(Chunk(ContentBlock.Text(s"chunk2-$input")))
-                  ),
-                  ToolExecutionUpdate.Completed(s"done-$input")
-                )
+            )(publish: ToolResultPayload => UIO[Unit]): ZIO[Scope, Throwable, String] =
+              publish(ToolResultPayload(Chunk(ContentBlock.Text(s"chunk-$input")))) *>
+                entered.offer(input) *> release.await *>
+                publish(ToolResultPayload(Chunk(ContentBlock.Text(s"chunk2-$input"))))
+                  .as(s"done-$input")
           toolkit = Toolkit.single(shared)
           agents <- ZIO.foreach(Chunk("A", "B"))(label =>
             ReActAgent
@@ -450,13 +435,12 @@ object ReActAgentToolEventSpec extends ZIOSpecDefault:
         for
           waiting <- Promise.make[Nothing, Unit]
           completed = Tool.make(ToolDef("fast", "fast", Json.Obj()))(_ => ZIO.succeed("kept"))
-          pending = streamingTool(
+          pending = progressTool(
             "slow",
             ToolExecutionResult("unreachable"),
-            ZStream.succeed(
-              ToolExecutionUpdate.Progress(ToolResultPayload(Chunk(ContentBlock.Text("pending"))))
-            ) ++
-              ZStream.fromZIO(waiting.succeed(()) *> ZIO.never)
+            publish =>
+              publish(ToolResultPayload(Chunk(ContentBlock.Text("pending")))) *>
+                waiting.succeed(()) *> ZIO.never
           )
           agent <- ReActAgent.make(
             client =

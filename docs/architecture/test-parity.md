@@ -371,7 +371,7 @@ The independent audit found the following gaps; completed corrections are checke
 - [x] Preserve immutable metadata on existing tool-result start/text-delta/end events through decoding, encoding, and repeated source tagging.
 - [x] Add tool-result data-delta payload and its immutable metadata contract; AgentEventPayloadSpec verifies round-trip and repeated source tagging.
 - [x] Publish ordered inline provider result text/data events with complete result metadata and correlated data reply IDs; preserve call occurrences and cancellation reconciliation.
-- [x] Support [typed final results and incremental local tool progress with reviewed metadata propagation](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution).
+- Preserve [typed final results and incremental local tool progress](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution) through the scoped-effect migration; final validation is tracked in the [tracker](tracker.md#immediate-next-work).
 - [x] Classify current event/lowercase and upstream type/uppercase wire formats as noninterchangeable; existing Scala wire tags remain canonical for compatibility.
 - [x] Implement the separate AgentEventType identifier codec for all 31 canonical names and 11 aliases.
 - [ ] Implement explicit field/payload adapters; identifier parsing alone cannot establish compatibility.
@@ -1211,12 +1211,13 @@ The fourteen Plan inventory methods now have bounded adaptations; full Java API/
 
 ## Incremental local tool output
 
-- [x] The unchanged external-cancellation regression reproduced a new-draft consumer defect; the scoped channel-pull correction preserves the complete cause.
-- [x] Bounded `ToolEmitterIntegrationTest.testToolEmitterWithHook` adaptation: provisional content reaches existing runtime events with call identity while an independently typed final value becomes model history only after EOF and cleanup. Immutable scoped streams replace mutable emitter injection and Hook APIs.
-- [x] Bounded `ToolEmitterIntegrationTest.testToolWithoutEmitter` adaptation: the default stream executes the legacy contextual method once and retains ordinary final publication without provisional output.
-- [x] Bounded `ToolEmitterIntegrationTest.testMultipleToolsWithEmitters` adaptation: actual parallel calls retain their own deltas and final values; repeated IDs do not share final-delta suppression. The Scala runtime test uses two streaming tools plus an ordinary sibling rather than sequential Java callback collection.
-- [x] `ReActAgentToolkitConcurrencyTest.concurrentCallsDoNotCrossTalkChunkCallbacks` (pinned core/tool test, lines 308-347): a bounded adaptation shares one Tool/Toolkit between two independently owned Scala agents, holds both streams concurrently and checks exact isolated deltas, final observations, histories and distinct request/reply contexts. Java uses concurrent sessions on one agent; that API is not claimed.
-- [x] Classify ToolEmitterIntegrationTest callback methods (234/281/308/330): mutable callback setters/fanout and swallowed callback exceptions are excluded by the typed-stream contract. Callback-isolation machinery is not a required missing API; whole emitter-suite parity remains unclaimed.
+The scoped-effect migration retains the following bounded adaptations. Final lifecycle, event and public-API validation remains pending in the [tracker](tracker.md#immediate-next-work); these mappings do not establish acceptance of the correction.
+
+- `ToolEmitterIntegrationTest.testToolEmitterWithHook`: provisional content reaches existing runtime events with call identity while an independently typed final value becomes model history only after execution and cleanup. A scoped effect with an injected progress callback replaces mutable emitter injection and Hook APIs.
+- `ToolEmitterIntegrationTest.testToolWithoutEmitter`: the default executeScoped delegates to the legacy contextual method once and retains ordinary final publication without provisional output.
+- `ToolEmitterIntegrationTest.testMultipleToolsWithEmitters`: actual parallel calls retain their own deltas and final values; repeated IDs do not share final-delta suppression. Scala uses tools with provisional output plus an ordinary sibling rather than sequential Java callback collection.
+- `ReActAgentToolkitConcurrencyTest.concurrentCallsDoNotCrossTalkChunkCallbacks` (pinned core/tool test, lines 308-347): share one Tool/Toolkit between two independently owned Scala agents, hold both executions concurrently and check exact isolated deltas, final observations, histories and distinct request/reply contexts. Java uses concurrent sessions on one agent; that API is not claimed.
+- ToolEmitterIntegrationTest callback methods (234/281/308/330): mutable callback setters/fanout and swallowed callback exceptions are excluded by the scoped-effect contract. The injected per-execution callback is serialized and revoked after cleanup; it is not a mutable setter or fanout API. Whole emitter-suite parity remains unclaimed.
 
 ## MCP protocol and connection boundaries
 
@@ -1352,7 +1353,7 @@ Pinned ToolExecutorTest contains twelve methods. The table classifies bounded ad
 | --- | --- |
 | shouldExecuteToolsInParallel (65) | Actual ReAct parallel execution has ReActAgentToolEventSpec361 evidence; Java executor/Mono shape differs. |
 | shouldReturnErrorWhenToolThrows (107) | ToolExecutionSpec135 and ReActAgentToolEventSpec320 cover typed/defect Error observations; literal Java exception text is not the contract. |
-| shouldReturnErrorWhenToolCompletesEmpty (132) | ToolExecutionUpdateSpec119 rejects empty and progress-only streams without Completed. |
+| shouldReturnErrorWhenToolCompletesEmpty (132) | Intentional typed adaptation: executeScoped returns Out or fails; an empty completion sequence is not representable. ToolExecutionUpdateSpec retains execution, progress and cleanup failure/cancellation scenarios; final migration validation is pending in the tracker. |
 | shouldReturnSuspendedResultForExternalTools (179) | Accepted bounded external binding/runtime adaptation preserves original occurrence identity without a local handler. |
 | shouldValidateExternalToolInputBeforeSuspension (216) | Accepted bounded codec validation before authorization/suspension; no arbitrary JSON Schema validator is claimed. |
 | shouldRejectInactiveGroupedExternalToolsBeforeSuspension (260) | Accepted bounded actual-runtime group rejection before external waiting; immutable group filtering replaces Java registration flags. |
@@ -1814,7 +1815,7 @@ The remaining pinned legacy families have these finite applicability decisions. 
 | HookEventTest PreCall; PreReasoning.testModification (171) | InvocationPreparer preserves immutable prior history/new input; ModelInputTransform projects validated request-only messages. Mutable event identity/getters/setters/null constructors are not copied. |
 | HookEventTest PostReasoning.testModification (217); ReasoningChunk.testChunkAccess (241) | ReasoningDecision.Replace has actual runtime tests; StreamAccumulator/ModelStreamPublisher expose typed deltas and accumulated snapshots. |
 | HookEventTest PreActing.testModification (275); PostActing.testModification (307) | ToolAuthorizer approves prepared input; ToolResultProcessor transforms observations. Runtime call identity/correlation cannot be replaced by a hook. |
-| HookEventTest ActingChunk (331); ErrorEvent (355); SystemMessageApi (386-443) | ToolExecutionUpdate and typed events carry progress; AgentError/Cause and scoped completion carry failure. Mutable nullable system accessors become explicit validated history/projection. |
+| HookEventTest ActingChunk (331); ErrorEvent (355); SystemMessageApi (386-443) | executeScoped's provisional callback and typed events carry progress; AgentError/Cause and scoped completion carry failure. Mutable nullable system accessors become explicit validated history/projection. |
 | HookStopAgentTest (182/210/246/541); testResumeWithToolResultMsg (301) | Actual Resume/SuppliedResult tests preserve checked original occurrence ordinals, completed observations and pending authority. |
 | HookStopAgentTest pending-new-message (349/682), inspect/first-stop (432/623), normal-next-call (650) | Hosts explicitly resume checked pending state rather than implicitly executing from a new message. PostReasoningHook.Suspend stops before dispatch; fresh invocations reuse the run gate. |
 | HookStopAgentTest multiple hooks (473) and flag accessors (98/112/122/143/161) | Explicit host composition and Continue/Stop/Suspend ADTs replace mutable priority registration/flags. Literal Java callback-count registration is not claimed. Post-acting stop retains the owning assistant and Stopped state rather than returning Java's stopping ToolResult reply. |

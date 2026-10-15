@@ -13,7 +13,7 @@ These ZIO Test suites cover selected upstream scenarios and Scala regressions. T
 | Suite | Contract |
 | --- | --- |
 | [PathSafetySpec](PathSafetySpec.scala) | Sensitive paths, traversal, and advisory command fragments |
-| [ToolExecutionUpdateSpec](ToolExecutionUpdateSpec.scala) | Three groups cover legacy delegation and fixed-wrapper streams, provisional/unique final output and invalid sequences, cleanup failure, full mixed causes and held cancellation cleanup. |
+| [ToolExecutionUpdateSpec](ToolExecutionUpdateSpec.scala) | Scoped progress and typed final output, fixed-wrapper delegation, metadata-only suppression, cleanup failures, mixed causes, held acquisition/body cancellation and callback revocation. |
 | [ToolExecutionSpec](ToolExecutionSpec.scala) | Typed decoding, checked factory numeric output and fixed-wrapper forwarding, duplicate-output failure, payload projection/codecs, completed-state admission and cancellation cleanup |
 | [ToolInvocationSpec](ToolInvocationSpec.scala) | Approved occurrence context, legacy/denied dispatch, concurrent lease closure and actual ReAct cancellation |
 | [ToolGroupsSpec](ToolGroupsSpec.scala) | Sorted/empty active and Meta-only notes, atomic checked activation, Meta/External replacement, OR membership/orphaning, exact policy-preserving selection and actual ReAct dispatch |

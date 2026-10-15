@@ -155,17 +155,29 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Current next task: verify the corrected diagnostic FIFO in Linux, then publish
-the first candidate. Scala verification tooling is complete; OS integration
-remains separate.
+Current next task: verify the scoped tool execution migration through the public
+Toolkit/ReAct path, using the existing official ZIO 2.1.26 dependency. Dependency
+forks, backports and third-party source changes are excluded. Publication remains
+pending; OS integration remains separate.
 
-- [ ] Verify exact FIFO delivery after separating non-suspending dequeue from
-  single-reference, read-only readiness waiting. Overlapping asynchronous STM
-  retries could return an uncommitted adjacent event. The
-  [raw-read regression](https://github.com/weisgnosis/weisgnosis-agents/actions/runs/38721763713)
-  replaced event 1399 with a second 1400; model-level coverage also observed an
-  extra thinking delta. The correction and producer/consumer boundary scenarios
-  have independent review; final Linux verification remains required.
+- [x] Preserve exact diagnostic FIFO delivery through non-suspending dequeue and
+  single-reference, read-only readiness waiting. Independent raw, producer-observed
+  and projected-stream scenarios pass, including the full Linux candidate CI,
+  archive/consumer checks and a separate cold-JVM Linux stress run. See
+  [delivery scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/event/DiagnosticDeliverySpec.scala).
+- [ ] Preserve a tool resource's cleanup defect when cancellation arrives during
+  acquisition. Replace streamWithContext/ToolExecutionUpdate with executeScoped:
+  an injected provisional-output callback and one typed final effect result.
+  Toolkit must own scoped cleanup, serialize progress and revoke its callback
+  after scope closure. Retain deterministic direct-effect and Toolkit scenarios in
+  [ToolExecutionUpdateSpec](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/ToolExecutionUpdateSpec.scala)
+  requiring exactly-once joined cleanup and the complete interrupted cause.
+  Preserve public progress ordering, final history/End metadata, repeated-ID and
+  parallel isolation, fixed wrappers, ordinary delegation and late-callback
+  revocation. Complete focused and full verification, independent FP/ZIO and
+  invariant review, Linux checks, archive admission and fresh external consumption
+  before accepting the migration. The [API contract and migration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#incremental-execution)
+  define the source/binary changes; a dependency limitation is not a waiver.
 - [x] Join interrupted foreground child lifecycle publication before the parent's
   forwarding capability closes. `SubagentForwardingSpec` observed a missing
   `SubagentEndEvent` despite joined child cleanup; preserve promoted task ownership.

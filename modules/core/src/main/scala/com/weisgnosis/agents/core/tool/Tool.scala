@@ -20,7 +20,6 @@ import com.weisgnosis.agents.core.json.ExactJson
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
-import zio.stream.{ZChannel, ZStream}
 import scala.annotation.unused
 
 /**
@@ -42,18 +41,12 @@ trait Tool[-R, In, Out]:
   def executeWithContext(input: In, @unused invocation: ToolInvocation): ZIO[R, Throwable, Out] =
     execute(input)
 
-  /** Provisional updates precede exactly one completion; consumers must join EOF and cleanup. */
-  def streamWithContext(
+  /** The runtime owns resource cleanup and admits progress until the tool scope has closed. */
+  def executeScoped(
       input: In,
       invocation: ToolInvocation
-  ): ZStream[R, Throwable, ToolExecutionUpdate[Out]] =
-    ZStream.fromChannel(
-      ZChannel
-        .fromZIO(ZIO.suspendSucceed(executeWithContext(input, invocation)))
-        .flatMap(output =>
-          ZChannel.write(Chunk[ToolExecutionUpdate[Out]](ToolExecutionUpdate.Completed(output)))
-        )
-    )
+  )(@unused publish: ToolResultPayload => UIO[Unit]): ZIO[R & Scope, Throwable, Out] =
+    ZIO.suspendSucceed(executeWithContext(input, invocation))
 
   def decodeInput(raw: Json): Either[String, In]
   def encodeOutput(out: Out): String
@@ -88,11 +81,11 @@ object Tool:
             invocation: ToolInvocation
         ): ZIO[R, Throwable, Out] =
           tool.executeWithContext(input, invocation)
-        override def streamWithContext(
+        override def executeScoped(
             input: In,
             invocation: ToolInvocation
-        ): ZStream[R, Throwable, ToolExecutionUpdate[Out]] =
-          tool.streamWithContext(input, invocation)
+        )(publish: ToolResultPayload => UIO[Unit]): ZIO[R & Scope, Throwable, Out] =
+          ZIO.suspendSucceed(tool.executeScoped(input, invocation)(publish))
         def decodeInput(raw: Json): Either[String, In] =
           fixed.prepare(raw).left.map(_.message).flatMap(tool.decodeInput)
         def encodeOutput(out: Out): String                       = tool.encodeOutput(out)
