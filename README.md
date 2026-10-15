@@ -191,26 +191,18 @@ Choose the composition your workflow needs:
 
 ## Install what your host needs
 
-**[0.1.0-RC1](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1) is available through GitHub Packages and a downloadable Maven repository.** The [installation guide](docs/packages.md) gives exact resolver, authentication and checksum instructions. All artifacts use organization `com.weisgnosis` and Scala `%%` coordinates. Requires Scala 3.9.0 / JDK 21; candidate APIs may change. Artifacts are unsigned and are not on Maven Central.
+**[0.1.0-RC1 is on Maven Central](https://central.sonatype.com/artifact/com.weisgnosis/weisgnosis-agents-core_3/0.1.0-RC1).** All five modules are signed with the [release key](project/keys/README.md). Requires Scala 3.9.0 / JDK 21; candidate APIs may change.
 
-<details>
-<summary><strong>Copy the release dependency — no GitHub token required with the Maven ZIP</strong></summary>
-
-Download `weisgnosis-agents-0.1.0-RC1-maven.zip` and `SHA256SUMS` from the [release](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1). Verify the archive checksum, extract it, and set the resolver to the directory immediately above `com/`. In your application's `build.sbt`:
+In your application's `build.sbt` — no token or custom resolver required:
 
 ```scala
 scalaVersion := "3.9.0"
-
-resolvers += "WeisGnosis release archive" at
-  file("/absolute/path/to/extracted-maven-repository").toURI.toString
 
 libraryDependencies +=
   "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.0-RC1"
 ```
 
-Set `sbt.version=1.12.11` in `project/build.properties`. Other dependencies resolve from Maven Central. If you prefer GitHub Packages, use the [authenticated resolver](docs/packages.md#github-packages).
-
-</details>
+Set `sbt.version=1.12.11` in `project/build.properties`. The [installation guide](docs/packages.md) covers optional modules, signature verification, GitHub Packages and the downloadable Maven repository.
 
 | Module | Add it for |
 | --- | --- |
