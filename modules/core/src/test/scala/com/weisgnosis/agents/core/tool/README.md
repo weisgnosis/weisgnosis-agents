@@ -1,8 +1,6 @@
 # Typed tools and path validation: verification
 
-Existing groups cover missing constraints and exact error paths without increasing group counts; Java null/reflection API differences remain explicit.
-
-[ToolSchemaValidatorSpec](ToolSchemaValidatorSpec.scala) groups standard constraints/exact-number neighbors, declared Draft 4/6/7/2019-09 semantics and recursive-root policy, normalization/original-input preservation, and invalid schema/reference acquisition. Lexical 1.0/1 controls distinguish draft-specific integer node kinds; minimum-length neighbors independently verify string constraints. Reproduced failures include permissive decoder admission, tiny divisor underflow, percent-encoded pointer selection and malformed UTF-8 aliasing through reference keywords. The [current schema contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) owns final review and verification status.
+[ToolSchemaValidatorSpec](ToolSchemaValidatorSpec.scala) groups standard constraints/exact-number neighbors, declared Draft 4/6/7/2019-09 semantics and recursive-root policy, normalization/original-input preservation, and invalid schema/reference acquisition. Lexical 1.0/1 controls distinguish draft-specific integer node kinds; minimum-length neighbors independently verify string constraints. Reproduced failures include permissive decoder admission, tiny divisor underflow, percent-encoded pointer selection and malformed UTF-8 aliasing through reference keywords. The [current schema contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) describes schema admission and its limitations.
 
 ## Failure fixtures
 
@@ -10,7 +8,7 @@ The existing ToolExecutionSpec failure group requires a RuntimeException contain
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 
-These ZIO Test suites cover selected upstream scenarios and Scala regressions. They do not certify exhaustive upstream parity.
+These ZIO Test suites cover selected upstream scenarios and Scala regressions. They do not certify exhaustive upstream parity; Java null/reflection API differences remain explicit in the parity mapping.
 
 | Suite | Contract |
 | --- | --- |
@@ -30,7 +28,7 @@ The optional outputSchema codec deliberately maps Some(Json.Null) to absence on 
 
 Actual model calls see only selected definitions; a model-invented inactive call cannot dispatch, while active and ungrouped tools execute. Removal tests explicitly show reactivation after last-membership loss, not revocation.
 
-ToolAuthorizerSpec covers Deferred under the accepted partial-confirmation scope. The existing compatibility group verifies default overload delegation without changing request JSON; harness tests establish actual Plan integration. Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
+ToolAuthorizerSpec covers Deferred for partial confirmations. The existing compatibility group verifies default overload delegation without changing request JSON; harness tests establish actual Plan integration. Runtime integration lives in the [agent suites](../agent/README.md). See the [parity audit](../../../../../../../../../../docs/architecture/test-parity.md) for remaining mappings.
 
 ## Invocation capability evidence
 
@@ -44,7 +42,7 @@ ToolAuthorizerSpec covers Deferred under the accepted partial-confirmation scope
 
 ## Shell startup regressions
 
-Two existing tables now require rejection of the seven omitted Bash/Zsh startup filenames and uppercase compiled-Zsh spelling, paired with permitted filename near-misses. The expectations derive from shell startup contracts rather than the production filename set. No shell command is executed and no new group is added.
+PathSafetySpec requires rejection of Bash/Zsh startup filenames and uppercase compiled-Zsh spelling, paired with permitted filename near-misses. The expectations derive from shell startup contracts rather than the production filename set. Command fixtures are data; no shell command is executed.
 
 ## Command-screening regressions
 

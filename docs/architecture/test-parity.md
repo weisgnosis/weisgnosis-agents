@@ -660,7 +660,7 @@ ReActAgentToolEventSpec adds six local runtime regressions for persistence, erro
 - [x] Move shared validation to core.json.JsonBoundary and add a sixth direct-AST regression without serialization overhead.
 See the [finite scoped phase and legacy-hook applicability](#scoped-phase-and-permission-advice-adaptation) for named executable mappings and explicit Java API differences; structured-output mappings alone do not establish hook parity.
 
-These twelve added tests are local integration/hardening evidence, not twelve newly mapped upstream methods. Four initial regressions and one additional wrapper regression failed before their respective corrections. JSON Schema validation and complete provider compatibility are not claimed. Auto fallback currently recognizes status 400/422/501, not a complete provider capability protocol.
+These HTTP and boundary scenarios establish the listed local contracts, not exhaustive upstream or provider compatibility. They do not establish JSON Schema validation; [local tool schema admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) has its own contract. Auto fallback recognizes status 400/422/501, not a complete provider capability protocol.
 
 ## Explicit structured-output capability selection
 
@@ -675,7 +675,7 @@ The two newly completed mapped methods are native-with-tools Auto selection and 
 - [x] The bounded selected-request projection through ModelInputTransform covers: immutable target/tool context, transient history/settings, scoped cleanup and unchanged dispatch authority. This is source-contract evidence, not a newly closed whole Java middleware method.
 See the [finite scoped phase and legacy-hook applicability](#scoped-phase-and-permission-advice-adaptation) for named executable mappings and explicit Java API differences; structured-output mappings alone do not establish hook parity.
 
-This increment closes one previously pending upstream method through a documented typed adaptation. Fourteen local tests do not represent fourteen upstream methods. The Auto retry regression failed before narrowing callback failures to TextTransformationError. Raw ModelResponseChunk payloads remain original diagnostics; visible text is transformed before runtime assembly. The provider protocol and completion checks cannot be modified through this interface.
+This mapping uses a typed adaptation: callback failures become TextTransformationError and do not trigger provider Auto retry. Raw ModelResponseChunk payloads remain original diagnostics; visible text is transformed before runtime assembly. The provider protocol and completion checks cannot be modified through this interface.
 
 - [x] ReActAgentMiddlewareIntegrationTest.transformedTextIsUsedForPartialMessageWhenModelCallIsInterrupted (425): the strengthened existing cancellation group reproduces missing transformed partial history on unchanged 23a3bec. The [request-local progress correction](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#interrupted-transformed-progress) describes the bounded transformed-history intent and cancellation/failure boundaries. Generic middleware/event rewriting and live-provider behavior are not inferred.
 
@@ -685,7 +685,7 @@ This increment closes one previously pending upstream method through a documente
 - [x] ReActAgentMiddlewareIntegrationTest.serializeOnKeyGateReleasedAfterMiddlewareError (474): the strengthened existing [hook-error reuse group](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#hook-error-gate-reuse) targets the same-agent gate-release intent after a typed post-reasoning failure, with cleanup/call counts and second structured success. Java AgentStart/onion middleware, unchecked exceptions and Reactor subscription behavior remain deliberate API differences; this is not whole middleware parity.
 See the [finite scoped phase and legacy-hook applicability](#scoped-phase-and-permission-advice-adaptation) for named executable mappings and explicit Java API differences; structured-output mappings alone do not establish hook parity.
 
-Twenty-two added local tests cover more than the one newly closed upstream mapping. Replacement cannot forge canonical or legacy usage, discard does not reset thinking retries, and all returned model observations count across fallback attempts. Synthetic residual history clears both usage representations. The legacy duplication regression failed before correction. Existing model events remain original observations, while final results/history and dispatch reflect accepted policy decisions.
+Replacement cannot forge canonical or legacy usage, discard does not reset thinking retries, and all returned model observations count across fallback attempts. Synthetic residual history clears both usage representations. Existing model events remain original observations, while final results/history and dispatch reflect accepted policy decisions.
 
 ## Before-acting suspension: bounded mappings
 
@@ -726,7 +726,7 @@ Pinned source: agentscope-harness/src/test/java/io/agentscope/harness/agent/midd
 - [x] Verify three processor tests, seven core lifecycle scenarios, and five harness integrations (including actual disk persistence).
 - [x] Install opt-in supplied-history eviction through ToolResultEvictor.preparer; ToolResultEvictorHistorySpec covers local/inline input, failure, cancellation, and compaction order.
 
-Fifteen added tests are local evidence for these mappings and hardening boundaries, not fifteen upstream methods. Remaining harness domains still require exhaustive method-level audit.
+These scenarios establish the listed eviction mappings and hardening boundaries. Remaining library obligations are recorded in the [completion checklist](tracker.md); local test counts are not an upstream parity measure.
 
 ## Core authorization boundary and pending HITL mapping
 
@@ -1006,7 +1006,7 @@ Cancellation-after-admission uses the WorkspaceLease contract; interruption may 
 
 ## Transcript policy evidence
 
-Eight new tests verify the shared 180-day default, positive day decoding, exact fixed-day arithmetic, nanosecond preservation, range rejection, disabled/evaluated outcomes and one clock sample before ownership. These supplied partial default and numeric-validation evidence; the six complete method adaptations are now documented above. KeepAll is a typed Scala extension and the existing explicit-cutoff API is unchanged.
+Retention scenarios verify the shared 180-day default, positive day decoding, exact fixed-day arithmetic, nanosecond preservation, range rejection, disabled/evaluated outcomes and one clock sample before ownership. The method adaptations are documented above. KeepAll is a typed Scala extension; explicit-cutoff behavior remains supported.
 
 - [x] Verify disabled policy does not read Clock or access even an untrusted/missing target.
 - [x] Verify enabled underflow fails before ownership and cutoff equality retains data.
@@ -1083,7 +1083,7 @@ Admission includes skill-loader and child-control adaptations; all fourteen inve
 - [x] Implement the model-facing review tool adapter.
 - [ ] Integrate authenticated host UI transport.
 
-This deliberately hardens upstream unconditional exit and unversioned approval. The eighteen added tests establish in-memory state and capability ownership, not a file or approval-delivery protocol. See the [session contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle).
+This deliberately hardens upstream unconditional exit and unversioned approval. These scenarios establish in-memory state and capability ownership, not a file or approval-delivery protocol. See the [session contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/plan/README.md#in-memory-plan-session-lifecycle).
 
 ## Plan projection evidence
 

@@ -1,6 +1,6 @@
 # Plan-mode admission foundations
 
-The [shared initialization contract](../storage/README.md#scoped-initialization) corrects failed/interrupted local opening: ownership is released before failure reaches a still-live host Scope; successful resources retain the host lifetime. The unchanged-production regression failed before correction; same-host repair/reopen and exact cleanup-cause tests now pass.
+The [shared initialization contract](../storage/README.md#scoped-initialization) requires ownership release after failed/interrupted local opening before failure reaches a still-live host Scope; successful resources retain the host lifetime.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 

@@ -1,18 +1,18 @@
 # Model client and stream verification
 
-Existing request tables now explicitly reject blank call names and two calls with only one matching result.
+Request tables reject blank call names and two calls with only one matching result.
 
 Existing parser/detail/HTTP tables cover the [scalar reasoning aliases](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#scalar-reasoning-aliases), including exact coalescing, conflict rejection, null/empty/malformed values and authoritative details.
 
-Three pure table groups and one integration group cover full-only responses, validated summary suppression, terminal/usage preservation and exact single-copy output/events/transforms. Existing incomplete-call and missing-DONE groups also exercise the selected profile. This remains bounded SSE behavior; ordinary JSON HTTP has its separate [non-streaming contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions).
+Parser and integration tests cover full-only responses, validated summary suppression, terminal/usage preservation and exact single-copy output/events/transforms. Existing incomplete-call and missing-DONE groups also exercise the selected profile. This remains bounded SSE behavior; ordinary JSON HTTP has its separate [non-streaming contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions).
 
-One parser table adds fragmented LF/CRLF boundary coverage; the existing transport group requires the exact EOF failure for incomplete DONE. Complete frames remain accepted. These are local protocol regressions, not a nonexistent upstream SseParser suite or complete EventSource parity.
+Parser tests cover fragmented LF/CRLF boundaries; the existing transport group requires the exact EOF failure for incomplete DONE. Complete frames remain accepted. These are local protocol regressions, not a nonexistent upstream SseParser suite or complete EventSource parity.
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 
 Existing tool-choice tables verify omitted/default/null codecs, visible definitions and all encoded forms. The real HTTP tool-cycle table proves choice is not authorization: host-approved execution despite none, denied execution despite Specific, and zero HTTP for hidden Specific. Failover/structured rows inspect retained per-target choices.
 
-Existing request/failover tables cover optional topP and frequency/presence penalties: omission, explicit zero, inclusive endpoints, invalid values, per-target settings and projected clearing in serialized controlled-driver requests. Seed rows cover both Long endpoints, zero, omitted/null defaults, fractional/overflow codec rejection and exact serialized values. Settings rows also check retry reuse and native/synthetic requests. Existing rows also cover omitted/enabled/disabled parallel_tool_calls with and without tools, configuration migration, per-target preservation and actual HTTP dispatch/authorization when a provider returns multiple calls despite Disabled. The steering limits are described in the [parallel-call contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering). No new test groups or live-provider compatibility claim.
+Existing request/failover tables cover optional topP and frequency/presence penalties: omission, explicit zero, inclusive endpoints, invalid values, per-target settings and projected clearing in serialized controlled-driver requests. Seed rows cover both Long endpoints, zero, omitted/null defaults, fractional/overflow codec rejection and exact serialized values. Settings rows also check retry reuse and native/synthetic requests. Existing rows also cover omitted/enabled/disabled parallel_tool_calls with and without tools, configuration migration, per-target preservation and actual HTTP dispatch/authorization when a provider returns multiple calls despite Disabled. The steering limits are described in the [parallel-call contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#optional-parallel-tool-call-steering). Live-provider compatibility is not established by these tests.
 
 The [selected-reasoning contract](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#encrypted-reasoning) records checked encrypted/text/summary values, ordered all-history replay and sibling-input protection. Two general-detail groups cover literal fields, profile rejection, scalar precedence, direct mixed-chunk rejection and canonical/event agreement. The real HTTP ReAct table checks both selected profiles: encrypted-only emits no Thinking events; general details emit exactly their plaintext projection. These are local protocol tests, not live OpenRouter interoperability. The [summary text alias](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#summary-text-alias) extends existing tables with legacy/equal-dual summary input, strict alias conflicts/malformed values and literal AST replay, plus full-message HTTP-client/ReAct text/legacy-summary/mixed fixtures.
 
@@ -49,31 +49,31 @@ ChatCompletionsRequestSpec also verifies that descriptive ToolDef output metadat
 - Sixteen strict-delta regressions cover field/index errors, duplicate keys, provider errors, unsupported calls, and complete frame boundaries; original reasoning/tool/usage parsing and context hygiene tests remain.
 - StreamAccumulatorCompletionSpec regressions cover required finish markers, malformed/non-object/trailing tool arguments, interrupted sanitization, raw content, deferred/stable identity, duplicate IDs, interleaved indexes, signed blocks, usage snapshots, and post-finish rejection.
 - JsonBoundarySpec verifies six complete-document/duplicate/escape/numeric/direct-AST scenarios without effects.
-- Existing accumulator scenarios and two ReAct thinking-retry integration tests now handle Either and explicit successful finish markers.
+- Accumulator and ReAct thinking-retry scenarios check typed completion results and explicit successful finish markers.
 - Transport tests cover real loopback HTTP plus deterministic scope, interruption, body-budget, protocol-termination, and failure fixtures.
 - Live-client tests verify early deltas, real HTTP tool cycles, request identity, late call identity, malformed/incomplete streams, and cancellation.
 - publisher tests verify indexed content, interleaved calls, and atomic ending-batch validation; event-context tests cover all sixteen correlated variants and legacy payloads.
 Unselected provider signatures, inline server-response dialects and reasoning-detail variants are not decoded automatically. These tests establish the listed checked boundaries, not every provider format or a global response-size limit.
 
-[ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) checks a rejected 429 followed by success and a terminal 400, with identical request body/auth, one input projection, one model context, no rejected-response chunks, and exact successful history/usage. Two controlled groups cover exact eligible statuses/budgets, same-valued public error exclusions, held cleanup, full failure causes, cancellation during body/cleanup and an interruptible delay. The unchanged cancellation regression now passes; no broader retry or scheduling coverage is claimed.
+[ChatCompletionsTransportSpec](ChatCompletionsTransportSpec.scala) checks a rejected 429 followed by success and a terminal 400, with identical request body/auth, one input projection, one model context, no rejected-response chunks, and exact successful history/usage. Two controlled groups cover exact eligible statuses/budgets, same-valued public error exclusions, held cleanup, full failure causes, cancellation during body/cleanup and an interruptible delay. Cancellation coverage does not establish general retry or scheduling behavior.
 
 [ModelFailoverSpec](ModelFailoverSpec.scala) exercises the runtime-owned target boundary through the real completion adapter with controlled drivers. Its scope distinguishes eligible rejection from arbitrary public errors or successful-response failures, preserves canonical history with fresh target projections/contexts, and checks structured-plan compatibility and complete fallback failure causes. It does not establish live-provider routing, failover listeners or general network recovery.
 
 ## Per-tool strictness coverage
 
-Existing request tables check omission, explicit true/false and mixed definitions with exact original schemas. Existing failover/structured requests require exact tool names/counts and the full lookup definition; synthetic requests require generate_response with strictness omitted. Codec, fixed-wrapper and MCP host-definition groups verify preservation without adding groups.
+Existing request tables check omission, explicit true/false and mixed definitions with exact original schemas. Existing failover/structured requests require exact tool names/counts and the full lookup definition; synthetic requests require generate_response with strictness omitted. Codec, fixed-wrapper and MCP host-definition groups verify preservation.
 
 ## Reasoning-effort coverage
 
-Existing request/configuration tables cover every supported effort value, exact lowercase wire strings, omission/null and invalid enum decoding. Projection/failover tables verify each target's original preference, replacement, clearing and structured/retry preservation. The response-format table also checks json_object pass-through. No new groups were added.
+Existing request/configuration tables cover every supported effort value, exact lowercase wire strings, omission/null and invalid enum decoding. Projection/failover tables verify each target's original preference, replacement, clearing and structured/retry preservation. The response-format table also checks json_object pass-through.
 
 ## Stop-sequence coverage
 
-The paired StopSequencesSpec checks nonempty construction, exact array round-trips and malformed input in one grouped table. Existing request/failover groups cover omission, canonical arrays, independent selected-target settings, replacement and clearing, structured formatting and retry body reuse. This is an added provider request setting; it is not a reproduced decoder defect.
+The paired StopSequencesSpec checks nonempty construction, exact array round-trips and malformed input in one grouped table. Existing request/failover groups cover omission, canonical arrays, independent selected-target settings, replacement and clearing, structured formatting and retry body reuse.
 
 ## Cache usage evidence
 
-Existing usage tables verify direct cache-hit precedence, explicit zero, absent/null fallback, cache-write preservation and strict malformed-count rejection, including overridden fallback counts. The existing real HTTP retry scenario checks these counters in canonical assistant history. No new test groups were added.
+Existing usage tables verify direct cache-hit precedence, explicit zero, absent/null fallback, cache-write preservation and strict malformed-count rejection, including overridden fallback counts. The existing real HTTP retry scenario checks these counters in canonical assistant history.
 
 ## Inline video projection evidence
 
@@ -85,9 +85,7 @@ The bounded extension targets strict signature-only decoding, unchanged existing
 
 ## Current acceptance
 
-These fixtures retain the selected-profile limits described above; they do not establish additional provider dialects.
-
-The validator moved from client.ProtocolJson to core.json.JsonBoundary as an internal implementation change. This keeps model and agent parsing independent of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction now rejects trailing input and ambiguous fields instead of accepting a prefix or one duplicate value.
+Shared JSON validation lives in core.json.JsonBoundary, independently of HTTP/client layering. decode validates exactly one textual JSON document; validate preserves an existing AST after rejecting duplicate fields. Public Msg structured extraction rejects trailing input and ambiguous fields.
 
 ## Text transformation evidence
 
@@ -95,7 +93,7 @@ The validator moved from client.ProtocolJson to core.json.JsonBoundary as an int
 
 The cancellation regression requires already transformed/published text to survive in canonical partial history. Scripted HTTP transport is not a live endpoint test, and early external stream termination does not guarantee later terminal delivery.
 
-ModelTextTransformSpec tests cover identity, suspended ordered composition with stable context/index, typed fail-fast behavior, and compile-time exclusion of provider ModelError. ChatCompletionsTransformSpec tests cover the real HTTP fenced-JSON scenario, unchanged thinking/tools/usage, scoped cleanup, malformed-frame and post-finish rejection before callbacks, transform failure, cooperative cancellation, strict transformed JSON, missing completion, and no Auto retry after an explicitly mapped host transformation error. The latter regression failed before narrowing the callback error channel. The HTTP scenario checks transformed deltas/end, finalized text/metadata/history, usage, and runtime context together.
+ModelTextTransformSpec tests cover identity, suspended ordered composition with stable context/index, typed fail-fast behavior, and compile-time exclusion of provider ModelError. ChatCompletionsTransformSpec tests cover the real HTTP fenced-JSON scenario, unchanged thinking/tools/usage, scoped cleanup, malformed-frame and post-finish rejection before callbacks, transform failure, cooperative cancellation, strict transformed JSON, missing completion, and no Auto retry after an explicitly mapped host transformation error. The HTTP scenario checks transformed deltas/end, finalized text/metadata/history, usage, and runtime context together.
 
 The [client contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md) distinguish original diagnostic frames from transformed visible text and retain general middleware as pending work.
 
@@ -103,10 +101,10 @@ AgentErrorSpec verifies the text-transformation error codec and diagnostic messa
 
 ## Real HTTP fixture clocks
 
-Real loopback client/server acquisition, use and release run with a live clock. zio-http 3.11.3 server shutdown polls active requests on a timed schedule; using an unadvanced TestClock can strand that cleanup. Scoped cleanup and existing assertions are unchanged.
+Real loopback client/server acquisition, use and release run with a live clock. zio-http 3.11.3 server shutdown polls active requests on a timed schedule; using an unadvanced TestClock can strand that cleanup.
 
 Existing transport/transform/reasoning usage assertions handle checked totalTokens/combine; serde fixtures preserve the unchanged wire fields.
 
-ThinkingBudgetSpec supplies one checked-value group; existing request/failover tables verify exact optional thinking_budget, target initialization, override/clear and shared structured request encoding.
+ThinkingBudgetSpec covers checked values; existing request/failover tables verify exact optional thinking_budget, target initialization, override/clear and shared structured request encoding.
 
-The [tool-image profile](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) adds two grouped request/scripted-HTTP regressions for explicit ordered successful Text/Image observations, strict rejection and full message-array preservation in both response modes.
+The [tool-image profile](../../../../../../../main/scala/com/weisgnosis/agents/core/client/README.md#tool-image-result-projection) has request/scripted-HTTP coverage for explicit ordered successful Text/Image observations, strict rejection and full message-array preservation in both response modes.

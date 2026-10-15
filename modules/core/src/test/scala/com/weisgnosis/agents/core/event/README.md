@@ -10,7 +10,7 @@ The [incremental and accumulated thinking contract](../../../../../../../main/sc
 
 Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 
-Generic PermissionAskEvent and PermissionDecisionEvent runtime integration is accepted in the [checkpoint contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events). Ask follows successful batch cleanup and precedes RequestStop; a recorded resumed authorization decision precedes tool Start. UUID correlation is data, not evidence of a human response; event codecs are unchanged.
+Generic PermissionAskEvent and PermissionDecisionEvent runtime integration follows the [checkpoint contract](../../../../../../../../../harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md#checkpoint-permission-events). Ask follows successful batch cleanup and precedes RequestStop; a recorded resumed authorization decision precedes tool Start. UUID correlation is data, not evidence of a human response; event codecs are unchanged.
 
 The existing RequestStop codec is unchanged. [Acting-stop runtime tests](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md#acting-stop-decisions) exercise host authority and publication after completed observations; the event payload alone grants no stop, cancellation or resume authority.
 
@@ -26,9 +26,9 @@ These suites verify payload codecs and selected runtime boundaries. They do not 
 
 ## Current acceptance
 
-- All 13 enabled AgentEventStreamTest declarations now have identifier/payload evidence with documented adaptations.
+- AgentEventStreamTest identifier/payload mappings and intentional adaptations are recorded in the parity reference.
 - ReActAgentEmissionSpec verifies correlated iteration-limit publication and inline provider metadata/text/data order with occurrence-sensitive cancellation handling.
-- StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the reviewed [agent scope](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
+- StructuredCompletionSpec verifies finalized result publication after history commit and before AgentEnd; see the [agent contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/agent/README.md).
 - Coverage includes reply/request correlation in actual live model streams.
 - Coverage includes bounded current runtime ordering, checkpoint Ask/Decision and optional final-answer presentation filtering.
 A DataBlock codec does not create a model DataBlock producer. Source attribution requires explicit runtime/host context, and durable checkpoint authentication and delivery remain host responsibilities.
@@ -39,7 +39,7 @@ Completed local publication through Tool.encodeResult and ToolResultProcessor pr
 
 ## Model stream context
 
-Sixteen text/thinking/function/model/result event variants now carry optional ModelStreamContext(replyId, requestId, invocation = None). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
+Sixteen text/thinking/function/model/result event variants carry optional ModelStreamContext(replyId, requestId, invocation = None). Legacy payloads without context still decode; malformed supplied context fails. Constructors append the optional field, so positional extractors must accept the additional argument. withSource retains correlation. Runtime model boundaries and the live client always supply context; arbitrary scripted event publishers remain responsible for theirs. The context constructor and codec allocate no identities or time.
 
 ModelStreamContextSpec verifies all sixteen contextual root encodings, source preservation, legacy absence, and incomplete supplied context. See [live client ordering](../client/README.md); typed completed local blocks and metadata are supported; the opt-in Java wire adapter is separate from canonical Scala codecs, and provider multimodal projection remains profile-specific; incremental local execution has separate runtime evidence in the tool contract.
 

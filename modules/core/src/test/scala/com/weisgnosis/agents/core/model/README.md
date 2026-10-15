@@ -1,6 +1,6 @@
 # Model verification
 
-These ZIO Test suites verify all 119 pinned upstream message methods with explicit immutable, effect-boundary, and wire adaptations. They also exercise Scala-specific construction, cancellation, and nested-codec regressions. Full Java API/wire equivalence and broader repository parity are not claimed.
+These ZIO Test suites cover pinned upstream message scenarios with explicit immutable, effect-boundary, and wire adaptations. They also exercise Scala-specific construction, cancellation, and nested-codec regressions. Full Java API/wire equivalence and broader repository parity are not claimed.
 
 - [ChatUsageSpec](ChatUsageSpec.scala)
 - [ContentBlockCodecSpec](ContentBlockCodecSpec.scala)
@@ -20,12 +20,12 @@ These ZIO Test suites verify all 119 pinned upstream message methods with explic
 ## Current evidence
 
 - MsgConstructionSpec rejects unchecked constructor/apply/copy/Mirror reconstruction, verifies validated updates and structural equality, and checks ordered interruptible tool mapping.
-- MsgFactorySpec adapts all 26 message factory/builder scenarios; GenerateReasonSpec covers all nine generation-reason methods.
-- ContentBlockCodecSpec checks all ten leaf/base representations and nested discriminators. ToolUseSpec plus ContentBlockSerdeSpec cover all 17 upstream ToolUse methods and canonical/legacy server markers.
-- DataBlockSpec covers all seven upstream DataBlock methods plus seeded lazy allocation/reuse; MediaSourceSpec covers concrete/base codecs, aliases, nested invalid input and canonical optional URL MIME hints, including absent/null omission and duplicate/nonstring rejection.
+- MsgFactorySpec covers message factory/builder adaptations; GenerateReasonSpec covers generation-reason methods.
+- ContentBlockCodecSpec checks all ten leaf/base representations and nested discriminators. ToolUseSpec plus ContentBlockSerdeSpec cover upstream ToolUse adaptations and canonical/legacy server markers.
+- DataBlockSpec covers upstream DataBlock adaptations and seeded lazy allocation/reuse; MediaSourceSpec covers concrete/base codecs, aliases, nested invalid input and canonical optional URL MIME hints, including absent/null omission and duplicate/nonstring rejection.
 Payload tests alone do not establish execution or human confirmation authority. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded mappings and intentional API adaptations.
 
-The [119-method mapping](../../../../../../../../../../docs/architecture/test-parity.md) states each adaptation. Data identity is opt-in inside ZIO; required-source compile-time checks and JSON rejection do not claim direct Java-null constructor protection. Seeded tests show effect construction is lazy and reusing identity consumes no randomness.
+The [upstream mapping](../../../../../../../../../../docs/architecture/test-parity.md) states each adaptation. Data identity is opt-in inside ZIO; required-source compile-time checks and JSON rejection do not claim direct Java-null constructor protection. Seeded tests show effect construction is lazy and reusing identity consumes no randomness.
 
 ## Strict structured JSON
 
@@ -40,6 +40,6 @@ The internal occurrence-specific Msg update is exercised through [ReActAgentTool
 
 [ToolHistorySpec](ToolHistorySpec.scala) verifies three shared-analysis scenarios: reversed named spans, inline/local pool isolation including unmatched inline output, and FIFO unnamed-result consumption with wrong-name rejection and retained original ordinal. The inline table additionally verifies provider-owned pending exclusion, same-ID/name local matching and orphan rejection for separate Tool/later-assistant results.
 
-ChatUsageSpec covers checked valid boundaries, invalid counters/time and overflow without saturation. Existing callers/serde fixtures now handle Either; wire fields are unchanged.
+ChatUsageSpec covers checked valid boundaries, invalid counters/time and overflow without saturation. Callers/serde fixtures handle Either; wire fields are unchanged.
 
 History rewrite validation and scoped compactor integration do not establish semantic summary fidelity or exhaustive provider-format validation.

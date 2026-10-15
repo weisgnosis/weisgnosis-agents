@@ -6,6 +6,6 @@
 
 These error contracts and suites cover the listed boundaries; passing them does not establish exhaustive upstream parity.
 
-Acceptance for unchanged host callback, storage and lineage behavior remains in the relevant [source package contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/error/README.md). Current full-build evidence is recorded in the repository tracker; Git preserves prior review history.
+The [source package contracts](../../../../../../../main/scala/com/weisgnosis/agents/core/error/README.md) describe host callback, storage and lineage boundaries.
 
-The existing error table includes the additive StorageError leaf. Versioned backend runtime failures belong to the separate [storage contract](../../../../../../../main/scala/com/weisgnosis/agents/core/error/README.md); leaf codec checks alone do not establish database correctness.
+The error table includes the StorageError leaf. Versioned backend runtime failures belong to the separate [storage contract](../../../../../../../main/scala/com/weisgnosis/agents/core/error/README.md); leaf codec checks alone do not establish database correctness.

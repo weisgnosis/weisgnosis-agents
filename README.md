@@ -1,5 +1,7 @@
 # weisgnosis-agents
 
+[![GitHub stars](https://img.shields.io/github/stars/weisgnosis/weisgnosis-agents?style=social)](https://github.com/weisgnosis/weisgnosis-agents/stargazers) · [Star history](https://www.star-history.com/#weisgnosis/weisgnosis-agents&Date)
+
 A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership. The runtime owns conversation state and completion; model output is untrusted input. Agent mechanics are adapted from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java).
 
 **Development status:** use local artifacts from this source tree. Public distribution, frozen binary compatibility and complete upstream transfer are not yet established. The [completion checklist](docs/architecture/tracker.md) records verified delivery scope and explicit boundaries.

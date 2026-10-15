@@ -199,4 +199,4 @@ An analysis of 336 unit and integration tests across `agentscope-core` and `agen
 
 The original research proposed progressing from domain models and streaming foundations to the ReAct engine, harness components, MCP/subagents, and host integration. This is historical sequencing context, not a second delivery checklist.
 
-The [current progress tracker](architecture/tracker.md) is the authoritative checkbox list for implemented components, pending work, and the next task. The [parity checklist](architecture/test-parity.md) separately tracks coverage completion. Maintain progress in those living documents rather than duplicating status here.
+The [completion checklist](architecture/tracker.md) is the sole current list of verified outcomes, remaining work and the next task. The [parity reference](architecture/test-parity.md) maps upstream behavior to executable scenarios and intentional adaptations; its legacy checkboxes are not a separate completion plan. Maintain delivery status in the tracker rather than duplicating it here.

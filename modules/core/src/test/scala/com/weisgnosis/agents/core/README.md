@@ -11,4 +11,4 @@ The [schema-admission suites](tool/README.md) cover contract neighbors and repro
 
 The [tool suites](tool/README.md#typed-observation-evidence) cover payload/state projection and compound cancellation causes; [agent integration](agent/README.md#typed-local-result-evidence) covers persistence and correlated events.
 
-Package READMEs own current behavior, verification scope, and acceptance status. Planned packages are explicitly marked and are not accepted implementations.
+Package READMEs describe test contracts and verification limits. The [tracker](../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist.

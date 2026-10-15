@@ -7,5 +7,6 @@
 - [skill](skill/README.md)
 - [subagent](subagent/README.md)
 - [storage](storage/README.md): local ownership and additive checked versioned publication contracts
+- [transcript](transcript/README.md)
 
-Package READMEs own current behavior, verification scope, and acceptance status. Planned packages are explicitly marked and are not accepted implementations.
+Package READMEs describe verification scope and its limits. The [tracker](../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist.

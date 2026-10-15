@@ -1,26 +1,22 @@
 # Large tool result offloading verification
 
-Toolkit construction and selection follow the [checked registry identity and migration contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
+From the repository root, run:
 
-- [ToolResultEvictorSpec](ToolResultEvictorSpec.scala)
-- [ToolResultEvictorIntegrationSpec](ToolResultEvictorIntegrationSpec.scala)
-- [ToolResultStoreSpec](ToolResultStoreSpec.scala)
-- [EvictionTestSupport](EvictionTestSupport.scala)
+```text
+sbt "harness / testOnly com.weisgnosis.agents.harness.eviction.*"
+```
 
-Existing suites verify thresholds/exclusions, state/metadata preservation, reused IDs, placeholder-prefix handling, persistence failure/interruption, canonical storage, atomic publication, and explicit workspace trust. Five new integration tests verify runtime history/model input/events, actual default-directory disk content, persistence fallback, cancellation without re-execution, and separate cache entries for reused IDs. EvictionTestSupport extracts the unchanged scoped temporary-directory fixture from ToolResultStoreSpec.
+| Suite | Verified contracts |
+| --- | --- |
+| [ToolResultEvictorSpec](ToolResultEvictorSpec.scala) | Thresholds, exclusions, previews and metadata preservation. |
+| [ToolResultEvictorIntegrationSpec](ToolResultEvictorIntegrationSpec.scala) | Immediate runtime history, model input and events; inline provider results without local dispatch; actual default-directory storage under explicit trust; persistence failure, cancellation and reused call IDs. |
+| [ToolResultEvictorHistorySpec](ToolResultEvictorHistorySpec.scala) | Supplied local/inline observations, eviction before compaction, canonical/request-view isolation and persistence failure/cancellation before dispatch. |
+| [ToolResultEvictorRecognitionSpec](ToolResultEvictorRecognitionSpec.scala) | Fresh-instance/JSON recognition, historical split-surrogate preview repair, changed windows, malformed/forged hints, missing/corrupt content and lookup failure/interruption. |
+| [ToolResultStoreSpec](ToolResultStoreSpec.scala) | Canonical storage and lookup, atomic concurrent publication/collisions, path validation and explicit workspace trust. |
+| [ResultStorageLocationSpec](ResultStorageLocationSpec.scala) | Pure location codecs, absolute/trailing-separator configuration, invalid or untrusted locations, concurrent publication, removed/replaced directories and lazy default storage. |
 
-The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; the parity reference records bounded public scenarios and intentional API adaptations.
+[EvictionTestSupport](EvictionTestSupport.scala) owns the scoped temporary-directory fixture. Toolkit construction follows the [checked registry identity contract](../../../../../../../../../core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#checked-registry-identity).
 
-Passing these suites does not establish middleware two-view equivalence or exhaustive harness parity. The [eviction contracts](../../../../../../../main/scala/com/weisgnosis/agents/harness/eviction/README.md) describe path/metadata adaptations and runtime exclusions.
+Strict hint validation includes numeric strings, fractional widths and integer overflow. Storage failure must preserve the original observation; cancellation must not authorize tool re-execution. These suites use scripted model responses and owned local files, not real provider requests or hostile filesystem mutation.
 
-The inline-provider integration regression verifies full 80,001-character storage, bounded head/tail preview, preserved server marker, processed canonical reply and event metadata, and zero local executions/Tool messages. It does not establish supplied-history eviction.
-
-- [ToolResultEvictorRecognitionSpec](ToolResultEvictorRecognitionSpec.scala): nine scenarios for low-threshold repetition, fresh-instance/JSON reloads, changed windows, malformed/forged hints, missing/corrupt content, lookup failure/interruption, reused IDs/nontext blocks, and local canonical lookup.
-- [ToolResultEvictorHistorySpec](ToolResultEvictorHistorySpec.scala): seven runtime scenarios for supplied local/inline observations, persistence fallback, cancellation before dispatch, eviction-before-compaction, and canonical/request-view isolation.
-- [ToolResultStoreSpec](ToolResultStoreSpec.scala): three added read-only lookup/layout/concurrent publication scenarios; the existing write test now verifies canonical resolution.
-
-The focused tests first failed on numeric-string decoding and Windows file-as-directory behavior. Final strict-number forgery cases include version strings, fractional widths, and integer overflow. Symlink/junction creation is outside the dynamically verified scope.
-
-[ResultStorageLocationSpec](ResultStorageLocationSpec.scala) adds eight scenarios for configuration codecs, absolute/trailing-separator persistence, invalid paths, existing-directory enforcement, untrusted mode, concurrent publication/collisions, removed/replaced locations, and unchanged lazy default storage. The upstream-named scenario checks complete stored content, canonical preview paths, fresh-instance recognition, and absence of a workspace cache side effect.
-
-ToolResultEvictorHistorySpec now contains seven scenarios. The upstream-named evictsCanonicalAgentStateWhenReasoningHookRemovedLargeResult verifies full local-disk content while the model receives exactly the projected value without removed pairs. Two additional scenarios verify repeated views after actual execution and independent request-only metadata/state. Java reference identity and middleware ordering are adapted, not replicated.
+The [eviction API contract](../../../../../../../main/scala/com/weisgnosis/agents/harness/eviction/README.md) describes supported paths, metadata, trust and runtime exclusions. The [tracker](../../../../../../../../../../docs/architecture/tracker.md) is the sole current completion checklist; passing these suites alone does not establish exhaustive upstream parity.
