@@ -1,0 +1,118 @@
+name: Publish Packages
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Canonical candidate version
+        required: true
+        default: 0.1.0-RC1
+        type: string
+      source:
+        description: Exact source commit SHA to verify and publish
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: publish-packages-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: fixture
+          POSTGRES_PASSWORD: fixture-password
+          POSTGRES_DB: fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U fixture -d fixture"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      CANDIDATE_VERSION: ${{ inputs.version }}
+      SOURCE_COMMIT: ${{ inputs.source }}
+      WEISGNOSIS_POSTGRES_URL: jdbc:postgresql://127.0.0.1:5432/fixture
+      WEISGNOSIS_POSTGRES_USER: fixture
+      WEISGNOSIS_POSTGRES_PASSWORD: fixture-password
+    steps:
+      - name: Validate source identity and candidate syntax
+        shell: bash
+        run: |
+          [[ "$SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]
+          [[ ${#CANDIDATE_VERSION} -le 64 ]]
+          [[ "$CANDIDATE_VERSION" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)-RC[1-9][0-9]*$ ]]
+
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.source }}
+          persist-credentials: false
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: sbt
+
+      - uses: sbt/setup-sbt@v1
+
+      - name: Validate candidate version
+        run: sbt "artifactVerification / runMain com.weisgnosis.agents.verification.PrepareArtifacts --version $CANDIDATE_VERSION --check-only"
+
+      - name: Verify and package
+        run: sbt "-Dweisgnosis.candidate.version=$CANDIDATE_VERSION" verify packageArtifacts
+
+      - name: Check exact packages and negative archive fixtures
+        run: sbt "artifactVerification / runMain com.weisgnosis.agents.verification.CheckPreparation --version $CANDIDATE_VERSION"
+
+      - name: Verify local packaged consumer
+        working-directory: verification/artifact-consumer
+        run: sbt "-Dweisgnosis.artifact.version=$CANDIDATE_VERSION" scalafmtCheckAll scalafmtSbtCheck clean compile run
+
+      - name: Publish five verified modules
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          sbt "-Dweisgnosis.candidate.version=$CANDIDATE_VERSION" \
+            'set ThisBuild / publishTo := Some("GitHub Packages" at "https://maven.pkg.github.com/weisgnosis/weisgnosis-agents")' \
+            'set ThisBuild / credentials += Credentials("GitHub Package Registry", "maven.pkg.github.com", sys.env("GITHUB_ACTOR"), sys.env("GITHUB_TOKEN"))' \
+            'core / publish' 'harness / publish' 'mcp / publish' 'storagePostgresql / publish' 'otel / publish'
+
+      - name: Verify installation from GitHub Packages
+        working-directory: verification/artifact-consumer
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COURSIER_CACHE: ${{ runner.temp }}/published-package-consumer
+        run: |
+          sbt "-Dweisgnosis.artifact.version=$CANDIDATE_VERSION" "-Dsbt.ivy.home=$RUNNER_TEMP/published-package-ivy" \
+            'set resolvers := Seq("GitHub Packages" at "https://maven.pkg.github.com/weisgnosis/weisgnosis-agents", Resolver.mavenCentral)' \
+            'set externalResolvers := resolvers.value' \
+            'set credentials += Credentials("GitHub Package Registry", "maven.pkg.github.com", sys.env("GITHUB_ACTOR"), sys.env("GITHUB_TOKEN"))' \
+            clean compile run
+
+      - name: Record verified source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "$SOURCE_COMMIT"
+          printf 'source_commit=%s\nversion=%s\n' "$SOURCE_COMMIT" "$CANDIDATE_VERSION" > target/artifact-verification/candidate-source.txt
+
+      - name: Upload verified release packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: weisgnosis-agents-${{ inputs.version }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            target/artifact-verification/repository/com/weisgnosis/*/${{ inputs.version }}/*
+            target/artifact-verification/manifest.json
+            target/artifact-verification/candidate-source.txt
