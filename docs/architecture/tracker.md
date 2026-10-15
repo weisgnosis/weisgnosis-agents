@@ -161,10 +161,16 @@ complete; OS integration remains separate.
 
 - [ ] Preserve exact thinking-delta delivery under concurrent publication and
   consumption. The Linux run observed 2,001 deltas for 2,000 fragments in
-  `ChatCompletionsTransformSpec`; identify and verify the actual cause.
+  `ChatCompletionsTransformSpec`; identify and verify the actual cause. The
+  [failing run](https://github.com/weisgnosis/weisgnosis-agents/actions/runs/38714925606)
+  remains unresolved; raw, observed-identical and indexed boundary checks are
+  retained without claiming that passing repeats fixed it.
 - [x] Join interrupted foreground child lifecycle publication before the parent's
   forwarding capability closes. `SubagentForwardingSpec` observed a missing
   `SubagentEndEvent` despite joined child cleanup; preserve promoted task ownership.
+- [x] Correct `SubagentTaskBarrierSpec` readiness: join the completed task,
+  lifecycle milestones and notification before asserting removal. Publication
+  alone does not guarantee readiness; retain the existing `Unnotified` contract.
 - [ ] Publish `v0.1.0-RC1` and five Maven modules through GitHub Packages after
   candidate verification, actual PostgreSQL checks, archive admission and fresh
   authenticated registry consumption. Attach selected-version artifacts and
