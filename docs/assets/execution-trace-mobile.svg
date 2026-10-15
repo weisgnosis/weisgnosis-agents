@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 534" role="img" aria-labelledby="title desc"><title id="title">Interruption preserves completed work</title><desc id="desc">Tool calls enter history before execution. One read succeeds; another is interrupted. Cancellation waits for owned cleanup. The completed result survives, the unfinished call becomes Error, and the next turn continues without repeating either tool.</desc><style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#18252c}.mono{font-family:ui-monospace,Consolas,monospace}.muted{fill:#57656b}.eyebrow{font-weight:700;letter-spacing:1.4px}.small{font-size:16px}.body{font-size:19px}.strong{font-weight:650}.cyan{fill:#086c76}.amber{fill:#92520b}.rust{fill:#a33739}</style>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 534" role="img" aria-labelledby="title desc"><title id="title">Interruption preserves completed work</title><desc id="desc">Tool calls enter history before execution. One read succeeds; another is interrupted. Cancellation waits for tool cleanup. The completed result survives, the unfinished call becomes Error, and the next turn continues without repeating either tool.</desc><style>text{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;fill:#18252c}.mono{font-family:ui-monospace,Consolas,monospace}.muted{fill:#57656b}.eyebrow{font-weight:700;letter-spacing:1.4px}.small{font-size:16px}.body{font-size:19px}.strong{font-weight:650}.cyan{fill:#086c76}.amber{fill:#92520b}.rust{fill:#a33739}</style>
 <rect width="360" height="534" rx="14" fill="#f5f3ed"/>
 <text x="20" y="32" class="small eyebrow">01 / EXECUTE</text>
 <text x="20" y="60" class="small muted">Calls recorded before tool entry</text>
@@ -10,7 +10,7 @@
 <text x="35" y="228" class="small amber">still running when host interrupts</text>
 <path d="M20 247H340" stroke="#d7dcd7"/>
 <text x="20" y="281" class="small eyebrow rust">02 / INTERRUPT ×2</text>
-<text x="20" y="312" class="small">Cancellation waits for owned cleanup.</text>
+<text x="20" y="312" class="small">Cancellation waits for tool cleanup.</text>
 <path d="M20 332H340" stroke="#087d87" stroke-width="4"/>
 <text x="20" y="369" class="small eyebrow cyan">03 / RECOVER</text>
 <text x="20" y="399" class="small">Completed result preserved.</text>

@@ -133,7 +133,7 @@ Use `ChatCompletionsClient.makeNonStreaming` only when the selected endpoint sup
 
 ## Release evidence assistant
 
-This is the complete application behind the root README's integration function. It uses a real compatible SSE Chat Completions endpoint with a **fixed read-only evidence fixture**; it does not read your CI system. Replace `readEvidence` with your own service function to connect real checks. The host supplies the tool; model text never authorizes a deployment.
+This larger version of the [first agent](../README.md#first-agent) accepts an injected evidence-reading service function. It uses a real compatible SSE Chat Completions endpoint with a **fixed read-only evidence fixture**; it does not read your CI system. Replace `readEvidence` with your own service function to connect real checks. The host supplies the tool; model text never authorizes a deployment.
 
 Install core with the [release resolver](packages.md), or use the [source setup](#build-and-local-installation) above. Set `WEISGNOSIS_EXAMPLE_ENDPOINT` to the full URL ending in `/chat/completions`, `WEISGNOSIS_EXAMPLE_MODEL` to a compatible tool-calling model and optionally `WEISGNOSIS_EXAMPLE_API_KEY` through the process environment. Requests may incur provider charges.
 
