@@ -1,6 +1,6 @@
 # Getting started
 
-This guide describes the current development APIs. Artifacts have not been publicly published, and dependent applications must rebuild when public signatures change. [Package migration notes](../project/README.md#compatibility-policy) are authoritative. The three complete applications below have been compiled against fresh candidate artifacts. This is compilation evidence, not a claim that every provider or MCP server has been exercised. The [completion checklist](architecture/tracker.md) records remaining work.
+This guide uses local development snapshots. For versioned candidate artifacts, see [package installation](packages.md). Dependent applications must rebuild when public signatures change; [package migration notes](../project/README.md#compatibility-policy) are authoritative. The three complete applications below have been compiled against fresh candidate artifacts. This is compilation evidence, not a claim that every provider or MCP server has been exercised. The [completion checklist](architecture/tracker.md) records remaining work.
 
 ## Build and local installation
 

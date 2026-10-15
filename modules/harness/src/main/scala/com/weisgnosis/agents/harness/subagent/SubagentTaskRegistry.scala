@@ -493,19 +493,35 @@ object SubagentTaskRegistry:
         policy: SubagentCompletionNotification
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       ZIO.uninterruptibleMask: restore =>
-        Scope.make.flatMap: lease =>
+        for
+          lease    <- Scope.make
+          captured <- Ref.make(Option.empty[Entry])
+          close = (exit: Exit[Any, Any]) =>
+            lease
+              .close(exit)
+              .ensuring(
+                captured.get.flatMap(
+                  ZIO.foreachDiscard(_)(entry =>
+                    entry.task.poll.flatMap:
+                      case Some(_) => awaitMilestones(entry)
+                      case None    => ZIO.unit
+                  )
+                )
+              )
           // Register the caller lease outside admission: a closed caller may synchronously join cleanup.
-          restore(gate.withPermit(lease.extend(launch(input, events, policy))))
+          result <- restore(gate.withPermit(lease.extend(launch(input, events, policy, captured))))
             .onExit:
               case Exit.Success(SubagentTaskSubmission.Accepted(_)) =>
-                ZIO.addFinalizer(lease.close(Exit.unit))
-              case Exit.Success(_)          => lease.close(Exit.unit)
-              case failed @ Exit.Failure(_) => lease.close(failed)
+                ZIO.addFinalizer(close(Exit.unit))
+              case Exit.Success(_)          => close(Exit.unit)
+              case failed @ Exit.Failure(_) => close(failed)
+        yield result
 
     private def launch(
         input: Input,
         events: Option[ToolEventPort],
-        policy: SubagentCompletionNotification
+        policy: SubagentCompletionNotification,
+        captured: Ref[Option[Entry]]
     ): ZIO[Scope, AgentError, SubagentTaskSubmission] =
       ZIO.uninterruptibleMask: restore =>
         state.get.flatMap:
@@ -618,19 +634,18 @@ object SubagentTaskRegistry:
                                       )
                                       .interruptible
                                       .forkIn(owner)
-                                _ <- state.set(
-                                  State.Open(
-                                    entries :+ Entry(
-                                      id,
-                                      task,
-                                      metadata,
-                                      publisher = publisher,
-                                      admissionIdentity = identity,
-                                      notification = notification,
-                                      milestones = milestones
-                                    )
-                                  )
+                                entry = Entry(
+                                  id,
+                                  task,
+                                  metadata,
+                                  publisher = publisher,
+                                  admissionIdentity = identity,
+                                  notification = notification,
+                                  milestones = milestones
                                 )
+                                _ <- state.set(State.Open(entries :+ entry))
+                                // Capture before release: caller interruption can mask the Accepted return.
+                                _ <- captured.set(Some(entry))
                                 publishSpawn = ZIO.foreachDiscard(metadataForEvents.zip(events)):
                                   (metadata, destination) =>
                                     destination

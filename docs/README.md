@@ -1,9 +1,10 @@
 # Documentation
 
-Start with [Getting started](getting-started.md): local installation and complete scripted, HTTP/tool and MCP applications. Public artifacts and frozen binary compatibility are not yet available.
+Start with [Getting started](getting-started.md) for development snapshots and complete scripted, HTTP/tool and MCP applications. [Candidate package installation](packages.md) is prepared for the pending first release. Candidate APIs are not frozen.
 
 ## Guides and contracts
 
+- [Release packages](packages.md): GitHub Packages, downloadable Maven repository and selected-version source builds.
 - [Host examples](../modules/examples/README.md): runnable model/file applications, composition and opt-in live verification.
 - [Real-model E2E scenarios](live-e2e-scenarios.md): useful bots tasks, concurrency/cancellation oracles and bounded publication claims; distinguishes existing runners from proposed extensions.
 - [Current live results](live-e2e-results.md): selected repeated and exploratory gateway runs, including failed profiles and unverified claims.

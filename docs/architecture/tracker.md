@@ -155,9 +155,20 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Current next task: none within the selected library checklist. Scala verification
-tooling and documentation migration are complete. External artifact publication
-remains user-owned; OS integration remains separate.
+Current next task: resolve the reproduced Linux diagnostic/subagent lifecycle
+failures before publishing the first candidate. Scala verification tooling is
+complete; OS integration remains separate.
+
+- [ ] Preserve exact thinking-delta delivery under concurrent publication and
+  consumption. The Linux run observed 2,001 deltas for 2,000 fragments in
+  `ChatCompletionsTransformSpec`; identify and verify the actual cause.
+- [x] Join interrupted foreground child lifecycle publication before the parent's
+  forwarding capability closes. `SubagentForwardingSpec` observed a missing
+  `SubagentEndEvent` despite joined child cleanup; preserve promoted task ownership.
+- [ ] Publish `v0.1.0-RC1` and five Maven modules through GitHub Packages after
+  candidate verification, actual PostgreSQL checks, archive admission and fresh
+  authenticated registry consumption. Attach selected-version artifacts and
+  checksums to the GitHub prerelease. No Maven Central publication is selected.
 
 - [x] **Scala-only verification tooling:** [artifact preparation and reversible
   negative fixtures](../../verification/artifact-consumer/README.md) run through

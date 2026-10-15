@@ -18,9 +18,16 @@ package com.weisgnosis.agents.harness.subagent
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ReActAgent}
 import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, EventAdmission}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role}
-import com.weisgnosis.agents.core.tool.{Tool, ToolAuthorizer, ToolDef, ToolInvocation, Toolkit}
+import com.weisgnosis.agents.core.tool.{
+  SubagentLifecycleTestPort,
+  Tool,
+  ToolAuthorizer,
+  ToolDef,
+  ToolInvocation,
+  Toolkit
+}
 import zio.*
 import zio.json.ast.Json
 import zio.test.*
@@ -264,6 +271,58 @@ object SubagentForwardingSpec extends ZIOSpecDefault:
             }
           )).ensuring(release.succeed(()).unit)
       yield assertion
+    ,
+    test("caller cancellation joins a completed child's pending lifecycle admission"):
+      checkAll(Gen.boolean): duringAdmission =>
+        for
+          supervisor   <- TaskSupervisor.open[AgentResult]
+          root         <- SubagentSpawner.root(supervisor)
+          entered      <- Promise.make[Nothing, Unit]
+          spawning     <- Promise.make[Nothing, Unit]
+          releaseSpawn <- Promise.make[Nothing, Unit]
+          ending       <- Promise.make[Nothing, Unit]
+          releaseEnd   <- Promise.make[Nothing, Unit]
+          observed     <- Ref.make(Chunk.empty[AgentEvent])
+          factory <- configured(
+            "held-end-child",
+            _ => ZIO.succeed(Toolkit.empty),
+            ZIO.succeed(LlmClient.mockEffectful((_, _, _) => entered.succeed(()) *> ZIO.never))
+          )
+          metadata <- ZIO.fromEither(SubagentLifecycleMetadata.from("parent", "child", "agent"))
+          registry <- SubagentTaskRegistry.open(root, factory, lifecycle = Some(metadata))
+          port <- SubagentLifecycleTestPort.open(event =>
+            (event match
+              case _: AgentEvent.SubagentSpawnEvent if duringAdmission =>
+                spawning.succeed(()) *> releaseSpawn.await
+              case _: AgentEvent.SubagentEndEvent => ending.succeed(()) *> releaseEnd.await
+              case _                              => ZIO.unit
+            ) *>
+              observed.update(_ :+ event).as(EventAdmission.Accepted)
+          )
+          assertion <- ZIO.scoped:
+            (for
+              running <- ZIO
+                .scoped(
+                  registry.submit(Msg.user("work"), Some(port)) *> ZIO.never
+                )
+                .forkScoped
+              _        <- if duringAdmission then spawning.await else entered.await
+              stopping <- running.interrupt.forkScoped
+              _ <- ZIO.when(duringAdmission)(
+                TestClock.adjust(1.second) *> releaseSpawn.succeed(())
+              )
+              _         <- ending.await
+              _         <- TestClock.adjust(1.second)
+              pending   <- stopping.poll
+              _         <- releaseEnd.succeed(())
+              cancelled <- stopping.join
+              events    <- observed.get
+            yield assertTrue(
+              pending.isEmpty,
+              cancelled.isInterrupted,
+              events.count(_.isInstanceOf[AgentEvent.SubagentEndEvent]) == 1
+            )).ensuring(releaseSpawn.succeed(()) *> releaseEnd.succeed(()).unit)
+        yield assertion
     ,
     test("promotion closes the parent invocation lease while the retained child finishes once") {
       for

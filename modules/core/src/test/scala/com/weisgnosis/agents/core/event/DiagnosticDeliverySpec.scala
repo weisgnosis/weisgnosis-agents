@@ -21,12 +21,55 @@ import java.nio.charset.StandardCharsets
 import zio.*
 import zio.json.*
 import zio.json.ast.Json
+import zio.stream.ZStream
 import zio.test.*
 
 object DiagnosticDeliverySpec extends ZIOSpecDefault:
   private val event: AgentEvent = AgentEvent.TextBlockDeltaEvent("escaped \" Unicode 🌍", 0)
 
+  private def drain(
+      read: UIO[Option[AgentEvent]],
+      retained: List[AgentEvent] = Nil
+  ): UIO[Chunk[AgentEvent]] =
+    read.flatMap:
+      case Some(event) => drain(read, event :: retained)
+      case None        => ZIO.succeed(Chunk.fromIterable(retained.reverse))
+
   def spec: Spec[TestEnvironment, Any] = suite("DiagnosticDeliverySpec")(
+    test("concurrent FIFO delivery preserves every occurrence through raw reads and streams"):
+      checkAll(Gen.boolean): streamed =>
+        val expected = Chunk
+          .fromIterable(0 until 2000)
+          .map(index => AgentEvent.TextBlockDeltaEvent(index.toString, 0))
+        ZIO
+          .foreach(0 until 20): _ =>
+            ZIO.scoped:
+              for
+                budget <- ZIO.fromEither(
+                  EventDeliveryBudget.fromLimits(expected.size + 8, 2L * 1024 * 1024, 4096)
+                )
+                delivery <- DiagnosticDelivery.make(budget)
+                reading  <- Promise.make[Nothing, Unit]
+                producer <- ZIO
+                  .foreachDiscard(expected.zipWithIndex) { case (event, index) =>
+                    delivery.publisher.publish(event) *> ZIO.when(index == 0)(reading.await)
+                  }
+                  .ensuring(delivery.finish)
+                  .forkScoped
+                read = delivery.take.tap(value => ZIO.when(value.nonEmpty)(reading.succeed(())))
+                actual <-
+                  if streamed then
+                    ZStream
+                      .repeatZIOOption(read.flatMap:
+                        case Some(event) => ZIO.succeed(event)
+                        case None        => ZIO.fail(None))
+                      .runCollect
+                  else drain(read)
+                _       <- producer.join
+                failure <- delivery.failure
+              yield assertTrue(actual == expected, failure.isEmpty)
+          .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("host limits and decoded limits reject invalid configurations") {
       val invalid = List((0, 10L, 1L), (1, 0L, 1L), (1, 10L, 0L), (1, 10L, 11L))
       assertTrue(

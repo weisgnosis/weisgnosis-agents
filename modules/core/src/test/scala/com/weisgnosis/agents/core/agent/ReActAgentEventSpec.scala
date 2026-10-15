@@ -17,7 +17,7 @@ package com.weisgnosis.agents.core.agent
 
 import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.AgentEvent
+import com.weisgnosis.agents.core.event.{AgentEvent, EventDeliveryBudget}
 import com.weisgnosis.agents.core.model.Msg
 import zio.*
 import zio.test.*
@@ -79,7 +79,14 @@ object ReActAgentEventSpec extends ZIOSpecDefault:
         hub.publishAll(deltas).as(TurnOutput.FinalText(Msg.assistant("done")))
       )
       for
-        agent  <- ReActAgent.make(client = model)
+        budget <- ZIO.fromEither(
+          EventDeliveryBudget.fromLimits(
+            deltas.size + 16,
+            4L * 1024 * 1024,
+            1024L * 1024
+          )
+        )
+        agent  <- ReActAgent.make(AgentConfig(eventDeliveryBudget = budget), client = model)
         events <- agent.streamEvents(Msg.user("work")).runCollect
       yield assertTrue(
         paired(events),
