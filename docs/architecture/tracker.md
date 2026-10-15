@@ -155,7 +155,18 @@ RAG, UI, collector hosting, distributed orchestration, external publication/CI s
 
 ## Immediate next work
 
-Current next task: none within the selected library checklist. The [bounded delivery contract](low-level-design.md#bounded-diagnostic-delivery) is implemented and verified. External publication remains user-owned; OS integration remains separate.
+Current next task: none within the selected library checklist. Scala verification
+tooling and documentation migration are complete. External artifact publication
+remains user-owned; OS integration remains separate.
+
+- [x] **Scala-only verification tooling:** [artifact preparation and reversible
+  negative fixtures](../../verification/artifact-consumer/README.md) run through
+  Scala; the [native launcher](../../verification/README.md#native-directory-aliases)
+  preserves alias ownership through joined child termination. Workflow/docs
+  commands are migrated and no tracked Python source remains. Independent
+  lifecycle/invariant review, full verification, actual Windows junction checks,
+  packaging and fresh external consumption pass. Historical Python results retain
+  immutable source references; current Scala scenarios do not refresh them.
 
 ### D: Bounded diagnostic delivery
 
@@ -174,7 +185,7 @@ Streams bound runtime-owned diagnostic count and exact encoded UTF-8 bytes. Capa
 - [x] Unicode-safe previews survive eviction, pruning, extraction and versioned transcript publication; restored previews retain actual lengths. Existing eviction, compaction, memory-flush and transcript-writer suites cover these paths.
 - [x] Adjacent users coalesce once per run while preserving raw provenance, first identity, metadata priority and later flushing. ConversationCompactorSpec covers the unchanged behavior.
 - [x] HostAssembly projects embedded MCP resources into the next real model request while retaining canonical Custom data. HostAssemblySpec covers the composed MCP/HTTP path; getting-started describes actual deadlines.
-- [x] Python live-comparison acceptance correlates result IDs and names; offline controls reject swapped, missing and duplicate results. Historical receipts are explicitly not requalified by changing the oracle.
+- [x] The historical Python live-comparison oracle correlated result IDs and names; its offline controls rejected swapped, missing and duplicate results. Historical receipts are explicitly not requalified by changing the oracle.
 
 
 - [x] Successful MCP initialization and requests finish without waiting for their deadline timers under a masked host acquisition; elapsed deadlines promptly cancel and join the action. Public regressions in [McpClientSpec](../../modules/mcp/src/test/scala/com/weisgnosis/agents/mcp/client/McpClientSpec.scala) reproduce the previous delays and retain typed timeout, exact protocol and joined-cleanup checks. Independent FP/ZIO and invariant reviews, full verification, packaged archive admission and a clean external consumer pass. This does not complete the separate OS live-provider outcome.
@@ -225,11 +236,11 @@ runtime oracles, bounded model selection and limits on public claims. Executed p
 E4/E5/E6 source and oracle controls retain independent FP/ZIO and invariant-focused review. The current packaged refresh reruns E3/E4, not E1/E5/E6. Current code verification, five-module packaging, archive admission and fresh external consumption pass with zero compiler warnings; its 28 unconfigured PostgreSQL/native-alias skips were subsequently exercised in the focused checks below. These checks apply to selected fixtures and contracts, not every model or platform.
 
 - [x] Retain a [sanitized measured summary](../live-e2e-results.md) of all current selected attempts, exact supported claims and explicit unverified cells. Remote publication remains user-owned.
-- [x] **Explicit synthetic Python comparison:** execute matched overlap, pre-entry persistence, partial-completion cancellation, repeated interruption, joined cleanup, unfinished-only recovery and same-runtime continuation. Both the actual public ReAct runtime and a Python TaskGroup reference pass all nine [documented contracts](../synthetic-runtime-comparison.md); labelled unsafe Python controls reproduce separate ownership risks. This does not establish framework or performance superiority and does not by itself establish live E3. Focused tests, standard verify and independent FP/ZIO/invariant/fairness review cover this verification slice.
+- [x] **Historical synthetic Python comparison:** recorded matched overlap, pre-entry persistence, partial-completion cancellation, repeated interruption, joined cleanup, unfinished-only recovery and same-runtime continuation. Both the actual public ReAct runtime and a Python TaskGroup reference pass all nine [documented contracts](../synthetic-runtime-comparison.md); labelled unsafe Python controls reproduce separate ownership risks. This does not establish framework or performance superiority and does not by itself establish live E3. Focused tests, standard verify and independent FP/ZIO/invariant/fairness review cover this verification slice.
 
-- [x] **Explicit actual Python AgentScope comparison:** run pinned AgentScope 2.0.9 through public Agent/Toolkit APIs and compare selected lifecycle contracts with the actual Scala runtime. Three Python executions reproduce incomplete cleanup under repeated cancellation and delivered-but-unstored recovery; other selected contracts pass. A fresh Scala repeated-interruption run passes all nine contracts. Independent public-path and evidence review cover the fixture and bounded interpretation. See [results and reproduction](../agentscope-python-comparison.md); the [fifty architectural arguments](../scala-zio-positioning.md) distinguish capabilities from measured wins. This does not by itself establish live E3 or establish whole-framework/performance superiority.
+- [x] **Historical actual Python AgentScope comparison:** ran pinned AgentScope 2.0.9 through public Agent/Toolkit APIs and compare selected lifecycle contracts with the actual Scala runtime. Three Python executions reproduce incomplete cleanup under repeated cancellation and delivered-but-unstored recovery; other selected contracts pass. The recorded Scala repeated-interruption run passed all nine contracts. Independent public-path and evidence review cover the fixture and bounded interpretation. See [results and reproduction](../agentscope-python-comparison.md); the [fifty architectural arguments](../scala-zio-positioning.md) distinguish capabilities from measured wins. This does not by itself establish live E3 or establish whole-framework/performance superiority.
 
-- [x] **Explicit live AgentScope comparison:** execute 48 alternating matched attempts on Qwen and instruction LFM through actual Python AgentScope and Scala public HTTP runtimes. Retain every attempt and measure visible-text latency, turn time, local scheduling, repeated cancellation and same-runtime continuation. Local concurrency works on both; no Scala speed advantage is demonstrated in ordinary sampled tasks. Five admitted Scala cancellation attempts finish cleanup; six Python attempts do not. Full task acceptance and storage-policy differences remain explicit. Focused checks, standard verify and independent FP/public-path and evidence review cover this slice. See [results and reproduction](../live-runtime-comparison.md).
+- [x] **Historical live AgentScope comparison:** executed 48 alternating matched attempts on Qwen and instruction LFM through actual Python AgentScope and Scala public HTTP runtimes. Retain every attempt and measure visible-text latency, turn time, local scheduling, repeated cancellation and same-runtime continuation. Local concurrency works on both; no Scala speed advantage is demonstrated in ordinary sampled tasks. Five admitted Scala cancellation attempts finish cleanup; six Python attempts do not. Full task acceptance and storage-policy differences remain explicit. Focused checks, standard verify and independent FP/public-path and evidence review cover this slice. See [results and reproduction](../live-runtime-comparison.md).
 
 ## Verification
 

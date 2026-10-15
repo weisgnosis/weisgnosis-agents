@@ -212,16 +212,17 @@ uses a scripted model through the public ReAct runtime to verify partial batch
 cancellation, repeated interruption, joined cleanup and same-runtime continuation.
 Run `sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"`
 without live configuration. Require all nine JSON contract fields to be true.
-The [matched Python comparison](../../docs/synthetic-runtime-comparison.md) explains
-the corresponding TaskGroup reference and actual result; this synthetic fixture
+The [historical Python comparison](../../docs/synthetic-runtime-comparison.md) explains
+the corresponding TaskGroup reference and recorded result; this synthetic fixture
 does not itself close live E3. The actual
 [LiveRuntimeComparison](src/main/scala/com/weisgnosis/agents/examples/LiveRuntimeComparison.scala)
-now compares useful tasks and repeated parent interruption against real Python
-AgentScope on a common gateway. Run
+checks useful tasks and repeated parent interruption on a selected gateway. Run
 `sbt "examples / runMain com.weisgnosis.agents.examples.LiveRuntimeComparison parallel"`
 with the enabled environment, or select `text`, `sequential` or `cancel`.
-[Results and reproduction](../../docs/live-runtime-comparison.md) distinguish
-ordinary turn timing from local scheduling, cancellation and continuation.
+[Recorded comparison and current Scala scenarios](../../docs/live-runtime-comparison.md)
+distinguish ordinary turn timing from local scheduling, cancellation and
+continuation. Python comparison runners are retained only in the linked Git
+snapshot; current Scala runs do not refresh those comparative results.
 Run `sbt "examples / runMain com.weisgnosis.agents.examples.LiveRuntimeComparison cooperative-cancel"`
 with the enabled environment to check E3 separately. It signals `runtime.interrupt`
 after one local result is committed while its sibling is still active, holds cleanup,

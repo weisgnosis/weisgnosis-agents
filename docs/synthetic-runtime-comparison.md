@@ -6,26 +6,30 @@ ReAct runtime and a correctly owned Python asyncio reference passed the nine
 selected lifecycle contracts. Separate negative controls reproduced unsafe
 cancellation patterns. They are not measurements of a Python agent framework.
 
-## Reproduce
+## Evidence and current Scala verification
 
-Prerequisites: JDK 21, repository-pinned sbt and Python 3.11 or newer. The actual
-run used Microsoft JDK 21.0.11, Scala 3.9.0, ZIO 2.1.26 and CPython 3.12.10 on
-Windows. No credentials, model, network service or third-party Python package is
-required. The Python process control starts and reaps one owned Python child.
+The Python reference and negative controls are historical evidence from the
+[fixture at the recorded revision](https://github.com/weisgnosis/weisgnosis-agents/blob/046ec53e693c4afe85485ce32ed3ff0f3494109b/verification/compare_asyncio.py).
+The current tree contains Scala verification only and cannot rerun the Python
+arm or reproduce the full comparison. The recorded run used Microsoft JDK
+21.0.11, Scala 3.9.0, ZIO 2.1.26 and CPython 3.12.10 on Windows. Its Python
+process control started and reaped one owned Python child.
+
+To check the current Scala runtime, use JDK 21 and repository-pinned sbt. No
+credentials, model or provider requests are required:
 
 ```text
-python -W error verification/compare_asyncio.py
 sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"
 ```
 
-The [Python executable](../verification/compare_asyncio.py) emits one JSON receipt
-whose `matched` fields must all be true. Its `negativeControls` and
-`processControl` fields report successful detection of the labelled behaviors,
-not extra wins in the matched comparison. The
+The historical Python fixture emitted one JSON receipt whose `matched` fields
+were all true. Its `negativeControls` and `processControl` fields reported
+successful detection of the labelled behaviors, not extra wins in the matched
+comparison. The
 [Scala executable](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/SyntheticRuntimeComparison.scala)
-emits the same nine contract fields, all true. Both fail their assertions if an
-expected result is absent; use the receipts as well as process exit. Python
-assertions must remain enabled: do not use `-O` or `PYTHONOPTIMIZE`.
+emits the same nine contract fields; require all to be true. Its assertions fail
+if an expected result is absent; use the receipt as well as process exit.
+Running it alone does not refresh the historical Python results.
 
 Focused offline verification:
 
@@ -93,7 +97,7 @@ incorrectly. No child process is intentionally left running after the test.
 
 | Earlier claim | What the evidence permits |
 | --- | --- |
-| Python cancellation inevitably leaks coroutines or skips cleanup | Not supported. The owned TaskGroup reference passes; the risky patterns are separately reproducible. |
+| Python cancellation inevitably leaks coroutines or skips cleanup | Not supported. The owned TaskGroup reference passed; separate historical controls demonstrated the risky patterns. |
 | Python agent history necessarily becomes inconsistent on cancellation | Not supported as a language claim. The reference passes with explicit reconciliation; WeisGnosis supplies the checked policy in its runtime. |
 | Python cannot overlap tools | Refuted for this I/O-style waiting task: both implementations reach two active tool bodies. |
 | Cancelling a Python await automatically terminates its subprocess | Refuted by the actual Python child control; process ownership and termination must be explicit. No cross-runtime subprocess winner was measured. |

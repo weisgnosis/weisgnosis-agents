@@ -52,19 +52,14 @@ jobs:
       - name: Setup sbt
         uses: sbt/setup-sbt@v1
 
-      - name: Setup Python for Artifact Inspection
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Validate Candidate Version
-        run: python verification/artifact-consumer/prepare.py --version "$CANDIDATE_VERSION" --check-only
+        run: sbt "artifactVerification / runMain com.weisgnosis.agents.verification.PrepareArtifacts --version $CANDIDATE_VERSION --check-only"
 
       - name: Verify and Package Selected Candidate
         run: sbt "-Dweisgnosis.candidate.version=$CANDIDATE_VERSION" verify packageArtifacts
 
       - name: Inspect Archives and Exercise Source Admission
-        run: python verification/artifact-consumer/check_preparation.py --version "$CANDIDATE_VERSION"
+        run: sbt "artifactVerification / runMain com.weisgnosis.agents.verification.CheckPreparation --version $CANDIDATE_VERSION"
 
       - name: Verify Fresh External Candidate Consumer
         working-directory: verification/artifact-consumer

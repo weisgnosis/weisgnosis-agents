@@ -1,36 +1,36 @@
 # Distribution verification
 
-## Synthetic runtime comparison
+## Runtime scenarios and historical comparisons
 
-The [comparison guide](../docs/synthetic-runtime-comparison.md) runs matched
-offline lifecycle contracts through the public ReAct runtime and a Python
-TaskGroup reference. Run `python -W error verification/compare_asyncio.py` and
-`sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"`.
-No credentials or provider requests are used. Labelled Python negative controls
-include an owned child process; they are separate from the matched contracts and
-do not compare agent frameworks or performance.
+Run `sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"`
+for offline lifecycle contracts through the public ReAct runtime. No credentials
+or provider requests are used. The opt-in
+[LiveRuntimeComparison](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveRuntimeComparison.scala)
+exercises the actual Scala HTTP runtime against a selected provider; its
+[guide](../docs/live-runtime-comparison.md) supplies configuration and scenarios.
 
-The separate [pinned AgentScope comparison](../docs/agentscope-python-comparison.md)
-executes [compare_agentscope.py](compare_agentscope.py) against the real Python
-framework's public API. Its JSON reports contract failures without converting
-them into process errors; fixture exceptions fail execution. Installation and
-the three cancellation arms are documented in the guide.
-
-The opt-in [live comparison](../docs/live-runtime-comparison.md) uses
-[live_agentscope_comparison.py](live_agentscope_comparison.py) and the actual
-Scala HTTP runtime against a selected common provider. Credentials remain
-process-local. Timings and failed task receipts are separate from acceptance.
+The current tree contains Scala verification tools only. The
+[asyncio comparison](../docs/synthetic-runtime-comparison.md),
+[pinned AgentScope comparison](../docs/agentscope-python-comparison.md) and
+[matched live comparison](../docs/live-runtime-comparison.md) retain bounded
+historical results and immutable source references. Current Scala runs cannot
+refresh the Python arms or establish new comparative results.
 
 ## Native directory aliases
 
 Run the opt-in [PathSafetySpec](../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/PathSafetySpec.scala)
 against actual Windows directory junctions or POSIX directory symlinks:
 
+First run `sbt "export artifactVerification / Runtime / fullClasspath"` and copy
+the exported classpath. After that sbt process exits, run from the repository root:
+
 ```text
-python verification/native_paths.py --java-home <jdk-21> --sbt-launch <sbt-launch.jar>
+<jdk-21>/bin/java -cp "<exported-classpath>" com.weisgnosis.agents.verification.NativePaths --java-home "<jdk-21>" --sbt-launch "<sbt-launch.jar>"
 ```
 
-The [launcher](native_paths.py) creates a disposable owned directory with ordinary and `.ssh`
+On Windows select `bin/java.exe`. The
+[Scala launcher](artifact-preparation/src/main/scala/com/weisgnosis/agents/verification/NativePaths.scala)
+creates a disposable owned directory with ordinary and `.ssh`
 targets and aliases, supplies `WEISGNOSIS_PATH_FIXTURE` to the focused test process, waits for that
 process and removes only its known links, marker files and empty directories. It launches the JDK
 directly with the project JVM options; the project selects its pinned sbt version. Core tests run
@@ -38,13 +38,17 @@ in that JVM for this invocation, so timeout/Ctrl-C joins the process borrowing t
 Other modules retain their configured fork settings, including MCP subprocess fixture requirements. `JAVA_HOME` can replace `--java-home`. Add
 `--full` to run `verify` while the same fixture remains available. Run only one sbt process at a time.
 
-Windows needs a Python runtime exposing `_winapi.CreateJunction`; POSIX needs permission to create
+Windows uses PowerShell to create junctions; POSIX needs permission to create
 directory symlinks. No administrator permissions or security settings are changed. The integration
 group is explicitly ignored without the environment variable; a supplied invalid fixture fails.
 An external host may instead supply the same fixture layout and own its lifetime through verification.
 The group checks existing and missing-child canonicalization, sensitive-target rejection, permitted
 ordinary aliases and lexical traversal rejection. This does not certify Windows file symlinks or an
 atomic sandbox against concurrent hostile filesystem changes.
+
+The launcher reads an optional local `.jvmopts`; without it, it selects a 4 GiB
+heap limit and 16 MiB stack. Launch it directly with Java, not `sbt runMain`:
+it owns a child sbt process, and this host permits only one sbt process at a time.
 
 ## Packaged external consumer
 

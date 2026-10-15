@@ -1,37 +1,41 @@
 # Executed Python AgentScope comparison
 
-This offline comparison runs actual Python AgentScope **2.0.9** on CPython
+This recorded offline comparison ran actual Python AgentScope **2.0.9** on CPython
 **3.12.10**, and the public WeisGnosis `ReActAgent`/`Toolkit` path on Scala/ZIO.
-It uses scripted models and real concurrent tools. It does not compare live
+It used scripted models and real concurrent tools. It did not compare live
 provider quality, throughput, token cost, memory consumption or every framework
 feature. The Python release is pinned from
 [PyPI](https://pypi.org/project/agentscope/2.0.9/).
 
-The separate [live comparison](live-runtime-comparison.md) uses real gateway
+The separate recorded [live comparison](live-runtime-comparison.md) used real gateway
 models for useful tasks and timing. Its results do not change the offline
 scope of this experiment.
 
-## Reproduce
+## Evidence and current Scala verification
 
-From the repository root, use an isolated environment:
+The Python arms are historical evidence from the
+[fixture at the recorded revision](https://github.com/weisgnosis/weisgnosis-agents/blob/046ec53e693c4afe85485ce32ed3ff0f3494109b/verification/compare_agentscope.py).
+The current tree contains Scala verification only; it cannot rerun AgentScope
+or reproduce this full comparison. The historical fixture required AgentScope
+2.0.9, rejected other versions and used an isolated environment. Dependency
+resolution beyond that package was not locked. Its scenarios were offline;
+installing its dependencies required downloads.
+
+From the repository root, use JDK 21 and repository-pinned sbt to check the
+current Scala runtime without credentials or model requests:
 
 ```powershell
-python -m venv target/agentscope-comparison-env
-& target/agentscope-comparison-env/Scripts/python.exe -m pip install agentscope==2.0.9
-& target/agentscope-comparison-env/Scripts/python.exe -W error verification/compare_agentscope.py
 sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"
 ```
 
-No credentials or model requests are required. Installation downloads package
-dependencies; the scenarios themselves are offline. The Python script rejects
-another AgentScope version. Dependency resolution beyond that package is not
-locked. Framework contract failures appear in the JSON receipt; fixture
-exceptions fail the process. Read `oracleStatus`, rather than treating exit zero
-as framework acceptance.
+Require all nine Scala JSON contract fields to be true. This run does not
+refresh the Python results below. Historical Python framework contract failures
+appeared in the JSON receipt; fixture exceptions failed the process. Its
+`oracleStatus` fields, rather than exit zero, determined framework acceptance.
 
-The [Python fixture](../verification/compare_agentscope.py) uses `Agent`,
+The historical Python fixture used `Agent`,
 `reply_stream`, `FunctionTool`, `Toolkit`, public state and a `ChatModelBase`
-extension with an OpenAI formatter. It does not patch AgentScope internals or
+extension with an OpenAI formatter. It did not patch AgentScope internals or
 repair its history. The [Scala fixture](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/SyntheticRuntimeComparison.scala)
 uses the actual runtime, including its local result persistence observer.
 

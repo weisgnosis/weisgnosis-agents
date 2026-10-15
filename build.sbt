@@ -199,8 +199,21 @@ lazy val examples = (project in file("modules/examples"))
     )
   )
 
+lazy val artifactVerification = (project in file("verification/artifact-preparation"))
+  .dependsOn(core)
+  .settings(
+    name           := "weisgnosis-artifact-verification",
+    publish / skip := true,
+    commonSettings,
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-process"  % zioProcessVersion,
+      "dev.zio" %% "zio-test"     % zioVersion % Test,
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test
+    )
+  )
+
 lazy val root = (project in file("."))
-  .aggregate(core, harness, mcp, storagePostgresql, otel, examples)
+  .aggregate(core, harness, mcp, storagePostgresql, otel, examples, artifactVerification)
   .settings(
     name           := "weisgnosis-agents",
     publish / skip := true

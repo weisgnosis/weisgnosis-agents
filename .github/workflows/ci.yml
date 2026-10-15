@@ -47,13 +47,8 @@ jobs:
       - name: Verify Formatting, Compilation, Tests, and Packages
         run: sbt verify packageArtifacts
 
-      - name: Setup Python for Artifact Inspection
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
       - name: Inspect Fresh Artifacts and Source-Archive Regressions
-        run: python verification/artifact-consumer/check_preparation.py
+        run: sbt "artifactVerification / runMain com.weisgnosis.agents.verification.CheckPreparation"
 
       - name: Verify External Packaged API Consumer
         working-directory: verification/artifact-consumer

@@ -7,9 +7,9 @@ Start with [Getting started](getting-started.md): local installation and complet
 - [Host examples](../modules/examples/README.md): runnable model/file applications, composition and opt-in live verification.
 - [Real-model E2E scenarios](live-e2e-scenarios.md): useful bots tasks, concurrency/cancellation oracles and bounded publication claims; distinguishes existing runners from proposed extensions.
 - [Current live results](live-e2e-results.md): selected repeated and exploratory gateway runs, including failed profiles and unverified claims.
-- [Synthetic Python comparison](synthetic-runtime-comparison.md): matched lifecycle contracts, executed asyncio controls and limits on comparative claims.
-- [Actual Python AgentScope comparison](agentscope-python-comparison.md): pinned public-runtime execution, repeated cancellation and canonical recovery differences.
-- [Live framework comparison](live-runtime-comparison.md): matched gateway tasks, scheduling and cancellation oracles, and elapsed-time interpretation.
+- [Historical synthetic Python comparison](synthetic-runtime-comparison.md): recorded lifecycle contracts, asyncio controls and current Scala scenarios.
+- [Historical Python AgentScope comparison](agentscope-python-comparison.md): pinned public-runtime results, repeated cancellation and canonical recovery differences.
+- [Historical live framework comparison](live-runtime-comparison.md): matched gateway receipts, elapsed-time interpretation and current Scala-only reproduction.
 - [Scala/ZIO architectural arguments](scala-zio-positioning.md): fifty sourced engineering arguments, with alternatives and limits on superiority claims.
 - [Distribution verification](../verification/README.md#packaged-external-consumer): packaged consumer checks and unsigned candidate preparation; packaging does not publish a release.
 - [Compatibility and migration](../project/README.md#compatibility-policy): public API rebuild requirements.

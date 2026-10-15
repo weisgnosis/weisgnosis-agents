@@ -1,7 +1,7 @@
 # Live AgentScope and WeisGnosis comparison
 
-This campaign executes actual Python AgentScope 2.0.9 and the public WeisGnosis
-runtime against the same bots gateway. It measures useful task completion and
+This recorded campaign executed actual Python AgentScope 2.0.9 and the public WeisGnosis
+runtime against the same bots gateway. It measured useful task completion and
 selected cancellation contracts, as well as elapsed time. A quicker failed task
 is not a successful speed result.
 
@@ -93,9 +93,10 @@ and provider failures. Besides the Python connection/internal-server errors,
 one Scala Qwen parallel attempt and one Scala LFM sequential attempt report a
 runtime failure after tool entry. The original series did not retain their
 typed failure cause, so these records cannot establish whether the cause was
-the adapter, provider response or task guard. The current runner distinguishes
-selected typed failure categories for future execution; it cannot retroactively
-classify those two attempts. No failed attempt was retried into a passing cell.
+the adapter, provider response or task guard. The current Scala runner
+distinguishes selected typed failure categories for future execution; it cannot
+retroactively classify those two attempts. No failed attempt was retried into a
+passing cell.
 
 Three development preflight calls are outside this 48-attempt matrix: Python
 Qwen text and parallel used an earlier inconsistent exact-whitespace matcher
@@ -111,9 +112,15 @@ also confirms useful Qwen tasks and concurrent local tools. It does not support
 universal superiority over Python, zero production defects or a release-ready
 claim for every model profile.
 
-## Reproduce a selected pair
+## Historical evidence and current Scala execution
 
-Install the [pinned Python environment](agentscope-python-comparison.md#reproduce).
+The Python arm is historical evidence from the
+[fixture at the recorded revision](https://github.com/weisgnosis/weisgnosis-agents/blob/046ec53e693c4afe85485ce32ed3ff0f3494109b/verification/live_agentscope_comparison.py).
+The current tree contains Scala verification only; it cannot rerun the Python
+arm or reproduce a framework pair. The 48 stored receipts remain unchanged.
+Running the current Scala fixture does not refresh or requalify those results.
+
+To run a selected Scala scenario, use JDK 21 and repository-pinned sbt.
 Supply `WEISGNOSIS_LIVE_API_KEY` through the host's secret mechanism into the
 process environment. The following commands assume that credential is already
 available; do not put it in source, logs or shell history. Set the other variables:
@@ -124,28 +131,23 @@ $env:WEISGNOSIS_LIVE_ENDPOINT = 'https://bots.weisgnosis.ru/api/v1/chat/completi
 $env:WEISGNOSIS_LIVE_MODEL = '<chat-model-from-authenticated-catalog>'
 $env:WEISGNOSIS_LIVE_TIMEOUT_SECONDS = '300'
 $env:WEISGNOSIS_COMPARISON_SCENARIO = 'parallel'
-& target/agentscope-comparison-env/Scripts/python.exe -W error verification/live_agentscope_comparison.py parallel
 sbt "examples / runMain com.weisgnosis.agents.examples.LiveRuntimeComparison parallel"
 ```
 
 Select `text`, `sequential`, `parallel` or `cancel`. Check tunnel health and the
-authenticated `/api/v1/models` catalog before selecting a model. Neither runner
-retries a failed admitted task. Both emit sanitized JSON; acceptance uses
+authenticated `/api/v1/models` catalog before selecting a model. The Scala runner
+does not retry a failed admitted task. It emits sanitized JSON; acceptance uses
 `scenarioAccepted`, not process exit or the presence of a final string.
 Unexercised cancellation oracles are absent/null, not successful measurements.
 
 ## Call/result correlation
 
-The current Python oracle matches both call ID and tool name, preserving counts
-and allowing concurrent completion order. Run its offline controls before a new
-campaign:
-
-```powershell
-& target/agentscope-comparison-env/Scripts/python.exe -W error verification/live_agentscope_comparison.py text --check-oracle
-```
-
-The controls accept valid and reordered completions and reject swapped IDs,
-missing results and duplicate results. They make no provider requests.
+The historical Python fixture was subsequently strengthened to match both call
+ID and tool name, preserving counts and allowing concurrent completion order.
+Its offline controls accepted valid and reordered completions and rejected
+swapped IDs, missing results and duplicate results without provider requests.
+These controls are retained in the historical source linked above, rather than
+as runnable checks in the current tree.
 The stored 48 receipts used the earlier ID-count-only pairing check plus
 separate name/value checks. Their aggregate counts and timings remain historical
 observations; the receipts omit the raw identity correlations needed to
