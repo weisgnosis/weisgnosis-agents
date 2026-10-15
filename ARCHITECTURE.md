@@ -14,7 +14,7 @@ Subagent supervisors explicitly own promoted work and retained resources. Named 
 
 | Module | Responsibility | Explicit limits |
 | --- | --- | --- |
-| [core](modules/core/README.md) | Immutable models/events, typed tools and schema admission, ReAct/checkpoints, scoped phase observation, structured output, SSE and OpenAI-compatible completion | No native Anthropic/Gemini adapter, unrestricted OS toolkit or durable workflow host |
+| [core](modules/core/README.md) | Immutable models/events, typed tools and schema admission, ReAct/checkpoints, scoped phase observation, structured output, OpenAI-compatible completion and native Anthropic/Gemini adapters | No unrestricted OS toolkit or durable workflow host |
 | [harness](modules/harness/README.md) | Paired context compaction, tool-output offload, memory/transcripts, permission/Plan admission, skills and supervised subagents | Components are explicitly installed; no implicit distributed scheduler or authenticated UI |
 | [mcp](modules/mcp/README.md) | Checked initialization, tools/resources, direct stdio, legacy SSE and Streamable HTTP, manager ownership and request projection | Backend interoperability and recovery follow the selected protocol/transport contracts |
 | [storage-postgresql](modules/storage-postgresql/README.md) | Conditional versioned JSON over a host DataSource | No connection pool, deployment, distributed execution claim or replay of uncertain writes |
