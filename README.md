@@ -238,3 +238,9 @@ Concrete counterexamples, bug reports and small working integrations are welcome
 ## License and acknowledgements
 
 [Apache-2.0](LICENSE). Adapted agent mechanics are attributed to [AgentScope Java](https://github.com/agentscope-ai/agentscope-java); [upstream mappings](docs/architecture/test-parity.md) explain transferred behavior and intentional adaptations. WeisGnosis Agents is not a drop-in AgentScope replacement.
+
+## Star history
+
+[![GitHub stars](https://img.shields.io/github/stars/weisgnosis/weisgnosis-agents?style=social)](https://github.com/weisgnosis/weisgnosis-agents/stargazers)
+
+[View interactive star history](https://www.star-history.com/?repos=weisgnosis%2Fweisgnosis-agents&type=date&legend=top-left).
