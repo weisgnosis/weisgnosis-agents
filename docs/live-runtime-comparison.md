@@ -191,10 +191,10 @@ inference. Cancellation uses `cancelJoinedMillis` and the cleanup oracle.
 Recorded times include provider computation, HTTP/TLS, request formatting,
 gateway load and cold first-turn runtime work. Matching instructions does not
 make framework-generated wire contexts identical. Fresh Python/JVM processes
-are used; this is not a warmed throughput or isolated runtime-overhead benchmark.
+were used; this was not a warmed throughput or isolated runtime-overhead benchmark.
 Python SDK and Scala HTTP clients differ; Scala limits a response to 1 MiB,
-whereas this Python runner retains its SDK's response handling. Both original
-turn budgets are 300 seconds. Model output remains probabilistic even at
+whereas the historical Python runner retained its SDK's response handling. Both original
+turn budgets were 300 seconds. Model output remains probabilistic even at
 temperature zero. These limits prevent attributing every timing difference to
 the language or declaring universal performance superiority.
 
