@@ -1,285 +1,240 @@
 # WeisGnosis Agents
 
-### Agent reasoning. Application control.
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/assets/weisgnosis-hero-mobile.png">
+  <img src="docs/assets/weisgnosis-hero.png" width="100%" alt="WeisGnosis Agents — Models reason. Applications decide. Amber proposal paths pass through a cyan application-control gate.">
+</picture>
 
-**Build tool-using agents and collaborating teams inside your Scala application.**
-Typed Scala 3 APIs. Scoped ZIO 2 execution. Your tools, your policies, your infrastructure.
+**Tool-using agents and collaborating teams, built into your Scala service.**
+WeisGnosis Agents is an embeddable Scala 3 / ZIO 2 runtime: connect your business tools and models, then keep execution, permissions and resource ownership in application code.
 
 [![Scala 3.9.0](https://img.shields.io/badge/Scala-3.9.0-CB3544)](https://www.scala-lang.org/)
-[![ZIO 2.1.26](https://img.shields.io/badge/ZIO-2.1.26-2563EB)](https://zio.dev/)
-[![Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-475569)](LICENSE)
+[![ZIO 2.1.26](https://img.shields.io/badge/ZIO-2.1.26-087E8B)](https://zio.dev/)
+[![Apache-2.0](https://img.shields.io/badge/License-Apache--2.0-475569)](LICENSE)
 
-[Run the quickstart](#quickstart) · [Build a team](#multi-agent-workflows) · [Explore the docs](docs/README.md) · [Contribute](CONTRIBUTING.md)
+[**Run the proof**](#quickstart) · [**Build your first agent**](docs/getting-started.md#release-evidence-assistant) · [Install RC1](docs/packages.md) · [Run a team](#multi-agent-workflows) · [API guides](docs/README.md)
 
-WeisGnosis Agents is an **embeddable agent runtime for Scala 3 and ZIO 2**. Give a model typed business tools, connect MCP servers, and compose agents into workflows. The runtime manages the reasoning/tool loop, conversation history and execution state; your application supplies dependencies and decides what may run.
+## A release decision backed by evidence
 
-<img src="docs/assets/agent-runtime.svg" width="830" alt="Ownership map: the host application owns a scoped ReAct runtime, which calls models and dispatches validated tools under configured authorization.">
+The build passes. Tests pass. Security reports a high-severity finding. An **Analyst** reads the evidence, a **Checker** receives the findings, and a **Reporter** proposes a blocked release. Your host validates the proposal against the actual tool observations.
 
-> **Try the first release:** [0.1.0-RC1](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1) is available through GitHub Packages and a downloadable Maven repository. Follow the [installation guide](docs/packages.md), or build the development snapshot below. Candidate APIs may change.
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/assets/release-team-mobile.svg">
+  <img src="docs/assets/release-team.svg" width="100%" alt="BUILD-1 passed, TEST-1 passed and SEC-1 high severity feed an Analyst. A Checker and Reporter receive attributed findings. The host validates the proposed blocked-release decision against the actual evidence.">
+</picture>
 
-## Why this exists
-
-A model's tool request is the start of application work: connections open, business operations execute, approvals wait, and conversation state changes. Those operations need explicit ownership, especially when a request fails or a user interrupts it.
-
-WeisGnosis Agents brings agent execution into the same **typed, scoped effect model** as the rest of a ZIO service. Tool inputs and outputs stay connected through Scala types. Network requests and child work have owners. Permission decisions, actual tool results and runtime state determine what happened.
-
-**The model proposes the next action. Your application retains control of execution.**
-
-Use it for a service assistant that calls your APIs, automation that pauses for approval, or a team of specialist agents with separate conversations. Start with one agent and add context management, persistence or tracing when the application needs them.
-
-[Runtime architecture](ARCHITECTURE.md) · [Why Scala and ZIO](docs/scala-zio-positioning.md) · [AgentScope origins](#license-and-acknowledgements)
-
-## What you get
-
-| Build with | So your application can… |
-| --- | --- |
-| **Typed tools** | Connect Scala functions to models with explicit JSON schemas, checked arguments and typed inputs/outputs. Tool execution errors become observations the model can act on. |
-| **Scoped execution** | Bound model requests and agent runs; join owned cleanup on cancellation and keep completion distinct from a model's answer. |
-| **Explicit authorization** | Install permission gates, approvals and Plan restrictions at tool admission. Approval policy is configured by the host; the default tool authorizer allows execution. |
-| **Context management** | Compact history while preserving call/result pairs, merge summaries and offload oversized tool text while retaining the original if persistence fails. |
-| **Agent collaboration** | Hand off between specialists, fan out with bounded parallelism, share attributed peer observations, or delegate to supervised subagents. |
-| **Model and tool integrations** | Use OpenAI-compatible endpoints, native Anthropic/Gemini adapters and MCP tools/resources. Add PostgreSQL persistence and OpenTelemetry tracing as optional modules. |
+This is an executable, host-guided fixture with [selected same-model and mixed-model live results](docs/live-e2e-results.md#e4-useful-room-and-pipeline-evidence). Each agent keeps its own conversation; a peer's tool calls supply context without gaining local execution authority. [Read the application](modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveCoordinationEvidence.scala) or [run the team](#multi-agent-workflows).
 
 ## Quickstart
 
-**Requirements:** JDK 21 and sbt 1.12.11. The build pins Scala 3.9.0.
-
-### See two agents collaborate — offline
+**JDK 21 · sbt 1.12.11 · no credentials or model downloads.** From a terminal:
 
 ```sh
 git clone https://github.com/weisgnosis/weisgnosis-agents.git
 cd weisgnosis-agents
-sbt "examples / runMain com.weisgnosis.agents.examples.MsgHubConversation"
+sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"
 ```
 
-The scripted example makes no model requests and needs no credentials. Alice shares a recommendation; Bob receives it in his own conversation and prints:
-
-```text
-Bob: Alice recommends typed outcomes and scoped resources.
-```
-
-[Read the complete example](modules/examples/src/main/scala/com/weisgnosis/agents/examples/MsgHubConversation.scala) to see agent construction and scoped hub membership.
-
-### Embed an agent in your application
-
-For the published candidate, follow [release installation](docs/packages.md): choose GitHub Packages or the downloadable Maven archive, then use the applications below with that dependency configuration.
-
-To build the development snapshot instead, install core from the cloned repository:
-
-```sh
-sbt "core / publishLocal"
-```
-
-In a separate application directory, create `project/build.properties`:
-
-```properties
-sbt.version=1.12.11
-```
-
-And `build.sbt`:
-
-```scala
-scalaVersion := "3.9.0"
-
-libraryDependencies +=
-  "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.0-SNAPSHOT"
-```
-
-Save the following as `src/main/scala/ScriptedAgent.scala`:
-
-```scala
-package example
-
-import com.weisgnosis.agents.core.agent.ReActAgent
-import com.weisgnosis.agents.core.client.{LlmClient, TurnOutput}
-import com.weisgnosis.agents.core.model.Msg
-import zio.*
-
-object ScriptedAgent extends ZIOAppDefault:
-  def run: ZIO[Any, Throwable, Unit] =
-    ZIO.scoped:
-      for
-        client <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("Hello"))))
-        agent <- ReActAgent.make(client = client)
-        result <- agent.run(Msg.user("Hello"))
-        _ <- Console.printLine(result.reply.text)
-      yield ()
-```
-
-Run `sbt "runMain example.ScriptedAgent"`. It prints `Hello` without network access. This small application shows the lifecycle: create a client, construct an agent, run a turn and consume its result within an owned scope. The scripted client makes the result deterministic.
-
-### Connect a real model and a typed tool
-
-The complete application below gives a model a `sum` tool backed by a Scala function. It uses the same core dependency. `JsonCodec` supplies the input/output codecs; the JSON Schema is supplied explicitly.
+This runs **real tools through the public ReAct runtime with a scripted model**. The executable checks overlapping tool execution, repeated interruption, held cleanup and continuation. It prints a JSON receipt; require every contract field to be `true`.
 
 <details>
-<summary><strong>Expand the complete HTTP + tool example</strong></summary>
+<summary><strong>Expected receipt — these are assertions, not a model's success claim</strong></summary>
 
-Save as `src/main/scala/HttpToolAgent.scala`:
+```json
+{
+  "implementation": "scala-zio-react",
+  "parallelOverlap": true,
+  "callsPersistedBeforeEntry": true,
+  "completedResultPreserved": true,
+  "unfinishedOnlyReconciled": true,
+  "cancellationJoinedCleanup": true,
+  "interruptionPreserved": true,
+  "recoveryExactlyOnce": true,
+  "historyComplete": true,
+  "sameRuntimeContinuation": true
+}
+```
+
+The receipt is shown formatted for readability. The application emits one JSON line and fails its assertions if any contract is false.
+
+</details>
+
+[Read the complete executable](modules/examples/src/main/scala/com/weisgnosis/agents/examples/SyntheticRuntimeComparison.scala) · [Inspect the lifecycle contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) · [Selected real-model interruption results](docs/live-e2e-results.md#e3-cooperative-interruption-and-same-runtime-continuation)
+
+This demonstrates process-local history and owned local cleanup. It does not imply rollback of external side effects, cancellation of remote inference or recovery of executing work after a process restart.
+
+## Interrupt halfway. Keep the work already done.
+
+Now stop an evidence-gathering turn halfway through. One read has finished; the other is still running. In the deterministic scenario below, the host requests interruption twice while the second tool deliberately holds cleanup open.
+
+**Keep the successful observation. Wait for owned cleanup. Continue with a complete history.**
+
+<picture>
+  <source media="(max-width: 600px)" srcset="docs/assets/execution-trace-mobile.svg">
+  <img src="docs/assets/execution-trace.svg" width="100%" alt="Two tool calls are recorded before execution. completed_read succeeds and its result is preserved. held_read is interrupted; cancellation waits for cleanup, then only its unfinished call receives Error. The same runtime continues without repeating the tools.">
+</picture>
+
+WeisGnosis records assistant calls before local dispatch, preserves completed observations, joins owned cleanup, and reconciles only unfinished calls. The next turn can use the same runtime and its intact conversation history.
+
+## Why this exists
+
+> Scala 3 was the language I wanted to build with. I couldn't find agent tooling that fit what I needed, so I started with AgentScope Java. I valued its approach, even though it wasn't the right fit for me. That experience inspired WeisGnosis Agents.
+>
+> — The project's author
+
+The goal is to make agent development feel at home in Scala: native data types and APIs, composable effects, explicit dependencies and owned resources. AgentScope's ideas are the starting point; Scala and ZIO shape the implementation.
+
+**An agent becomes application code the moment it calls your tools.**
+
+A model proposes an action. Your service has to authorize it, validate its arguments, execute the operation and know whether it actually finished. Add another agent, a waiting approval or a user interruption, and the lifecycle becomes part of the product.
+
+WeisGnosis brings that work into the Scala/ZIO model your service already uses. Dependencies and recoverable failures remain explicit in effect signatures. Tool execution failures become observations the model can respond to; interruption retains its own meaning.
+
+Use it when you want to:
+
+- **Embed an assistant in a Scala service:** expose selected business operations as typed tools and compose agent work with existing ZIO dependencies.
+- **Keep humans in consequential workflows:** install permission gates, suspend before acting, then resume a checked checkpoint under current host authorization.
+- **Coordinate specialists:** hand off completed replies, fan out independent work or share attributed findings between agents with separate histories.
+
+[Why Scala and ZIO](docs/scala-zio-positioning.md) explains the architectural choice and its limits.
+
+## From a tool call to a service workflow
+
+**Your service function becomes the agent's tool.** In this example, the host supplies `readEvidence`: an effect that reads build, test and security findings for a release. The schema controls the model-facing arguments; Scala keeps the decoded input and handler types connected.
+
+Input: `{"release":"RC1"}`. The handler returns evidence text such as `BUILD-1 passed; TEST-1 passed; SEC-1 failed: high severity`. The agent receives that text as a tool observation before its next model turn. Your real handler supplies the data; these values illustrate its contract.
+
+The adapter is small; `readEvidence` remains your ordinary effectful Scala function. `ReleaseQuery` and its explicit schema are defined in the complete function below.
 
 ```scala
-package example
+val evidence: Tool[Any, ReleaseQuery, String] = Tool.fromFunction[ReleaseQuery, String](
+  "read_release_evidence",
+  "Read build, test and security findings for a release.",
+  releaseQuerySchema,
+  isReadOnly = true
+)(readEvidence)
+```
 
-import com.weisgnosis.agents.core.agent.ReActAgent
-import com.weisgnosis.agents.core.client.{ChatCompletionsClient, LlmConfig}
+<details>
+<summary><strong>Complete integration: input type, schema, tool and scoped agent run</strong></summary>
+
+```scala
+import com.weisgnosis.agents.core.agent.{AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.{Tool, Toolkit}
 import zio.*
-import zio.http.Client
 import zio.json.*
 import zio.json.ast.Json
 
-object HttpToolAgent extends ZIOAppDefault:
-  final case class SumInput(a: Int, b: Int) derives JsonCodec
+final case class ReleaseQuery(release: String) derives JsonCodec
 
-  private def required(name: String): ZIO[Any, Throwable, String] =
-    System.env(name).flatMap(value =>
-      ZIO.fromOption(value.filterNot(_.isBlank))
-        .orElseFail(AgentError.InvalidConfiguration(s"Set $name"))
+def inspectRelease(
+    client: LlmClient,
+    config: LlmConfig,
+    readEvidence: ReleaseQuery => IO[AgentError, String]
+): IO[AgentError, AgentResult] =
+  ZIO.scoped:
+    val releaseQuerySchema: Json.Obj = Json.Obj(
+      "type" -> Json.Str("object"),
+      "properties" -> Json.Obj("release" -> Json.Obj("type" -> Json.Str("string"))),
+      "required" -> Json.Arr(Json.Str("release")),
+      "additionalProperties" -> Json.Bool(false)
     )
-
-  def run: ZIO[Any, Throwable, Unit] =
-    ZIO.serviceWithZIO[Client](http =>
-      ZIO.scoped:
-        for
-          endpoint <- required("WEISGNOSIS_EXAMPLE_ENDPOINT")
-          model <- required("WEISGNOSIS_EXAMPLE_MODEL")
-          key <- System.env("WEISGNOSIS_EXAMPLE_API_KEY")
-          tool = Tool.fromFunction[SumInput, Long](
-            "sum",
-            "Add two integers.",
-            Json.Obj(
-              "type" -> Json.Str("object"),
-              "properties" -> Json.Obj(
-                "a" -> Json.Obj("type" -> Json.Str("integer")),
-                "b" -> Json.Obj("type" -> Json.Str("integer"))
-              ),
-              "required" -> Json.Arr(Json.Str("a"), Json.Str("b")),
-              "additionalProperties" -> Json.Bool(false)
-            ),
-            isReadOnly = true
-          )(input => ZIO.succeed(input.a.toLong + input.b.toLong))
-          client <- ChatCompletionsClient.make(http)
-          agent <- ReActAgent.builder()
-            .client(client)
-            .llmConfig(LlmConfig(model, endpoint = endpoint, apiKey = key.filterNot(_.isBlank)))
-            .toolkit(Toolkit.single(tool))
-            .maxIterations(4)
-            .timeout(1.minute)
-            .build
-          result <- agent.run(Msg.user("Use sum to add 2 and 3, then answer."))
-          _ <- Console.printLine(s"${result.state}: ${result.reply.text}")
-        yield ()
-    ).provide(Client.default)
+    val evidence: Tool[Any, ReleaseQuery, String] = Tool.fromFunction[ReleaseQuery, String](
+      "read_release_evidence",
+      "Read build, test and security findings for a release.",
+      releaseQuerySchema,
+      isReadOnly = true
+    )(readEvidence)
+    for
+      agent <- ReActAgent.builder()
+        .client(client)
+        .llmConfig(config)
+        .toolkit(Toolkit.single(evidence))
+        .maxIterations(6)
+        .timeout(1.minute)
+        .build
+      result <- agent.run(Msg.user("Read the evidence for RC1 and explain any release blockers."))
+    yield result
 ```
-
-Set these variables in the application's process:
-
-| Variable | Value |
-| --- | --- |
-| `WEISGNOSIS_EXAMPLE_ENDPOINT` | Complete compatible SSE Chat Completions URL, ending in `/chat/completions`. |
-| `WEISGNOSIS_EXAMPLE_MODEL` | A tool-calling chat model available at your endpoint. |
-| `WEISGNOSIS_EXAMPLE_API_KEY` | Bearer credential, if required. Keep it out of source control. |
-
-Run `sbt "runMain example.HttpToolAgent"`. A successful tool-using run answers with the sum of 2 and 3 and prints the runtime state alongside the model's reply. The model can choose not to call the tool; this example does not assert tool execution. Real model requests may incur provider charges.
-
-Network/provider failures fail the effect. `Completed`, `Interrupted`, `Stopped` and `Suspended` describe distinct runtime outcomes. The example selects a one-minute deadline; cancellation waits for owned cleanup, which can extend beyond that deadline.
 
 </details>
 
-For a checked real-tool scenario, run the [live file task](modules/examples/README.md#model-driven-file-task): a model writes and reads a disposable file, and the host verifies actual bytes, observations, completion and cleanup. For external tools, follow [MCP installation](docs/getting-started.md#owned-mcp-installation).
+`AgentResult.state` distinguishes `Completed`, `Suspended`, `Interrupted` and `Stopped`. The reply is model content; the state describes the runtime outcome. Deadline cancellation still waits for owned cleanup, so elapsed time may exceed the deadline.
 
-## When a user interrupts
+**Tools are capabilities you explicitly supply.** Typed functions use `JsonCodec` plus an explicit JSON Schema; external arguments are checked before execution. Add [MCP tools/resources](docs/getting-started.md#owned-mcp-installation) when the capability lives behind a server. Install authorization for restricted operations: the default tool authorizer allows execution.
 
-Consider two local tool calls in one turn. One has finished; the other is still running. Cancellation must preserve the result already obtained and resolve the unfinished call before the conversation continues.
-
-```mermaid
-sequenceDiagram
-    participant H as Host application
-    participant R as Agent runtime
-    participant A as Local tool A
-    participant B as Local tool B
-    Note over R: Record assistant calls in conversation history
-    R->>A: Dispatch admitted call
-    A-->>R: Completed observation
-    R->>B: Dispatch admitted call
-    H->>R: Interrupt
-    R->>B: Cancel owned work
-    B-->>R: Owned cleanup finishes
-    Note over R: Preserve A's completed observation<br/>Reconcile unfinished B with Error<br/>Append one interruption recovery message
-    R-->>H: Joined termination
-```
-
-The runtime records assistant calls **before local execution starts**. On interruption it preserves completed observations, reconciles unfinished local calls and appends one recovery assistant message. Recording here means conversation state; durable storage is installed separately. Joined termination waits for owned cleanup and does not certify cancellation of remote inference.
-
-[Execution and recovery contract](modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md) · [Selected live cancellation evidence](modules/examples/README.md#selected-structured-output-and-cancellation-profiles)
+[Run this release-evidence assistant](docs/getting-started.md#release-evidence-assistant) · [Permission and approval guide](modules/harness/src/main/scala/com/weisgnosis/agents/harness/permission/README.md)
 
 ## Multi-agent workflows
 
-Use the composition that fits the work. Each agent retains its own conversation.
+Run the release-evidence team with a live model after [configuring the live environment](modules/examples/README.md#live-endpoint-verification):
 
-| Workflow | Use it when | Execution model |
-| --- | --- | --- |
-| **Sequential handoff** | One specialist's reply should become the next specialist's input. | Ordered stages with sender attribution. |
-| **Parallel fanout** | Independent specialists can work on the same request concurrently. | Explicit parallelism limit; outcomes collected in declaration order. |
-| **Message sharing with MsgHub** | Persistent agents need to hear one another's replies. | Attributed peer observations; the host chooses whose turn runs next. Busy recipients queue observations for an explicit between-round flush. |
-| **Supervised subagents** | A parent needs to delegate a bounded task or promote longer work. | Scoped children, explicit supervisor ownership of promoted work and checked result delivery. |
+```sh
+sbt "examples / runMain com.weisgnosis.agents.examples.LiveCoordinationEvidence"
+```
 
-Peer messages supply context; their embedded tool calls do not execute locally. A shared client does not imply shared agent history.
+The host guides the tool phases and checks the exact decision. This demonstrates controlled collaboration rather than autonomous planning. Live execution requires a configured endpoint, selected models and any required credentials, and may incur provider charges. For a small no-network introduction to peer delivery, use [MsgHubConversation](modules/examples/README.md#persistent-agent-conversation).
 
-[Pipeline and MsgHub guide](modules/core/src/main/scala/com/weisgnosis/agents/core/coordination/README.md) · [Subagent guide](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md)
+Choose the composition your workflow needs:
 
-## Try it
-
-These applications exercise the public runtime rather than just describing it. Run them from the cloned repository.
-
-| Example | Observable result |
+| Composition | What it gives your application |
 | --- | --- |
-| `sbt "examples / runMain com.weisgnosis.agents.examples.MsgHubConversation"` | Offline: Bob receives and summarizes Alice's recommendation. |
-| `sbt "examples / runMain com.weisgnosis.agents.examples.LiveFileTask"` | Live model: host-supplied tools write/read a disposable file; the application checks bytes, history, completion and cleanup. |
-| `sbt "examples / runMain com.weisgnosis.agents.examples.LiveCoordinationEvidence"` | Live models: sequential, parallel and mixed-model room scenarios check peer-context isolation. |
+| **Sequential pipeline** | Attributed handoff to the next specialist after a completed stage. |
+| **Bounded fanout** | Concurrent independent work; outcomes collected in declaration order. |
+| **MsgHub** | Attributed peer observations, separate histories and host-selected turns. Flush queued observations explicitly between rounds. |
+| **Supervised subagents** | Scoped child tasks; promoted work transfers to an explicit supervisor. |
 
-[Configure live examples](modules/examples/README.md#live-endpoint-verification) first. The [recorded results](docs/live-e2e-results.md) distinguish successful selected runs, failed profiles and untested behavior. Native-provider integration checks and live OpenAI-compatible gateway runs provide different evidence.
+[Pipeline and MsgHub guide](modules/core/src/main/scala/com/weisgnosis/agents/core/coordination/README.md) · [Subagent ownership](modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md)
 
-## Modules
+## Install what your host needs
 
-**Start with core.** Add only the integrations your host needs.
+**[0.1.0-RC1](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1) is available through GitHub Packages and a downloadable Maven repository.** The [installation guide](docs/packages.md) gives exact resolver, authentication and checksum instructions. All artifacts use organization `com.weisgnosis` and Scala `%%` coordinates. Requires Scala 3.9.0 / JDK 21; candidate APIs may change. Artifacts are unsigned and are not on Maven Central.
 
-| Artifact | Responsibility |
+<details>
+<summary><strong>Copy the release dependency — no GitHub token required with the Maven ZIP</strong></summary>
+
+Download `weisgnosis-agents-0.1.0-RC1-maven.zip` and `SHA256SUMS` from the [release](https://github.com/weisgnosis/weisgnosis-agents/releases/tag/v0.1.0-RC1). Verify the archive checksum, extract it, and set the resolver to the directory immediately above `com/`. In your application's `build.sbt`:
+
+```scala
+scalaVersion := "3.9.0"
+
+resolvers += "WeisGnosis release archive" at
+  file("/absolute/path/to/extracted-maven-repository").toURI.toString
+
+libraryDependencies +=
+  "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.0-RC1"
+```
+
+Set `sbt.version=1.12.11` in `project/build.properties`. Other dependencies resolve from Maven Central. If you prefer GitHub Packages, use the [authenticated resolver](docs/packages.md#github-packages).
+
+</details>
+
+| Module | Add it for |
 | --- | --- |
-| [weisgnosis-agents-core](modules/core/README.md) | ReAct execution, messages/events, typed tools, structured output, model clients, pipelines and MsgHub. |
-| [weisgnosis-agents-harness](modules/harness/README.md) | Compaction, output offload, memory, transcripts, approvals, planning, skills and supervised subagents. |
-| [weisgnosis-agents-mcp](modules/mcp/README.md) | MCP tools/resources over stdio, Streamable HTTP and legacy HTTP/SSE. |
-| [weisgnosis-agents-storage-postgresql](modules/storage-postgresql/README.md) | Conditional JSON persistence through a host-supplied DataSource. |
-| [weisgnosis-agents-otel](modules/otel/README.md) | Tracing through a host-owned OpenTelemetry SDK/exporter. |
+| [core](modules/core/README.md) | ReAct, typed tools, structured output, model clients, pipelines and MsgHub. Start here. |
+| [harness](modules/harness/README.md) | Approvals, planning, compaction, output offload, memory, transcripts, skills and subagents. |
+| [mcp](modules/mcp/README.md) | Tools/resources over stdio, Streamable HTTP and legacy HTTP/SSE. |
+| [storage-postgresql](modules/storage-postgresql/README.md) | Conditional JSON persistence through your DataSource. |
+| [otel](modules/otel/README.md) | Tracing through your OpenTelemetry SDK/exporter. |
 
-All artifacts use organization `com.weisgnosis` and Scala `%%` coordinates. The [published candidate](docs/packages.md) uses version `0.1.0-RC1`; the source quickstart above builds `0.1.0-SNAPSHOT`. For a local snapshot, install optional modules with `sbt "harness / publishLocal"`, `sbt "mcp / publishLocal"` or `sbt "otel / publishLocal"`, then add the matching artifact dependency. PostgreSQL also requires harness: `sbt "harness / publishLocal" "storagePostgresql / publishLocal"`.
+Artifact names are `weisgnosis-agents-<module>`, for example `weisgnosis-agents-core`. For source development, `sbt "core / publishLocal"` installs `0.1.0-SNAPSHOT`; [the source setup](docs/getting-started.md#build-and-local-installation) covers the separate consumer application and optional modules.
 
 ## Boundaries to know
 
-- **An embeddable library:** your host supplies business tools or MCP servers, authentication, durable workflow orchestration and idempotency. There is no bundled general shell/file/web toolkit or RAG engine.
-- **Explicit persistence:** conversation history, process-local approvals and hub queues do not automatically survive restarts. Persistent sessions restore checked data; they do not resurrect executing fibers.
-- **Explicit provider profiles:** model capabilities vary. Consult the [model adapter contracts](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md); selected live runs do not certify every provider or profile.
-- **Host-owned infrastructure:** path validation is not an atomic filesystem sandbox. PostgreSQL requires a host-owned pool/schema; uncertain writes are not automatically replayed.
-- **Evolving APIs:** the first release is a candidate, available through GitHub Packages or a downloadable archive; artifacts are not published to Maven Central. Frozen binary compatibility and Scala 3.3 cross-builds are not supplied; consumers may need rebuilding after API changes.
+- **You own the host:** authentication, business tools, durable orchestration and idempotency. There is no bundled general shell/file/web toolkit or RAG engine.
+- **History is not a running process:** persistence restores checked data or suspension; it does not resurrect fibers. Process-local approvals and hub queues do not survive restarts automatically.
+- **Compatibility is explicit:** OpenAI-compatible endpoints and native Anthropic/Gemini adapters have [documented profiles](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md). Selected live results do not certify every model, provider or platform.
+- **Infrastructure keeps its own limits:** path checks are not an atomic filesystem sandbox. PostgreSQL needs a host-owned pool/schema; uncertain writes are not automatically replayed. Frozen binary compatibility and Scala 3.3 cross-builds are not supplied.
 
 ## Learn more and contribute
 
-| Next step | Start here |
-| --- | --- |
-| Build your first application | [Getting started](docs/getting-started.md) |
-| Understand ownership and runtime contracts | [Architecture](ARCHITECTURE.md) |
-| Find an API or integration guide | [Documentation index](docs/README.md) |
-| Check implemented and remaining scope | [Single completion checklist](docs/architecture/tracker.md) |
-| Propose a fix or improvement | [Contributing](CONTRIBUTING.md) · [GitHub Issues](https://github.com/weisgnosis/weisgnosis-agents/issues) |
+[Getting started](docs/getting-started.md) · [API guides](docs/README.md) · [Architecture](ARCHITECTURE.md) · [Live evidence](docs/live-e2e-results.md) · [Completion scope](docs/architecture/tracker.md)
 
-Concrete bug reports, counterexamples and small working integrations are welcome. Run `sbt verify` to check a contribution; `sbt packageArtifacts` builds local distribution archives. [CONTRIBUTING.md](CONTRIBUTING.md) explains focused checks and independent review.
-
-## Star history
-
-If this is the agent runtime you have been looking for, [star the repository](https://github.com/weisgnosis/weisgnosis-agents/stargazers) to help other Scala developers find it. [View star history](https://www.star-history.com/#weisgnosis/weisgnosis-agents&Date).
+Concrete counterexamples, bug reports and small working integrations are welcome. [Contributing](CONTRIBUTING.md) explains checks and independent review; run `sbt verify` for a contribution and `sbt packageArtifacts` for local archives. [Open an issue](https://github.com/weisgnosis/weisgnosis-agents/issues) or [help other Scala developers discover the project](https://github.com/weisgnosis/weisgnosis-agents/stargazers).
 
 ## License and acknowledgements
 
-[Apache-2.0](LICENSE). Agent mechanics are adapted from [AgentScope Java](https://github.com/agentscope-ai/agentscope-java); the [upstream mappings](docs/architecture/test-parity.md) document transferred behavior and intentional adaptations. WeisGnosis Agents uses native Scala/ZIO APIs and is not a drop-in AgentScope replacement.
+[Apache-2.0](LICENSE). Adapted agent mechanics are attributed to [AgentScope Java](https://github.com/agentscope-ai/agentscope-java); [upstream mappings](docs/architecture/test-parity.md) explain transferred behavior and intentional adaptations. WeisGnosis Agents is not a drop-in AgentScope replacement.

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="664" viewBox="0 0 360 664" role="img" aria-labelledby="title description">
+  <title id="title">Three specialists. One checked decision.</title>
+  <desc id="description">Host-guided release-evidence fixture. BUILD-1 and TEST-1 pass; SEC-1 has a high-severity finding. An analyst reads evidence, a checker receives peer findings, and a reporter proposes a decision. The host validates the proposal against the evidence and accepts releaseAllowed false.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M1 1 6 4 1 7" fill="none" stroke="#9c6d31" stroke-width="1.5"/></marker>
+  </defs>
+  <rect width="360" height="664" rx="12" fill="#f7f4ec"/>
+  <g font-family="Segoe UI, Arial, sans-serif" fill="#202a2b">
+    <text x="24" y="34" font-size="14" font-weight="600" letter-spacing=".8">HOST-GUIDED RELEASE FIXTURE</text>
+    <g font-size="16">
+      <text x="24" y="74"><tspan font-weight="700">BUILD-1</tspan><tspan x="141" fill="#4e635e">passed</tspan></text>
+      <text x="24" y="103"><tspan font-weight="700">TEST-1</tspan><tspan x="141" fill="#4e635e">passed</tspan></text>
+      <text x="24" y="132"><tspan font-weight="700">SEC-1</tspan><tspan x="141" fill="#993f38">high-severity finding</tspan></text>
+    </g>
+    <path d="M24 155H336" stroke="#d8d3c7"/>
+    <g font-size="17" fill="#97662b" font-weight="600">
+      <text x="25" y="200">01</text><text x="25" y="313">02</text><text x="25" y="426">03</text>
+    </g>
+    <g font-size="29" font-weight="650">
+      <text x="74" y="202">Analyst</text><text x="74" y="315">Checker</text><text x="74" y="428">Reporter</text>
+    </g>
+    <g font-size="17" fill="#52605e">
+      <text x="74" y="232">Reads the evidence</text><text x="74" y="345">Receives peer findings</text><text x="74" y="458">Proposes a decision</text>
+    </g>
+    <g fill="none" stroke="#9c6d31" stroke-width="1.5" marker-end="url(#arrow)">
+      <path d="M38 225V277"/><path d="M38 338V390"/><path d="M38 451V504"/>
+    </g>
+    <rect x="16" y="522" width="328" height="122" rx="6" fill="#202e2f"/>
+    <text x="32" y="553" fill="#b2e0de" font-size="20" font-weight="650">Host validation</text>
+    <text x="32" y="581" fill="#f7f4ec" font-size="15">Checks proposal against evidence</text>
+    <text x="32" y="619" fill="#f5c17d" font-family="Consolas, monospace" font-size="20">releaseAllowed: false</text>
+  </g>
+</svg>

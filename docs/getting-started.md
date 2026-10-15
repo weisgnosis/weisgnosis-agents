@@ -1,6 +1,6 @@
 # Getting started
 
-This guide uses local development snapshots. For versioned candidate artifacts, see [package installation](packages.md). Dependent applications must rebuild when public signatures change; [package migration notes](../project/README.md#compatibility-policy) are authoritative. The three complete applications below have been compiled against fresh candidate artifacts. This is compilation evidence, not a claim that every provider or MCP server has been exercised. The [completion checklist](architecture/tracker.md) records remaining work.
+This guide uses local development snapshots. For versioned candidate artifacts, see [package installation](packages.md). Dependent applications must rebuild when public signatures change; [package migration notes](../project/README.md#compatibility-policy) are authoritative. The complete applications below have been compiled against fresh candidate artifacts. This is compilation evidence, not a claim that every provider or MCP server has been exercised. The [completion checklist](architecture/tracker.md) records remaining work.
 
 ## Build and local installation
 
@@ -26,7 +26,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-These coordinates resolve only after local installation. Core alone is sufficient for the first two applications; the MCP example also needs the MCP module. Put each complete application below in its own file under `src/main/scala` and run its named main class with sbt.
+These coordinates resolve only after local installation. `ScriptedAgent`, `HttpToolAgent` and `ReleaseAssistant` need only core; `OwnedMcp` also needs the MCP module. Put each complete application below in its own file under `src/main/scala` and run its named main class with sbt.
 
 ## Run a model-driven file task
 
@@ -130,6 +130,91 @@ object HttpToolAgent extends ZIOAppDefault:
 Declared Draft 2020-12 constraints are checked by [runtime schema admission](../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) before fresh authorization and execution; `JsonDecoder[SumInput]` then validates typed input. Provider strictness is a separate generation preference. Optional-null normalization is validation-only and does not rewrite dispatched arguments. The model can choose not to call the tool. For an executable live check that asserts a tool cycle and consumes events to EOF, use the existing [LiveProviderSmoke](../modules/examples/src/main/scala/com/weisgnosis/agents/examples/LiveProviderSmoke.scala) with its [explicit opt-in configuration](../modules/examples/README.md).
 
 Use `ChatCompletionsClient.makeNonStreaming` only when the selected endpoint supports the ordinary JSON mode described in the [client contract](../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#ordinary-json-completions). Reasoning, tool signatures and media extensions require their documented compatible-endpoint selections; no provider detection is performed.
+
+## Release evidence assistant
+
+This is the complete application behind the root README's integration function. It uses a real compatible SSE Chat Completions endpoint with a **fixed read-only evidence fixture**; it does not read your CI system. Replace `readEvidence` with your own service function to connect real checks. The host supplies the tool; model text never authorizes a deployment.
+
+Install core with the [release resolver](packages.md), or use the [source setup](#build-and-local-installation) above. Set `WEISGNOSIS_EXAMPLE_ENDPOINT` to the full URL ending in `/chat/completions`, `WEISGNOSIS_EXAMPLE_MODEL` to a compatible tool-calling model and optionally `WEISGNOSIS_EXAMPLE_API_KEY` through the process environment. Requests may incur provider charges.
+
+Save this complete application as `src/main/scala/ReleaseAssistant.scala` and run `sbt "runMain example.ReleaseAssistant"`:
+
+```scala
+package example
+
+import com.weisgnosis.agents.core.agent.{AgentResult, ReActAgent}
+import com.weisgnosis.agents.core.client.{ChatCompletionsClient, LlmClient, LlmConfig}
+import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.model.Msg
+import com.weisgnosis.agents.core.tool.{Tool, Toolkit}
+import zio.*
+import zio.json.*
+import zio.json.ast.Json
+import zio.http.Client
+
+final case class ReleaseQuery(release: String) derives JsonCodec
+
+def inspectRelease(
+    client: LlmClient,
+    config: LlmConfig,
+    readEvidence: ReleaseQuery => IO[AgentError, String]
+): IO[AgentError, AgentResult] =
+  ZIO.scoped:
+    val releaseQuerySchema: Json.Obj = Json.Obj(
+      "type" -> Json.Str("object"),
+      "properties" -> Json.Obj("release" -> Json.Obj("type" -> Json.Str("string"))),
+      "required" -> Json.Arr(Json.Str("release")),
+      "additionalProperties" -> Json.Bool(false)
+    )
+    val evidence: Tool[Any, ReleaseQuery, String] = Tool.fromFunction[ReleaseQuery, String](
+      "read_release_evidence",
+      "Read build, test and security findings for a release.",
+      releaseQuerySchema,
+      isReadOnly = true
+    )(readEvidence)
+    for
+      agent <- ReActAgent.builder()
+        .client(client)
+        .llmConfig(config)
+        .toolkit(Toolkit.single(evidence))
+        .maxIterations(6)
+        .timeout(1.minute)
+        .build
+      result <- agent.run(Msg.user("Read the evidence for RC1 and explain any release blockers."))
+    yield result
+
+object ReleaseAssistant extends ZIOAppDefault:
+  private def required(name: String): ZIO[Any, Throwable, String] =
+    System.env(name).flatMap(value =>
+      ZIO.fromOption(value.filterNot(_.isBlank))
+        .orElseFail(AgentError.InvalidConfiguration(s"Set $name"))
+    )
+
+  def run: ZIO[Any, Throwable, Unit] =
+    val readEvidence: ReleaseQuery => IO[AgentError, String] = query =>
+      if query.release == "RC1" then
+        ZIO.succeed("BUILD-1 passed; TEST-1 passed; SEC-1 failed: high severity")
+      else ZIO.fail(AgentError.InvalidConfiguration("No fixture evidence for that release"))
+    ZIO.serviceWithZIO[Client](http =>
+      ZIO.scoped:
+        for
+          endpoint <- required("WEISGNOSIS_EXAMPLE_ENDPOINT")
+          model <- required("WEISGNOSIS_EXAMPLE_MODEL")
+          key <- System.env("WEISGNOSIS_EXAMPLE_API_KEY")
+          client <- ChatCompletionsClient.make(http)
+          result <- inspectRelease(
+            client,
+            LlmConfig(model, endpoint = endpoint, apiKey = key.filterNot(_.isBlank)),
+            readEvidence
+          )
+          _ <- Console.printLine(s"${result.state}: ${result.reply.text}")
+        yield ()
+    ).provide(Client.default)
+```
+
+A tool-using run receives the fixture's passed build/tests and high-severity security failure, then explains the release blocker. The program prints the runtime state and model reply. The model may skip the tool or phrase the answer differently; this application is an integration example, not a tool-execution or answer-quality assertion. Provider failures fail the effect. For checked tool execution and host-validated decisions, use the [live coordination fixture](../modules/examples/README.md#useful-coordination-and-pipeline-controls).
+
+The application has been compiled without compiler warnings against the published RC1 core artifact, then driven with a scripted client through the actual tool path. This is not a new live-provider run. `isReadOnly` describes the tool to runtime policy; install a host authorizer for restricted tools. Cancellation joins owned cleanup, which can extend the one-minute deadline.
 
 ## Owned MCP installation
 
