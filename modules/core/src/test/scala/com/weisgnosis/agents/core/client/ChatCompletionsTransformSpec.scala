@@ -76,11 +76,13 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransformSpec")(
     test("many thinking fragments retain linear event text and exact completed output") {
-      checkAll(Gen.boolean) { indexed =>
+      enum FragmentCase:
+        case RawIdentical, ObservedIdentical, ObservedIndexed
+      checkAll(Gen.fromIterable(FragmentCase.values.toList)) { scenario =>
         val fragmentCount = 2000
         val fragments = Chunk
           .fromIterable(0 until fragmentCount)
-          .map(index => if indexed then s"$index," else "x")
+          .map(index => if scenario == FragmentCase.ObservedIndexed then s"$index," else "x")
         val thinkingFrames = fragments
           .map(fragment =>
             frame(
@@ -129,7 +131,7 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
               )
           agent <- ReActAgent.make(
             config = AgentConfig(eventDeliveryBudget = budget),
-            client = if indexed then observedClient else client,
+            client = if scenario == FragmentCase.RawIdentical then client else observedClient,
             llmConfig = config
           )
           events         <- record(agent)
@@ -141,7 +143,7 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
           )
         yield assertTrue(
           deltas.size == fragmentCount,
-          !indexed || beforeDelivery == fragments,
+          scenario == FragmentCase.RawIdentical || beforeDelivery == fragments,
           deltas.map(_.delta) == fragments,
           deltas.map(_.delta).mkString == expectedThought,
           retainedThoughtCharacters <= expectedThought.length.toLong * 2,
