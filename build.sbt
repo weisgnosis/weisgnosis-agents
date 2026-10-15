@@ -24,7 +24,13 @@ ThisBuild / version := {
 }
 ThisBuild / organization := "com.weisgnosis"
 ThisBuild / homepage     := Some(url("https://weisgnosis.com"))
-ThisBuild / licenses     := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
+ThisBuild / scmInfo := Some(
+  ScmInfo(
+    url("https://github.com/weisgnosis/weisgnosis-agents"),
+    "scm:git:https://github.com/weisgnosis/weisgnosis-agents.git"
+  )
+)
+ThisBuild / licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0"))
 ThisBuild / developers := List(
   Developer("weisgnosis", "WeisGnosis Team", "team@weisgnosis.com", url("https://weisgnosis.com"))
 )

@@ -67,11 +67,14 @@ as preserved interruption even when the default Python policy consumes
 | Reconcile only the unfinished call | Pass | Pass | Pass | Pass |
 | Cancellation joins completed cleanup | Pass | Pass | Fail | Fail |
 | Preserve interruption semantics | Pass | Pass | Pass | Pass |
-| Store exactly one recovery assistant in canonical history | Pass | Fail | Fail | Fail |
+| Store exactly one recovery assistant in canonical history | Pass | Policy difference (event-only) | Policy difference (event-only) | Policy difference (event-only) |
 | Preserve complete call/result pairing | Pass | Pass | Pass | Pass |
 | Continue the same runtime without tool replay | Pass | Pass | Pass | Pass |
 
 These are selected contract observations, not whole-project quality scores.
+`Policy difference (event-only)` means recovery is emitted but not stored in
+canonical history; the raw storage-contract assertion remains false. It is
+separate from the demonstrated incomplete resource cleanup under repeated cancellation.
 Three Python executions produced the same results in every arm; a fresh Scala
 execution passed all nine repeated-interruption contracts.
 AgentScope demonstrates working parallel calls, persistence, unfinished-call

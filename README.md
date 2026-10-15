@@ -6,7 +6,7 @@ A Scala 3 and ZIO 2 library for agent execution with explicit resource ownership
 
 ## Start here
 
-Use JDK 21 and the sbt version pinned in [project/build.properties](project/build.properties). From this repository:
+Builds and consumer examples use Scala 3.9.0 and JDK 21; a Scala 3.3 cross-build is not supplied. Use the sbt version pinned in [project/build.properties](project/build.properties). From this repository:
 
 ```text
 sbt verify

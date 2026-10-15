@@ -22,4 +22,4 @@ The manual [candidate workflow](../../.github/workflows/candidate.yml) validates
 
 External publication is user-owned. The [single completion checklist](../../docs/architecture/tracker.md#remaining-library-completion-work) covers library behavior and local artifact verification.
 
-No Git remote is configured; no remote workflow, tag, signing, publication or frozen ABI is claimed. The separately authorized [live smoke evidence](../../modules/examples/README.md#live-endpoint-verification) is bounded to the recorded endpoint run and is not executed by this consumer.
+The canonical repository is [weisgnosis/weisgnosis-agents](https://github.com/weisgnosis/weisgnosis-agents). Remote workflow execution, tags, signing, publication and frozen binary compatibility are not established by local artifact checks. The separately authorized [live smoke evidence](../../modules/examples/README.md#live-endpoint-verification) is bounded to the recorded endpoint run and is not executed by this consumer.
