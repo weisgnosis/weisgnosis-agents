@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.core.event
 
+import com.weisgnosis.agents.core.agent.AgentRunUpdate
 import com.weisgnosis.agents.core.error.AgentError.EventDeliveryFailure
 import com.weisgnosis.agents.core.json.ExactJson
 import java.nio.charset.StandardCharsets
@@ -59,11 +60,13 @@ object DiagnosticDeliverySpec extends ZIOSpecDefault:
                 read = delivery.take.tap(value => ZIO.when(value.nonEmpty)(reading.succeed(())))
                 actual <-
                   if streamed then
-                    ZStream
+                    (ZStream
                       .repeatZIOOption(read.flatMap:
-                        case Some(event) => ZIO.succeed(event)
+                        case Some(event) => ZIO.succeed(AgentRunUpdate.Event(event))
                         case None        => ZIO.fail(None))
-                      .runCollect
+                      ++ ZStream.succeed(AgentRunUpdate.Result(()))).collect {
+                      case AgentRunUpdate.Event(event) => event
+                    }.runCollect
                   else drain(read)
                 _       <- producer.join
                 failure <- delivery.failure

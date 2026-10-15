@@ -43,6 +43,8 @@ import HttpClientTestSupport.scripted
 
 object ChatCompletionsTransformSpec extends ZIOSpecDefault:
   final private case class Weather(city: String, temperature: String) derives JsonCodec
+  private enum FragmentCase:
+    case RawIdentical, ObservedIdentical, ObservedIndexed
   private val config: LlmConfig =
     LlmConfig("transform-model", endpoint = "http://localhost/completion")
   private val stop: String = frame(
@@ -75,88 +77,95 @@ object ChatCompletionsTransformSpec extends ZIOSpecDefault:
     agent.streamEvents(Msg.user("question")).runCollect
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransformSpec")(
-    test("many thinking fragments retain linear event text and exact completed output") {
-      enum FragmentCase:
-        case RawIdentical, ObservedIdentical, ObservedIndexed
-      checkAll(Gen.fromIterable(FragmentCase.values.toList)) { scenario =>
-        val fragmentCount = 2000
-        val fragments = Chunk
-          .fromIterable(0 until fragmentCount)
-          .map(index => if scenario == FragmentCase.ObservedIndexed then s"$index," else "x")
-        val thinkingFrames = fragments
-          .map(fragment =>
-            frame(
-              Json
-                .Obj(
-                  "choices" -> Json.Arr(
-                    Json.Obj(
-                      "index" -> Json.Num(0),
-                      "delta" -> Json.Obj("reasoning_content" -> Json.Str(fragment))
+    suite("many thinking fragments retain linear event text and exact completed output")(
+      FragmentCase.values.toList.map { scenario =>
+        test(scenario.toString) {
+          val fragmentCount = 2000
+          val fragments = Chunk
+            .fromIterable(0 until fragmentCount)
+            .map(index => if scenario == FragmentCase.ObservedIndexed then s"$index," else "x")
+          val thinkingFrames = fragments
+            .map(fragment =>
+              frame(
+                Json
+                  .Obj(
+                    "choices" -> Json.Arr(
+                      Json.Obj(
+                        "index" -> Json.Num(0),
+                        "delta" -> Json.Obj("reasoning_content" -> Json.Str(fragment))
+                      )
                     )
                   )
+                  .toJson
+              )
+            )
+          val expectedFrames = (thinkingFrames ++ Chunk(text("answer"), stop)).map(
+            _.stripPrefix("data: ").stripSuffix("\n\n")
+          )
+          val expectedThought = fragments.mkString
+          for
+            budget <- ZIO.fromEither(
+              EventDeliveryBudget.fromLimits(fragmentCount * 2 + 32, 8L * 1024 * 1024, 1024L * 1024)
+            )
+            published <- Ref.make(Chunk.empty[String])
+            client <- ChatCompletionsClient.make(
+              scripted(_ =>
+                ZIO.succeed(response(thinkingFrames.mkString + text("answer") + stop + done))
+              )
+            )
+            observedClient = new LlmClient:
+              def streamTurn(
+                  history: Chunk[Msg],
+                  tools: Chunk[ToolDef],
+                  config: LlmConfig,
+                  eventPublisher: EventPublisher,
+                  context: ModelStreamContext
+              ): ZIO[Scope, AgentError, TurnOutput] =
+                client.streamTurn(
+                  history,
+                  tools,
+                  config,
+                  EventPublisher.fromFunction(event =>
+                    (event match
+                      case delta: AgentEvent.ThinkingBlockDeltaEvent =>
+                        published.update(_ :+ delta.delta)
+                      case _ => ZIO.unit
+                    ) *> eventPublisher.publish(event)
+                  ),
+                  context
                 )
-                .toJson
+            agent <- ReActAgent.make(
+              config = AgentConfig(eventDeliveryBudget = budget),
+              client = if scenario == FragmentCase.RawIdentical then client else observedClient,
+              llmConfig = config
+            )
+            events         <- record(agent)
+            history        <- agent.history
+            beforeDelivery <- published.get
+            deltas = events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent => event }
+            retainedThoughtCharacters = deltas.foldLeft(0L)((total, event) =>
+              total + event.delta.length.toLong + event.accumulatedThought.fold(0L)(_.length.toLong)
+            )
+          yield assertTrue(
+            deltas.size == fragmentCount,
+            events.collect { case event: AgentEvent.ModelResponseChunkEvent =>
+              event.chunk
+            } == expectedFrames,
+            scenario == FragmentCase.RawIdentical || beforeDelivery == fragments,
+            deltas.map(_.delta) == fragments,
+            deltas.map(_.delta).mkString == expectedThought,
+            retainedThoughtCharacters <= expectedThought.length.toLong * 2,
+            events.collect { case event: AgentEvent.ThinkingBlockEndEvent => event.fullThought } ==
+              Chunk(expectedThought),
+            events.collect { case event: AgentEvent.TextBlockEndEvent => event.fullText } ==
+              Chunk("answer"),
+            history.lastOption.exists(message =>
+              message.thinking == expectedThought && message.text == "answer"
             )
           )
-          .mkString
-        val expectedThought = fragments.mkString
-        for
-          budget <- ZIO.fromEither(
-            EventDeliveryBudget.fromLimits(fragmentCount * 2 + 32, 8L * 1024 * 1024, 1024L * 1024)
-          )
-          published <- Ref.make(Chunk.empty[String])
-          client <- ChatCompletionsClient.make(
-            scripted(_ => ZIO.succeed(response(thinkingFrames + text("answer") + stop + done)))
-          )
-          observedClient = new LlmClient:
-            def streamTurn(
-                history: Chunk[Msg],
-                tools: Chunk[ToolDef],
-                config: LlmConfig,
-                eventPublisher: EventPublisher,
-                context: ModelStreamContext
-            ): ZIO[Scope, AgentError, TurnOutput] =
-              client.streamTurn(
-                history,
-                tools,
-                config,
-                EventPublisher.fromFunction(event =>
-                  (event match
-                    case delta: AgentEvent.ThinkingBlockDeltaEvent =>
-                      published.update(_ :+ delta.delta)
-                    case _ => ZIO.unit
-                  ) *> eventPublisher.publish(event)
-                ),
-                context
-              )
-          agent <- ReActAgent.make(
-            config = AgentConfig(eventDeliveryBudget = budget),
-            client = if scenario == FragmentCase.RawIdentical then client else observedClient,
-            llmConfig = config
-          )
-          events         <- record(agent)
-          history        <- agent.history
-          beforeDelivery <- published.get
-          deltas = events.collect { case event: AgentEvent.ThinkingBlockDeltaEvent => event }
-          retainedThoughtCharacters = deltas.foldLeft(0L)((total, event) =>
-            total + event.delta.length.toLong + event.accumulatedThought.fold(0L)(_.length.toLong)
-          )
-        yield assertTrue(
-          deltas.size == fragmentCount,
-          scenario == FragmentCase.RawIdentical || beforeDelivery == fragments,
-          deltas.map(_.delta) == fragments,
-          deltas.map(_.delta).mkString == expectedThought,
-          retainedThoughtCharacters <= expectedThought.length.toLong * 2,
-          events.collect { case event: AgentEvent.ThinkingBlockEndEvent => event.fullThought } ==
-            Chunk(expectedThought),
-          events.collect { case event: AgentEvent.TextBlockEndEvent => event.fullText } ==
-            Chunk("answer"),
-          history.lastOption.exists(message =>
-            message.thinking == expectedThought && message.text == "answer"
-          )
-        )
-      }
-    },
+        }
+      }*
+    ),
     test("subscription-local text-delta suppression preserves canonical completion and history") {
       for
         client <- ChatCompletionsClient.make(
