@@ -1,6 +1,6 @@
 import java.util.regex.Pattern
 
-val releaseVersion: String = "0.1.0-RC1"
+val releaseVersion: String = "0.1.1-SNAPSHOT"
 
 lazy val readmeFile: SettingKey[File] =
   settingKey[File]("README containing the first-agent example")
@@ -28,8 +28,11 @@ def readExampleBlock(source: String, name: String): String = {
 scalaVersion                            := "3.9.0"
 libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % releaseVersion
 scalacOptions ++= Seq("-deprecation", "-feature", "-unchecked", "-Werror", "-Wunused:all")
-publish / skip             := true
-resolvers                  := Seq(Resolver.mavenCentral)
+publish / skip := true
+resolvers := Seq(
+  "workspace-artifacts" at (baseDirectory.value / "../../target/artifact-verification/repository").toURI.toString,
+  Resolver.mavenCentral
+)
 externalResolvers          := resolvers.value
 scalafmtConfig             := baseDirectory.value / "../../.scalafmt.conf"
 readmeFile                 := baseDirectory.value / "../../README.md"
@@ -43,7 +46,7 @@ Compile / sourceGenerators += Def.task {
   require(
     readExampleBlock(source, "first-agent-build").replace("\r\n", "\n").trim ==
       expectedBuild.replace("\r\n", "\n"),
-    "README dependency block must match this consumer's Scala version and published dependency"
+    "README dependency block must match this consumer's Scala version and packaged dependency"
   )
   val output: File = (Compile / sourceManaged).value / "FirstAgent.scala"
   IO.write(output, readExampleBlock(source, "first-agent-source") + "\n")

@@ -6,11 +6,44 @@ Tool keeps its input/output codecs and effectful handler together. [External bin
 
 ## Typed function tools
 
-Tool.fromFunction connects compile-time input/output codecs to the executor and requires an explicit JSON schema. Match its advertised properties and required fields to the input DTO; codecs do not derive or verify that schema automatically. Use Json.Obj() explicitly only when unconstrained schema admission is intended, while input decoding still applies. Runtime schema admission and decoding both run before local execution.
+`Tool.derived` uses a compile-time argument schema alongside standard zio-json derived codecs:
 
-Factory callbacks in Tool.fromFunction and Tool.make are evaluated inside the returned ZIO execution. Callback construction defects therefore belong to that execution; Toolkit retains its existing defect normalization and interruption behavior. Custom Tool implementations remain responsible for suspending their own effects.
+```scala
+import com.weisgnosis.agents.core.tool.{Tool, ToolSchema}
+import zio.ZIO
+import zio.json.*
 
-Migration: callers that previously omitted the schema argument must supply it. Existing explicit-schema calls remain source compatible; rebuild consumers against the updated factory signature. No reflection or schema-generation dependency is installed.
+final case class ReleaseQuery(release: String) derives JsonCodec, ToolSchema
+
+val evidence: Tool[Any, ReleaseQuery, String] =
+  Tool.derived[ReleaseQuery, String]("read_evidence", "Read release evidence", isReadOnly = true)(
+    query => ZIO.succeed(s"Evidence for ${query.release}")
+  )
+```
+
+Derivation supports object case classes, nested and generic products, strings, booleans,
+Scala numeric primitives and BigInt/BigDecimal, Option, List, Vector, immutable Seq/Set,
+Chunk and string-key immutable Map. `@jsonField` renames are retained. Collections are
+required unless optional or defaulted; Option fields accept missing or null values.
+Defaulted fields also accept missing or null values, matching zio-json; derivation never
+evaluates a default expression and does not emit a schema `default`. Object properties
+are closed with `additionalProperties=false`. The decoder still checks numeric ranges.
+
+This contract assumes the default zio-json derived wire format. Custom codecs and custom
+JsonCodecConfiguration must use an explicitly aligned schema. Recursive inputs, nested
+Option, sums/enums, tuples, unsupported field types, non-string map keys, duplicate JSON
+names and JSON annotations other than literal `@jsonField` fail compilation. The macro
+uses compiler type information; no runtime reflection or schema dependency is added.
+
+`Tool.fromFunction` remains the explicit-schema factory for custom formats and additional
+constraints. `JsonCodec` alone does not derive a schema. Runtime schema admission and
+decoding both run before local execution.
+
+Factory callbacks in `Tool.derived`, `Tool.fromFunction` and `Tool.make` are evaluated
+inside the returned ZIO execution. Toolkit normalizes failures and defects into Error
+observations while preserving interruption. Custom Tool implementations remain responsible
+for suspending their own effects. Existing explicit-schema calls remain source compatible.
+The derived factory is available on main and is not included in published RC1.
 
 ## Runtime schema admission
 

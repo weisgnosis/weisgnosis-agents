@@ -127,7 +127,7 @@ available; do not put it in source, logs or shell history. Set the other variabl
 
 ```powershell
 $env:WEISGNOSIS_LIVE_SMOKE = 'enabled'
-$env:WEISGNOSIS_LIVE_ENDPOINT = 'https://bots.weisgnosis.ru/api/v1/chat/completions'
+$env:WEISGNOSIS_LIVE_ENDPOINT = '<your full Chat Completions URL>'
 $env:WEISGNOSIS_LIVE_MODEL = '<chat-model-from-authenticated-catalog>'
 $env:WEISGNOSIS_LIVE_TIMEOUT_SECONDS = '300'
 $env:WEISGNOSIS_COMPARISON_SCENARIO = 'parallel'

@@ -19,26 +19,36 @@ WeisGnosis Agents is a Scala 3 / ZIO 2 library for agents that call your service
 
 ## First agent
 
-Tested with **JDK 21 and sbt 1.12.11**; the build uses Scala 3.9.0. RC1 has no Scala 3.3 LTS build. In a new sbt project, add this to `build.sbt`:
+Tested with **JDK 21 and sbt 1.12.11**; the build uses Scala 3.9.0, with no Scala 3.3 LTS build.
+
+The concise tool API below is available on `main` and is not part of published RC1. Until the next release, build it locally:
+
+```sh
+git clone https://github.com/weisgnosis/weisgnosis-agents.git
+cd weisgnosis-agents
+sbt "core / publishLocal"
+```
+
+In a separate sbt project, add this to `build.sbt`:
 
 <!-- first-agent-build:start -->
 ```scala
 scalaVersion := "3.9.0"
-libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.0-RC1"
+libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.1-SNAPSHOT"
 ```
 <!-- first-agent-build:end -->
 
-Set `sbt.version=1.12.11` in `project/build.properties`. The signed artifacts resolve from Maven Central with no token or custom resolver.
+Set `sbt.version=1.12.11` in `project/build.properties`. This example uses your local build. The signed `0.1.0-RC1` artifacts remain available on Maven Central; RC1 tools require explicit schemas.
 
 Use an OpenAI-compatible Chat Completions endpoint with streaming and tool calling. Configure these process environment variables:
 
-| Variable | Configuration used in the [recorded live checks](docs/live-e2e-results.md#execution-conditions-and-reproduction) |
+| Variable | Value |
 | --- | --- |
-| `AGENT_ENDPOINT` | `https://bots.weisgnosis.ru/api/v1/chat/completions` |
-| `AGENT_MODEL` | `qwen3.8-27b` |
-| `AGENT_API_KEY` | Your credential for the selected endpoint. |
+| `AGENT_ENDPOINT` | Your provider's Chat Completions URL, for example `https://api.openai.com/v1/chat/completions`. |
+| `AGENT_MODEL` | A model offered by that provider with streaming, tool calling and `temperature=0` support. |
+| `AGENT_API_KEY` | Your credential for that provider. |
 
-The recorded gateway requires access; use your own compatible deployment if you do not have it. The example explicitly uses `temperature=0`, 4,096 output tokens and a five-minute deadline, as used in the recorded coordination checks. For OpenAI, set `AGENT_ENDPOINT` to `https://api.openai.com/v1/chat/completions` and use an OpenAI model that accepts these parameters. RC1 always sends temperature; it cannot yet be omitted for models that reject it.
+The example sends `temperature=0` and a 4,096-token output limit. RC1 cannot omit temperature, so models that reject this parameter require a different configuration or client. The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
 
 Save the following as `src/main/scala/FirstAgent.scala`. It exposes one tool and asks the model to assess a release. The tool supplies fixed demonstration data; replace its handler with your service function to read real evidence.
 
@@ -49,25 +59,18 @@ package example
 import com.weisgnosis.agents.core.agent.ReActAgent
 import com.weisgnosis.agents.core.client.{ChatCompletionsClient, LlmConfig}
 import com.weisgnosis.agents.core.model.Msg
-import com.weisgnosis.agents.core.tool.{Tool, Toolkit}
+import com.weisgnosis.agents.core.tool.{Tool, ToolSchema, Toolkit}
 import zio.*
 import zio.http.Client
 import zio.json.*
-import zio.json.ast.Json
 
 object FirstAgent extends ZIOAppDefault:
-  final case class ReleaseQuery(release: String) derives JsonCodec
+  final case class ReleaseQuery(release: String) derives JsonCodec, ToolSchema
 
   private val evidence: Tool[Any, ReleaseQuery, String] =
-    Tool.fromFunction[ReleaseQuery, String](
+    Tool.derived[ReleaseQuery, String](
       "read_release_evidence",
       "Read build, test and security findings for a release.",
-      Json.Obj(
-        "type" -> Json.Str("object"),
-        "properties" -> Json.Obj("release" -> Json.Obj("type" -> Json.Str("string"))),
-        "required" -> Json.Arr(Json.Str("release")),
-        "additionalProperties" -> Json.Bool(false)
-      ),
       isReadOnly = true
     )(query => ZIO.succeed(s"${query.release}: BUILD-1 passed; TEST-1 passed; SEC-1 failed: high severity"))
 
@@ -99,7 +102,7 @@ object FirstAgent extends ZIOAppDefault:
 ```
 <!-- first-agent-source:end -->
 
-A [compile-only CI check](verification/README.md#readme-first-agent-compilation) extracts this exact source and compiles it against published RC1 with only core declared.
+A [compile-only CI check](verification/README.md#readme-first-agent-compilation) extracts this exact source and compiles it against freshly packaged core with no source-project dependency.
 
 Run:
 
@@ -109,7 +112,7 @@ sbt "runMain example.FirstAgent"
 
 An example reply is `Completed: RC1 should be blocked because SEC-1 reports a high-severity finding.` The prefix is the runtime state: `Completed`, `Suspended`, `Interrupted` or `Stopped`. The reply wording and tool selection depend on the model. This makes real API requests and can incur provider charges.
 
-RC1 requires an explicit JSON Schema for tool arguments: `JsonCodec` handles JSON encoding/decoding, while the schema declares allowed inputs; automatic schema derivation is not yet implemented.
+`derives ToolSchema` generates the argument schema at compile time; `Tool.derived` uses it for model declarations and runtime validation. Standard zio-json case-class codecs are supported. For custom JSON formats or extra constraints, use `Tool.fromFunction` with an explicit schema. See the [supported types and annotations](modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#typed-function-tools).
 
 Native Anthropic and Gemini setup is covered in the [client guide](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md). See the [release assistant](docs/getting-started.md#release-evidence-assistant) for a larger integration with an injected service function.
 

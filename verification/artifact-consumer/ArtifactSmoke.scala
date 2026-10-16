@@ -55,6 +55,7 @@ import com.weisgnosis.agents.core.tool.{
   ToolDef,
   ToolInvocation,
   ToolResultPayload,
+  ToolSchema,
   ToolSchemaStrictness,
   Toolkit
 }
@@ -91,7 +92,7 @@ import zio.stream.ZStream
 object ArtifactSmoke extends ZIOAppDefault:
   final private case class Manifest(version: String, sha256: Map[String, String]) derives JsonCodec
 
-  final private case class ExternalInput(value: String) derives JsonCodec
+  final private case class ExternalInput(value: String) derives JsonCodec, ToolSchema
 
   private def verifySchemaAdmission: IO[AgentError, Unit] =
     for
@@ -104,14 +105,21 @@ object ArtifactSmoke extends ZIOAppDefault:
           "minimum" -> Json.Num(2)
         )
       )(_ => executions.update(_ + 1).as("accepted"))
-      registry = Toolkit.single(tool)
+      derived = Tool.derived[ExternalInput, String]("derived_probe", "Packaged macro expansion")(
+        input => executions.update(_ + 1).as(input.value)
+      )
+      registry = Toolkit.single(tool).updated(derived)
+      derivedResult <- registry.executeSafe(
+        "derived_probe",
+        Json.Obj("value" -> Json.Str("accepted"))
+      )
       rejected <- registry.executeSafe("schema_probe", Json.Num(1))
       accepted <- registry.executeSafe("schema_probe", Json.Num(2))
       count    <- executions.get
       _ <- ZIO
         .fail(failure("Packaged schema admission or transitive evaluator failed"))
         .unless(
-          rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && count == 1
+          rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && derivedResult.state == ToolResultState.Success && count == 2
         )
     yield ()
 
@@ -232,12 +240,12 @@ object ArtifactSmoke extends ZIOAppDefault:
       expected <- System
         .property("weisgnosis.artifact.version")
         .mapError(_ => failure("Cannot read artifact version configuration"))
-        .map(_.getOrElse("0.1.0-SNAPSHOT"))
+        .map(_.getOrElse("0.1.1-SNAPSHOT"))
       candidate = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*"
       _ <- ZIO
         .fail(failure("Invalid artifact verification version"))
         .unless(
-          expected == "0.1.0-SNAPSHOT" || (expected.length <= 64 && expected.matches(candidate))
+          expected == "0.1.1-SNAPSHOT" || (expected.length <= 64 && expected.matches(candidate))
         )
       _ <- ZIO
         .fail(failure("Unexpected artifact verification version"))

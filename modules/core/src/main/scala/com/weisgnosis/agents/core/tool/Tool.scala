@@ -93,6 +93,21 @@ object Tool:
         override def encodeResultChecked(out: Out): Either[AgentError, ToolExecutionResult] =
           tool.encodeResultChecked(out))
 
+  /** Derive arguments from a case class using standard zio-json codecs. */
+  def derived[In: JsonDecoder: ToolSchema, Out: JsonEncoder](
+      name: String,
+      description: String,
+      isReadOnly: Boolean = false,
+      isConcurrencySafe: Boolean = true
+  )(run: In => ZIO[Any, Throwable, Out]): Tool[Any, In, Out] =
+    fromFunction(
+      name,
+      description,
+      summon[ToolSchema[In]].jsonSchema,
+      isReadOnly,
+      isConcurrencySafe
+    )(run)
+
   def fromFunction[In: JsonDecoder, Out: JsonEncoder](
       name: String,
       description: String,

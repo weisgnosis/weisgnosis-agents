@@ -13,7 +13,7 @@ val openTelemetryVersion: String       = "1.66.0"
 
 ThisBuild / scalaVersion := scala3Version
 ThisBuild / version := {
-  sys.props.get("weisgnosis.candidate.version").fold("0.1.0-SNAPSHOT") { candidate =>
+  sys.props.get("weisgnosis.candidate.version").fold("0.1.1-SNAPSHOT") { candidate =>
     val pattern = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*"
     require(
       candidate.length <= 64 && candidate.matches(pattern),

@@ -92,7 +92,7 @@ sbt "-Dweisgnosis.candidate.version=0.1.0-RC1" verify packageArtifacts
 sbt "artifactVerification / runMain com.weisgnosis.agents.verification.CheckPreparation --version 0.1.0-RC1"
 ```
 
-The default source build remains `0.1.0-SNAPSHOT`. Local preparation does not
+The default source build remains `0.1.1-SNAPSHOT`. Local preparation does not
 publish remotely. See the [packaged consumer](../verification/artifact-consumer/README.md)
 for selected-version archive and consumer verification.
 

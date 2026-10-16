@@ -2,10 +2,10 @@
 
 ## README first-agent compilation
 
-From `verification/readme-example`, run `sbt scalafmtSbtCheck checkReadmeExtraction clean compile`.
+After `sbt packageArtifacts` and the artifact preparation below, from `verification/readme-example`, run `sbt scalafmtSbtCheck checkReadmeExtraction clean compile`.
 This standalone consumer extracts the marked first-agent source directly from the root README
-and checks that its dependency block matches the published RC1 dependency and Scala version.
-Only Maven Central participates in dependency resolution. Compilation uses fatal warnings and
+and checks that its dependency block matches the current SNAPSHOT dependency and Scala version.
+Only the staged packaged repository and Maven Central participate in dependency resolution. Compilation uses fatal warnings and
 needs only core; its transitive dependencies supply ZIO, zio-json and zio-http.
 Missing, duplicate or malformed source markers fail the check. CI compiles the example without
 running it, contacting a model provider or supplying API credentials.

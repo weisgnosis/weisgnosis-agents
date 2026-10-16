@@ -30,7 +30,7 @@ private[verification] object Preparation:
   final case class Options(version: Option[String], checkOnly: Boolean)
 
   val modules: List[String]     = List("core", "harness", "mcp", "storage-postgresql", "otel")
-  val defaultVersion: String    = "0.1.0-SNAPSHOT"
+  val defaultVersion: String    = "0.1.1-SNAPSHOT"
   private val namespace: String = "http://maven.apache.org/POM/4.0.0"
   private val candidatePattern: String =
     "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*"

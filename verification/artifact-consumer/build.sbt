@@ -2,10 +2,10 @@ lazy val artifactVersion: SettingKey[String] =
   settingKey[String]("Checked packaged artifact version")
 
 artifactVersion := {
-  val selected  = sys.props.getOrElse("weisgnosis.artifact.version", "0.1.0-SNAPSHOT")
+  val selected  = sys.props.getOrElse("weisgnosis.artifact.version", "0.1.1-SNAPSHOT")
   val candidate = "(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)\\.(?:0|[1-9][0-9]*)-RC[1-9][0-9]*"
   require(
-    selected == "0.1.0-SNAPSHOT" || (selected.length <= 64 && selected.matches(candidate)),
+    selected == "0.1.1-SNAPSHOT" || (selected.length <= 64 && selected.matches(candidate)),
     "Artifact version must be the default SNAPSHOT or a canonical ASCII RC version"
   )
   selected

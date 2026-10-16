@@ -20,9 +20,9 @@ For a new sbt application, create `build.sbt` with:
 scalaVersion := "3.9.0"
 
 libraryDependencies ++= Seq(
-  "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.0-SNAPSHOT",
-  "com.weisgnosis" %% "weisgnosis-agents-harness" % "0.1.0-SNAPSHOT",
-  "com.weisgnosis" %% "weisgnosis-agents-mcp" % "0.1.0-SNAPSHOT"
+  "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.1-SNAPSHOT",
+  "com.weisgnosis" %% "weisgnosis-agents-harness" % "0.1.1-SNAPSHOT",
+  "com.weisgnosis" %% "weisgnosis-agents-mcp" % "0.1.1-SNAPSHOT"
 )
 ```
 

@@ -2,7 +2,7 @@
 
 ## Purpose and current status
 
-Exercise useful agent tasks against `https://bots.weisgnosis.ru/api/v1` and measure
+Exercise useful agent tasks against the configured private gateway and measure
 observable runtime guarantees. This is a scenario design, not a report of new live
 runs. Existing executable coverage is identified below; proposed extensions are
 not executable commands yet. Delivery status belongs in the
@@ -38,7 +38,7 @@ secret mechanism. Do not paste the key into a command, source, report or recordi
 
 ```powershell
 $env:WEISGNOSIS_LIVE_SMOKE = 'enabled'
-$env:WEISGNOSIS_LIVE_ENDPOINT = 'https://bots.weisgnosis.ru/api/v1/chat/completions'
+$env:WEISGNOSIS_LIVE_ENDPOINT = '<your full Chat Completions URL>'
 $env:WEISGNOSIS_LIVE_MODEL = '<primary identifier from the current catalog>'
 $env:WEISGNOSIS_LIVE_PEER_MODEL = '<distinct peer identifier from the current catalog>'
 $env:WEISGNOSIS_LIVE_MAX_TOKENS = '4096'

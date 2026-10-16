@@ -7,7 +7,7 @@ A PostgreSQL 16 service enables actual storage integration scenarios through WEI
 The [artifact consumer checks](../../verification/artifact-consumer/README.md) inspect archive/POM boundaries, stage generated artifacts and compile/execute a separate consumer. Reversible archive-admission checks reject selected malformed packaging.
 
 The [README consumer](../../verification/README.md#readme-first-agent-compilation) extracts and
-compiles the first-agent example against its published RC1 dependency with fatal warnings.
+compiles the first-agent example against freshly packaged core with fatal warnings.
 It checks the declared dependency block and rejects missing or ambiguous example markers.
 It does not execute provider requests or require model credentials.
 

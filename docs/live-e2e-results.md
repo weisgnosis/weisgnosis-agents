@@ -1,6 +1,6 @@
 # Selected real-model E2E results
 
-The current packaged refresh ran on 2026-10-15 against the bots gateway using
+The current packaged refresh ran on 2026-10-15 against a private compatible gateway using
 library revision `b77e11d`. **All 20 selected profile outcomes passed in eight
 sequential application stages.** Mixed-model rooms ran twice in each direction;
 these are bounded attempts, not a reliability estimate or language benchmark.
@@ -15,7 +15,7 @@ profiles below retain their explicit verification dates and failed outcomes.
 
 The authenticated catalog selected `qwen3.8-27b` and `lfm2.5-2.6b-mlx` by chat
 capability, endpoint and availability. Qwen was loaded; LFM was cold-startable.
-Requests used `https://bots.weisgnosis.ru/api/v1/chat/completions`, process-local
+Requests used a private OpenAI-compatible Chat Completions gateway, process-local
 credentials, 4,096 output tokens and a 300-second per-agent deadline. Cleanup can
 extend the deadline. Each transport bounded response bytes to one MiB. Admitted
 model turns and tools were not retried to manufacture passing results.
