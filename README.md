@@ -21,24 +21,17 @@ WeisGnosis Agents is a Scala 3 / ZIO 2 library for agents that call your service
 
 Tested with **JDK 21 and sbt 1.12.11**; the build uses Scala 3.9.0, with no Scala 3.3 LTS build.
 
-The concise tool API below is available on `main` and is not part of published RC1. Until the next release, build it locally:
-
-```sh
-git clone https://github.com/weisgnosis/weisgnosis-agents.git
-cd weisgnosis-agents
-sbt "core / publishLocal"
-```
-
-In a separate sbt project, add this to `build.sbt`:
+Add the signed development snapshot to your `build.sbt`:
 
 <!-- first-agent-build:start -->
 ```scala
 scalaVersion := "3.9.0"
+resolvers += "Sonatype snapshots" at "https://central.sonatype.com/repository/maven-snapshots/"
 libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.1-SNAPSHOT"
 ```
 <!-- first-agent-build:end -->
 
-Set `sbt.version=1.12.11` in `project/build.properties`. This example uses your local build. The signed `0.1.0-RC1` artifacts remain available on Maven Central; RC1 tools require explicit schemas.
+Set `sbt.version=1.12.11` in `project/build.properties`. No repository credentials are needed. `0.1.1-SNAPSHOT` includes compile-time tool schemas; snapshot builds can change. See [release and snapshot installation](docs/packages.md) for other versions.
 
 Use an OpenAI-compatible Chat Completions endpoint with streaming and tool calling. Configure these process environment variables:
 
@@ -48,7 +41,7 @@ Use an OpenAI-compatible Chat Completions endpoint with streaming and tool calli
 | `AGENT_MODEL` | A model offered by that provider with streaming, tool calling and `temperature=0` support. |
 | `AGENT_API_KEY` | Your credential for that provider. |
 
-The example sends `temperature=0` and a 4,096-token output limit. RC1 cannot omit temperature, so models that reject this parameter require a different configuration or client. The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
+The example sends `temperature=0` and a 4,096-token output limit. The client always sends temperature; choose a model that accepts it. The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
 
 Save the following as `src/main/scala/FirstAgent.scala`. It exposes one tool and asks the model to assess a release. The tool supplies fixed demonstration data; replace its handler with your service function to read real evidence.
 

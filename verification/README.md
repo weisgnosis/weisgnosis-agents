@@ -10,6 +10,12 @@ needs only core; its transitive dependencies supply ZIO, zio-json and zio-http.
 Missing, duplicate or malformed source markers fail the check. CI compiles the example without
 running it, contacting a model provider or supplying API credentials.
 
+To check the published snapshot instead, use a fresh `COURSIER_CACHE` and Ivy home,
+override both `resolvers` and `externalResolvers` to Sonatype snapshots and Maven Central,
+then run the same extraction and compilation tasks. This excludes staged and Ivy-local
+library packages. The publication check additionally runs the full packaged consumer
+and compares all five downloaded JAR hashes with the preparation manifest.
+
 ## Runtime scenarios and historical comparisons
 
 Run `sbt "examples / runMain com.weisgnosis.agents.examples.SyntheticRuntimeComparison"`

@@ -37,6 +37,27 @@ Binary, source and Scaladoc JARs and POMs have detached `.asc` signatures in
 Central. See the [public key and verification commands](../project/keys/README.md).
 The Central artifacts preserve the bytes of the original GitHub RC1 release.
 
+## Development snapshots
+
+`0.1.1-SNAPSHOT` is available from the public Sonatype snapshot repository. It includes
+`ToolSchema` and `Tool.derived`, which are not part of RC1. Add:
+
+```scala
+resolvers += "Sonatype snapshots" at "https://central.sonatype.com/repository/maven-snapshots/"
+libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % "0.1.1-SNAPSHOT"
+```
+
+All five modules use the same version. Binary, source and Scaladoc JARs and POMs have
+detached signatures from the [release key](../project/keys/README.md). Downloads need
+no credentials. A separate consumer verified the published module bytes against the
+local package manifest and compiled and ran the public APIs from a fresh cache.
+The [first-agent example](../README.md#first-agent) was also compiled against the
+public snapshot repository.
+
+Snapshots are mutable development builds. Sonatype retains them for a limited period;
+see its [snapshot policy](https://central.sonatype.org/publish/publish-portal-snapshots/).
+Use a release coordinate when you need an immutable published version.
+
 ## GitHub Packages
 
 The same release is also available from

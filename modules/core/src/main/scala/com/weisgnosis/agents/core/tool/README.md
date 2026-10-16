@@ -43,7 +43,7 @@ Factory callbacks in `Tool.derived`, `Tool.fromFunction` and `Tool.make` are eva
 inside the returned ZIO execution. Toolkit normalizes failures and defects into Error
 observations while preserving interruption. Custom Tool implementations remain responsible
 for suspending their own effects. Existing explicit-schema calls remain source compatible.
-The derived factory is available on main and is not included in published RC1.
+The derived factory is available in `0.1.1-SNAPSHOT` and is not included in RC1.
 
 ## Runtime schema admission
 

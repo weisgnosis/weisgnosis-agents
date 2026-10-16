@@ -42,6 +42,7 @@ Compile / sourceGenerators += Def.task {
   val source: String = IO.read(readmeFile.value)
   val expectedBuild: String =
     s"""scalaVersion := "${scalaVersion.value}"
+       |resolvers += "Sonatype snapshots" at "https://central.sonatype.com/repository/maven-snapshots/"
        |libraryDependencies += "com.weisgnosis" %% "weisgnosis-agents-core" % "$releaseVersion"""".stripMargin
   require(
     readExampleBlock(source, "first-agent-build").replace("\r\n", "\n").trim ==
