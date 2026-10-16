@@ -282,11 +282,16 @@ object ArtifactSmoke extends ZIOAppDefault:
       expected <- ZIO
         .fromOption(manifest.sha256.get(module))
         .orElseFail(failure(s"Missing $module hash"))
+      exactName = s"weisgnosis-agents-${module}_3-${manifest.version}.jar"
+      timestampedName = java.util.regex.Pattern.quote(
+        s"weisgnosis-agents-${module}_3-${manifest.version.stripSuffix("-SNAPSHOT")}"
+      ) + "-[0-9]{8}\\.[0-9]{6}-[1-9][0-9]*\\.jar"
+      validName = observed._1 == exactName || (
+        manifest.version.endsWith("-SNAPSHOT") && observed._1.matches(timestampedName)
+      )
       _ <- ZIO
         .fail(failure(s"Resolved $module artifact differs from freshly packaged JAR"))
-        .unless(
-          observed._1 == s"weisgnosis-agents-${module}_3-${manifest.version}.jar" && observed._2 == expected
-        )
+        .unless(validName && observed._2 == expected)
     yield ()
 
   private def verifyClasspath: IO[AgentError, Unit] =
