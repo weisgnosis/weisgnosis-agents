@@ -18,6 +18,7 @@ package com.weisgnosis.agents.mcp.transport
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.mcp.client.{McpClient, McpConnection}
 import com.weisgnosis.agents.mcp.protocol.{
+  McpBatchMember,
   McpCallOutcome,
   McpContentBlock,
   McpImplementation,
@@ -140,6 +141,53 @@ object McpStdioTransportSpec extends ZIOSpecDefault:
         ),
         !exit.causeOption.toList.flatMap(_.failures).exists(_.message.contains(sentinel))
       )
+    ,
+    test("negotiated peer accepts a tool request before a delayed ping response"):
+      ZIO.scoped:
+        for
+          supported <- ZIO.fromEither(
+            McpSupportedVersions.make(Set.from(McpProtocolVersion.values))
+          )
+          server  <- peer("negotiate", supportedVersions = Some(supported))
+          _       <- server.transport.acquireProtocolSession
+          packets <- Queue.bounded[Exit[AgentError, McpPacket]](8)
+          _ <- server.transport.incomingPackets
+            .map(packet => Exit.succeed(packet))
+            .catchAll(error => ZStream.succeed(Exit.fail(error)))
+            .runForeach(packet => packets.offer(packet).unit)
+            .forkScoped
+          _ <- server.ready.await
+          _ <- packets.take.flatMap(exit => exit)
+          initialization <- ZIO.fromEither(
+            McpInitialization.request(McpRequestId.Number(1), McpImplementation("ordered", "1"))
+          )
+          _      <- server.transport.send(initialization)
+          _      <- packets.take.flatMap(exit => exit)
+          _      <- packets.take.flatMap(exit => exit)
+          _      <- server.transport.send(McpMessage.Notification("notifications/initialized"))
+          _      <- server.transport.send(McpMessage.Request(McpRequestId.Number(71), "tools/list"))
+          listed <- packets.take.flatMap(exit => exit)
+          _ <- server.transport.sendPacket(
+            McpPacket.Batch(
+              Chunk(McpBatchMember.Message(McpMessage.Success(McpRequestId.Number(70), Json.Obj())))
+            )
+          )
+          _ <- server.transport.send(
+            McpMessage.Request(
+              McpRequestId.Number(72),
+              "tools/call",
+              Some(Json.Obj("name" -> Json.Str("echo")))
+            )
+          )
+          called <- packets.take.flatMap(exit => exit)
+        yield assertTrue(
+          listed match
+            case McpPacket.Single(McpMessage.Success(McpRequestId.Number(71), _)) => true
+            case _                                                                => false,
+          called match
+            case McpPacket.Single(McpMessage.Success(McpRequestId.Number(72), _)) => true
+            case _                                                                => false
+        )
     ,
     test("real processes agree supported alternatives without transferring the first client lease"):
       ZIO

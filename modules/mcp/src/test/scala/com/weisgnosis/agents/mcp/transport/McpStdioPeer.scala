@@ -92,6 +92,39 @@ object McpStdioPeer extends ZIOAppDefault:
       _ <- ZIO.never
     yield ()
 
+  private def replyToToolRequest(message: McpMessage): IO[AgentError, Unit] =
+    message match
+      case McpMessage.Request(id, "tools/list", _) =>
+        emit(
+          McpMessage.Success(
+            id,
+            Json.Obj(
+              "tools" -> Json.Arr(
+                Json.Obj(
+                  "name"        -> Json.Str("echo"),
+                  "inputSchema" -> Json.Obj("type" -> Json.Str("object"))
+                )
+              )
+            )
+          )
+        )
+      case McpMessage.Request(id, "tools/call", Some(params))
+          if params.get("name").contains(Json.Str("echo")) =>
+        emit(
+          McpMessage.Success(
+            id,
+            Json.Obj(
+              "content" -> Json.Arr(
+                Json.Obj(
+                  "type" -> Json.Str("text"),
+                  "text" -> Json.Str("ok")
+                )
+              )
+            )
+          )
+        )
+      case _ => ZIO.fail(AgentError.McpError("Unexpected tool request in test peer"))
+
   private enum ClientPhase:
     case Initialize, Initialized, Ready
 
@@ -118,35 +151,8 @@ object McpStdioPeer extends ZIOAppDefault:
               McpMessage.Notification("notifications/initialized", None)
             ) =>
           client(ClientPhase.Ready, version)
-        case (ClientPhase.Ready, McpMessage.Request(id, "tools/list", _)) =>
-          emit(
-            McpMessage.Success(
-              id,
-              Json.Obj(
-                "tools" -> Json.Arr(
-                  Json.Obj(
-                    "name"        -> Json.Str("echo"),
-                    "inputSchema" -> Json.Obj("type" -> Json.Str("object"))
-                  )
-                )
-              )
-            )
-          ) *> client(ClientPhase.Ready, version)
-        case (ClientPhase.Ready, McpMessage.Request(id, "tools/call", Some(params)))
-            if params.get("name").contains(Json.Str("echo")) =>
-          emit(
-            McpMessage.Success(
-              id,
-              Json.Obj(
-                "content" -> Json.Arr(
-                  Json.Obj(
-                    "type" -> Json.Str("text"),
-                    "text" -> Json.Str("ok")
-                  )
-                )
-              )
-            )
-          ) *> client(ClientPhase.Ready, version)
+        case (ClientPhase.Ready, request) =>
+          replyToToolRequest(request) *> client(ClientPhase.Ready, version)
         case _ => ZIO.fail(AgentError.McpError("Unexpected message in test client lifecycle"))
 
   private enum HandshakeMarker:
@@ -172,6 +178,8 @@ object McpStdioPeer extends ZIOAppDefault:
                 )
               ) =>
             finishNegotiation(pending - HandshakeMarker.Pong, selected)
+          case McpPacket.Single(request) if pending == Set(HandshakeMarker.Pong) =>
+            replyToToolRequest(request) *> finishNegotiation(pending, selected)
           case _ =>
             ZIO.fail(AgentError.McpError("Unexpected alternative initialization acknowledgement"))
 
