@@ -2239,13 +2239,19 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           overflow <- overflowing
             .send(McpMessage.Request(McpRequestId.Number(2), "tools/list"))
             .exit
-          terminal     <- overflowing.incoming.runCollect.exit
-          single       <- McpStreamableHttpTransport.open(http, endpoint)
-          reader       <- single.incoming.take(1).runCollect.forkScoped
-          _            <- (ZIO.yieldNow *> reader.status).repeatUntil(_.isSuspended)
+          terminal      <- overflowing.incoming.runCollect.exit
+          single        <- McpStreamableHttpTransport.open(http, endpoint)
+          firstObserved <- Promise.make[Nothing, Unit]
+          reader <- single.incoming
+            .tap(_ => firstObserved.succeed(()).unit)
+            .take(2)
+            .runCollect
+            .forkScoped
+          _            <- single.send(McpMessage.Request(McpRequestId.Number(3), "initialize"))
+          _            <- firstObserved.await
           duplicate    <- single.incoming.runCollect.exit
           stillWaiting <- reader.poll
-          _            <- single.send(McpMessage.Request(McpRequestId.Number(3), "initialize")).exit
+          _            <- single.send(McpMessage.Request(McpRequestId.Number(4), "tools/list"))
           received     <- reader.join
           failure = AgentError.McpError("HTTP exchange failed")
           defect  = new IllegalStateException("HTTP exchange defect")
@@ -2255,7 +2261,7 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
             endpoint
           )
           failedSend <- failedPort
-            .send(McpMessage.Request(McpRequestId.Number(4), "initialize"))
+            .send(McpMessage.Request(McpRequestId.Number(5), "initialize"))
             .exit
           failedIncoming <- failedPort.incoming.runCollect.exit
         yield assertTrue(
@@ -2263,7 +2269,10 @@ object McpStreamableHttpTransportSpec extends ZIOSpecDefault:
           terminal.isFailure,
           duplicate.isFailure,
           stillWaiting.isEmpty,
-          received == Chunk(McpMessage.Success(McpRequestId.Number(3), initialization)),
+          received == Chunk(
+            McpMessage.Success(McpRequestId.Number(3), initialization),
+            McpMessage.Success(McpRequestId.Number(4), emptyTools)
+          ),
           failedSend.causeOption.contains(cause),
           failedIncoming.causeOption.contains(cause)
         )
