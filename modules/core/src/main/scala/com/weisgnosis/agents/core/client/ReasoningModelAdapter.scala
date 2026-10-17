@@ -297,7 +297,7 @@ object ReasoningModelAdapter:
             case thought: ContentBlock.Thinking =>
               thought.metadata.contains("thoughtSignature") || thought.metadata.contains(
                 "reasoningDetails"
-              )
+              ) || thought.metadata.contains(Msg.MetadataResponsesReasoning)
             case _ => true
         else msg
       }

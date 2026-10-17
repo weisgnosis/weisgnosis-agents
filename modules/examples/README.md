@@ -256,3 +256,50 @@ The shared live configuration accepts `WEISGNOSIS_LIVE_MAX_TOKENS` (64–32,768;
 `NativeProviderSmoke` is disabled unless `WEISGNOSIS_NATIVE_PROVIDER=anthropic` or `gemini` is selected. It also requires the shared `WEISGNOSIS_LIVE_SMOKE=enabled`, explicit native `WEISGNOSIS_LIVE_ENDPOINT`, `WEISGNOSIS_LIVE_MODEL` and process-local `WEISGNOSIS_LIVE_API_KEY`. Anthropic uses the full Messages endpoint; Gemini uses the full selected-model streamGenerateContent endpoint. Run `sbt "examples / runMain com.weisgnosis.agents.examples.NativeProviderSmoke"`.
 
 The selected check explicitly requests provider-hosted search or Python execution and requires authoritative Completed state, an inline successful outcome and no local Tool messages. These requests can incur provider charges. No native credentials or real native-provider run are claimed here; compiled source and loopback suites are separate evidence. See [native contracts and limitations](../core/src/main/scala/com/weisgnosis/agents/core/client/README.md#native-provider-selection).
+
+## Offline development recipes
+
+### Retrieval with checked citations
+
+Run `sbt "examples/runMain com.weisgnosis.agents.examples.OfflineRetrieval"` to search a fixed immutable corpus through a read-only derived tool and print a typed answer with an exact source quote. The example uses a scripted client and needs no credentials or network service.
+
+[BoundedRetrieval](src/main/scala/com/weisgnosis/agents/examples/retrieval/BoundedRetrieval.scala) keeps corpus authorization and revision identity in host code. It bounds corpus candidates, UTF-8 query/excerpt/observation sizes and result counts, and marks truncation. The host checks citation IDs and exact quotes against the latest successful search before displaying the answer. This post-run check does not gate canonical history or completion events and does not prove that a quotation supports a claim. Replacement search adapters must enforce their own backend limits. No vector database or embedding provider is installed.
+
+### Named specialist team
+
+Run `sbt "examples/runMain com.weisgnosis.agents.examples.NamedSpecialistTeam"`. A leader delegates to researcher and reviewer concurrently through existing synchronous named-session tools, receives bounded attributed summaries, then follows up with the same researcher. Its private tool observations remain inside that specialist's history.
+
+The output checks both-member startup, retained private context, bounded summaries and rejection of unknown members. Synchronous timeout/cancellation cancels and joins child cleanup. The recipe does not promise ordering for simultaneous assignments to the same member, automatic team approval routing or durable team execution.
+
+### Routing across checkpoint restoration
+
+Run `sbt "examples/runMain com.weisgnosis.agents.examples.OfflineModelRouting"`. The host selects a registered target from task, capability and cost-tier requirements before constructing the agent. A credential-free versioned envelope records its binding and snapshot. After the default changes, restoration resolves the exact trusted binding and resumes the original target without reselection.
+
+Missing, revised, incompatible or newly ineligible bindings fail before a model call. Endpoints, credentials and live clients remain in the trusted host registry; they are never deserialized from a checkpoint. The host owns authenticated atomic storage, exclusive execution and correct binding revision changes. This example adds no core dispatcher, classifier, price ledger or implicit cross-provider replay.
+
+
+### Restored user questions
+
+```sh
+sbt "examples/runMain com.weisgnosis.agents.examples.OfflineUserQuestions"
+```
+
+[OfflineUserQuestions](src/main/scala/com/weisgnosis/agents/examples/OfflineUserQuestions.scala)
+collects a typed audience preference through an external tool, serializes its suspended checkpoint,
+restores it in a fresh agent and supplies the checked answer. The final reply addresses developers;
+the question-generating request is not repeated. The example supplies the answer itself and uses
+scripted model responses. An application supplies its own authenticated question channel and atomic
+response claims. Preferences do not approve other tools. See the [question API](../harness/src/main/scala/com/weisgnosis/agents/harness/questions/README.md).
+
+### Reopened sequential procedure
+
+```sh
+sbt "examples/runMain com.weisgnosis.agents.examples.OfflineProcedure"
+```
+
+[OfflineProcedure](src/main/scala/com/weisgnosis/agents/examples/OfflineProcedure.scala)
+accepts a draft stage, closes the real local JSON backend, reopens it and completes the packaging
+stage. Its receipt lists each executor exactly once. The host verifier accepts each stage before
+its saved submission becomes the successor's input. Saved submissions resume verification;
+ambiguous execution admissions require host recovery. The host owns the exclusive execution claim,
+and verifiers must be safe to repeat. See [procedure ownership and limits](../harness/src/main/scala/com/weisgnosis/agents/harness/procedure/README.md).

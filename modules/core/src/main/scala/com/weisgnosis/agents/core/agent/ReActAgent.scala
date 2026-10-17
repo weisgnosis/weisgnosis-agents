@@ -2280,7 +2280,8 @@ final class ReActAgent private (
         case _: TurnOutput.Truncated =>
           message.content.forall(_.isInstanceOf[ContentBlock.Text]) &&
           message.metadata.forall((key, value) =>
-            key == "agentscope_stop_reason" && value == Json.Str("token_budget_exhausted")
+            (key == "agentscope_stop_reason" && value == Json.Str("token_budget_exhausted")) ||
+              (key == Msg.MetadataResponsesIncompleteReplay && value == Json.Bool(true))
           )
       Either.cond(
         consistent,

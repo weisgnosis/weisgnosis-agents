@@ -25,6 +25,14 @@ import com.weisgnosis.agents.core.agent.{
   StructuredRepairPolicy
 }
 import com.weisgnosis.agents.core.coordination.Pipeline
+import com.weisgnosis.agents.harness.questions.*
+import com.weisgnosis.agents.harness.procedure.*
+import com.weisgnosis.agents.harness.storage.{
+  ConditionalWrite,
+  ExpectedRevision,
+  VersionedJson,
+  VersionedJsonStore
+}
 import com.weisgnosis.agents.harness.memory.VersionedMemoryLimits
 import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
@@ -351,6 +359,159 @@ object ArtifactSmoke extends ZIOAppDefault:
         )
     yield ()
 
+  private def verifyResponsesBoundary: ZIO[Scope, AgentError, Unit] =
+    (for
+      http   <- ZIO.service[zio.http.Client]
+      client <- com.weisgnosis.agents.core.client.ResponsesLlmClient.make(http)
+      agent <- ReActAgent.make(
+        client = client,
+        llmConfig = LlmConfig(
+          model = "consumer-model",
+          endpoint = "http://127.0.0.1:1/chat/completions",
+          temperaturePolicy = TemperaturePolicy.Omit
+        )
+      )
+      rejected <- agent.run(Msg.user("Validate the endpoint before HTTP acquisition")).exit
+      _ <- ZIO
+        .fail(failure("Packaged Responses endpoint guard failed"))
+        .unless(
+          rejected.causeOption.exists(_.failures.exists {
+            case AgentError.InvalidConfiguration(message) => message.contains("/responses")
+            case _                                        => false
+          })
+        )
+    yield ()).provideSomeLayer[Scope](
+      zio.http.Client.default.mapError(_ => failure("Cannot acquire consumer HTTP client"))
+    )
+
+  private def verifyUserQuestions: ZIO[Scope, AgentError, Unit] =
+    for
+      params <- ZIO.fromEither(
+        AskUserParams.make(
+          Chunk(
+            UserQuestion(
+              "audience",
+              "Who will read this?",
+              "Audience",
+              Chunk(
+                QuestionOption("developers", "Developers"),
+                QuestionOption("operators", "Operators")
+              )
+            )
+          )
+        )
+      )
+      questions <- ZIO.fromEither(AskUserTool.make())
+      asking <- ScriptedLlmClient.make(
+        Chunk(
+          TurnOutput.ToolCalls(
+            Msg.assistant(
+              Chunk(
+                ContentBlock.ToolUse("question", questions.binding.definition.name, params.json)
+              )
+            )
+          )
+        ),
+        maxRecordedRequests = 1
+      )
+      original   <- ReActAgent.make(client = asking, toolkit = Toolkit.single(questions.binding))
+      checkpoint <- original.run(Msg.user("Write release notes"))
+      saved <- ZIO.fromEither(
+        checkpoint.toJson.fromJson[com.weisgnosis.agents.core.agent.AgentResult].left.map(failure)
+      )
+      host = QuestionHostBinding("consumer", "checkpoint")
+      pending <- ZIO.fromEither(questions.pending(saved, 0, host))
+      supplied <- ZIO.fromEither(
+        questions.answer(
+          saved,
+          host,
+          pending.key,
+          Chunk(
+            UserAnswer("audience", AnswerValue.Selected(Chunk("developers")))
+          )
+        )
+      )
+      client <- ScriptedLlmClient.make(
+        Chunk(TurnOutput.FinalText(Msg.assistant("For developers"))),
+        maxRecordedRequests = 1
+      )
+      restored <- ReActAgent.make(client = client, toolkit = Toolkit.single(questions.binding))
+      _        <- restored.restore(saved)
+      result   <- restored.resume(Chunk(supplied))
+      _        <- asking.verifyConsumed *> client.verifyConsumed
+      _ <- ZIO
+        .fail(failure("Packaged question restore/resume failed"))
+        .unless(
+          result.state == AgentRunState.Completed && result.reply.text == "For developers" &&
+            result.history.flatMap(_.toolResults).size == 1
+        )
+    yield ()
+
+  private def verifyProcedure: IO[AgentError, Unit] =
+    for
+      address <- ZIO.fromEither(StorageAddress.from(Chunk("consumer"), "procedure"))
+      record  <- Ref.make(Option.empty[VersionedJson])
+      calls   <- Ref.make(0)
+      claims  <- Semaphore.make(1)
+      store = new VersionedJsonStore:
+        def read(candidate: StorageAddress): IO[AgentError, Option[VersionedJson]] =
+          if candidate == address then record.get else ZIO.fail(failure("Unexpected address"))
+        def compareAndSet(
+            candidate: StorageAddress,
+            expected: ExpectedRevision,
+            value: Json
+        ): IO[AgentError, ConditionalWrite] =
+          if candidate != address then ZIO.fail(failure("Unexpected address"))
+          else
+            record
+              .modify { previous =>
+                val matches = expected match
+                  case ExpectedRevision.Absent => previous.isEmpty
+                  case ExpectedRevision.AtRevision(revision) =>
+                    previous.exists(_.revision == revision)
+                if !matches then (Right(ConditionalWrite.Conflict), previous)
+                else
+                  StorageRevision.fromLong(previous.fold(1L)(_.revision.value + 1L)) match
+                    case Left(error) => (Left(error), previous)
+                    case Right(revision) =>
+                      (
+                        Right(ConditionalWrite.Applied(revision)),
+                        Some(VersionedJson(value, revision))
+                      )
+              }
+              .flatMap(ZIO.fromEither(_))
+      authority = new ProcedureSession.Authority:
+        def acquire(candidate: StorageAddress): ZIO[Scope, AgentError, Unit] =
+          if candidate == address then claims.withPermitScoped
+          else ZIO.fail(failure("Unexpected claim address"))
+      definition = ProcedureDefinition(
+        "consumer",
+        "v1",
+        Chunk(
+          ProcedureStage(
+            "checked",
+            1,
+            _ => calls.update(_ + 1).as(Json.Str("submitted")),
+            (_, output) => ZIO.succeed(ProcedureVerdict.Accepted(output))
+          )
+        )
+      )
+      initial = Json.Str("input")
+      first <- ZIO.scoped(
+        ProcedureSession.open(definition, initial, address, store, authority).flatMap(_.run)
+      )
+      second <- ZIO.scoped(
+        ProcedureSession.open(definition, initial, address, store, authority).flatMap(_.run)
+      )
+      executions <- calls.get
+      _ <- ZIO
+        .fail(failure("Packaged procedure replayed an accepted stage"))
+        .unless(
+          first == ProcedureOutcome
+            .Completed(Json.Str("submitted")) && second == first && executions == 1
+        )
+    yield ()
+
   private def verifyReliabilityContracts: ZIO[Scope, AgentError, Unit] =
     for
       firstClient  <- LlmClient.mock(Chunk(TurnOutput.FinalText(Msg.assistant("first"))))
@@ -498,6 +659,9 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyTemperatureOmission
         _        <- verifyTokenLimitField
         _        <- verifyScopedTool
+        _        <- verifyResponsesBoundary
+        _        <- verifyUserQuestions
+        _        <- verifyProcedure
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines
         _        <- verifyReliabilityContracts

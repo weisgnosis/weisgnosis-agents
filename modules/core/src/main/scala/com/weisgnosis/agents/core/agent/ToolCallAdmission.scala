@@ -18,7 +18,7 @@ package com.weisgnosis.agents.core.agent
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.json.JsonBoundary
-import com.weisgnosis.agents.core.model.ContentBlock
+import com.weisgnosis.agents.core.model.{ContentBlock, Msg}
 import com.weisgnosis.agents.core.tool.*
 import zio.*
 import zio.json.ast.Json
@@ -146,7 +146,9 @@ final private[agent] class ToolCallAdmission(toolAuthorizer: ToolAuthorizer):
   ): Boolean =
     input != call.input &&
       (argumentPolicy == ArgumentPolicy.Preserve || call.metadata.contains("thoughtSignature") ||
-        call.metadata.contains("reasoningDetails"))
+        call.metadata.contains("reasoningDetails") || call.metadata.contains(
+          Msg.MetadataResponsesReasoning
+        ))
 
   def withToolInput(call: ContentBlock.ToolUse, input: Json): ContentBlock.ToolUse =
     if input == call.input then call

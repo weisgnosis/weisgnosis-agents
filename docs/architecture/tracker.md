@@ -153,18 +153,50 @@ The current packaged Qwen/reasoning-LFM refresh passes all twenty selected strea
 | Workspace read/search | Search/read a bounded trusted workspace and answer with source provenance. | Optional capabilities outside core; mutation/process execution need separate authority. |
 | Realtime WebSocket | A selected native duplex session accepts input/control while receiving output. | Select protocol/use case first; SSE replacement, voice and custom MCP WebSocket are not approved. |
 
-RAG, UI, collector hosting, distributed orchestration and OS/Temporal product integration are excluded. GitHub Release and GitHub Packages publication are explicitly selected; Maven Central is excluded. Artifact integrity and external consumption remain required. Candidates require explicit selection; this table cannot waive original promises.
+A bundled general RAG engine, UI, collector hosting, distributed orchestration and OS/Temporal product integration are excluded. The bounded retrieval recipe selected below is separate from a RAG platform. External publication is separately authorized and verified; it is not a library behavior gate. Artifact integrity and external consumption remain required. Candidates require explicit selection; this table cannot waive original promises.
 
 ## Immediate next work
 
-No additional implementation task is selected. The selected output-only
-structured correction and preceding increments below have public scenarios,
-independent review, full verification and fresh packaged consumption. Remaining
-research directions are proposals, not extra completion gates or implemented
-capabilities. Publication verification is separate from library acceptance.
+The six development outcomes below have public executable scenarios, independent
+FP/ZIO and invariant review, full verification, archive admission and fresh
+packaged-consumer evidence. No selected implementation outcome remains open in
+this delivery. Further research candidates do not silently expand this checklist.
+Scala 3.9 and ZIO 2 remain the selected runtime target; Cats Effect integration is excluded.
+The next task is the separately authorized signed SNAPSHOT delivery and public-consumer check.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
+
+- [x] Provide typed bounded user questions and checked correlated answers through
+  existing external-tool suspension, checkpoint restoration and resume; answers
+  grant no execution permission. See the [question contract](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/questions/README.md),
+  [public restore/answer scenarios](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/questions/AskUserToolSpec.scala)
+  and [offline example](../../modules/examples/src/main/scala/com/weisgnosis/agents/examples/OfflineUserQuestions.scala).
+- [x] Demonstrate bounded retrieval through a read-only typed tool, with immutable
+  evidence identity and host citation validation before displaying the answer.
+  See [retrieval](../../modules/examples/src/main/scala/com/weisgnosis/agents/examples/retrieval/BoundedRetrieval.scala)
+  and [public evidence/Unicode scenarios](../../modules/examples/src/test/scala/com/weisgnosis/agents/examples/OfflineRetrievalSpec.scala).
+- [x] Demonstrate same-turn parallel named specialists, private retained member
+  context, bounded attributed summaries and joined synchronous cancellation.
+  See [team recipe](../../modules/examples/src/main/scala/com/weisgnosis/agents/examples/NamedSpecialistTeam.scala)
+  and [public collaboration/cancellation scenarios](../../modules/examples/src/test/scala/com/weisgnosis/agents/examples/NamedSpecialistTeamSpec.scala).
+- [x] Demonstrate deterministic host routing and credential-free checkpoint route
+  binding, restoring the exact selected target without reselection.
+  See [host routing](../../modules/examples/src/main/scala/com/weisgnosis/agents/examples/HostModelRouting.scala)
+  and [restore scenarios](../../modules/examples/src/test/scala/com/weisgnosis/agents/examples/OfflineModelRoutingSpec.scala).
+- [x] Persist finite verified procedure stages through CAS: accepted-prefix reuse,
+  saved-submission verification and explicit recovery for uncertain execution.
+  See [procedure ownership](../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/procedure/README.md),
+  [fault/deadline/cancellation scenarios](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/procedure/ProcedureSessionSpec.scala)
+  and [actual local reopen](../../modules/examples/src/test/scala/com/weisgnosis/agents/examples/OfflineProcedureSpec.scala).
+- [x] Provide a stateless streaming Responses adapter through ReActAgent, with
+  checked local tool continuation, complete protected reasoning replay, usage,
+  persistence round-trip and joined cancellation. Hosted tools, multimodal and
+  server-side conversation state are outside this first profile.
+  See [native profile](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#native-openai-responses),
+  [loopback continuation/restore](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ResponsesLlmClientSpec.scala),
+  [cleanup/replay boundaries](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ResponsesLlmClientLifecycleSpec.scala)
+  and [compaction protections](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/memory/ResponsesCompactionSpec.scala).
 
 - [x] Deliver bounded output-only structured correction, preserving exact output
   validation, selected-target identity, joined cleanup and one successful terminal result.

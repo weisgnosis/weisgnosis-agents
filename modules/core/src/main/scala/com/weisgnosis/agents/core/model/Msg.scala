@@ -65,18 +65,16 @@ final class Msg private (
       case ContentBlock.Thinking(text, metadata) =>
         text.nonEmpty ||
         metadata.get("thoughtSignature").flatMap(_.asString).exists(value => !value.isBlank) ||
-        metadata
-          .get("reasoningDetails")
-          .exists:
-            case Json.Arr(values) => values.nonEmpty
-            case _                => false
+        metadata.get("reasoningDetails").flatMap(_.asArray).exists(_.nonEmpty) ||
+        metadata.get(Msg.MetadataResponsesReasoning).contains(Json.Bool(true))
       case _ => false
 
   /** Reserved thinking metadata protects this message's calls, including an explicit empty array. */
   def preservesToolArguments: Boolean =
     content.exists:
       case ContentBlock.Thinking(_, metadata) =>
-        metadata.contains("thoughtSignature") || metadata.contains("reasoningDetails")
+        metadata.contains("thoughtSignature") || metadata.contains("reasoningDetails") ||
+        metadata.contains(Msg.MetadataResponsesReasoning)
       case _ => false
 
   /** Extracts all tool use blocks from this message. */
@@ -217,6 +215,10 @@ final class Msg private (
   ): Msg = new Msg(id, name, role, content, metadata, timestamp, usage)
 
 object Msg:
+
+  val MetadataResponsesNative: String           = "openai_responses_native"
+  val MetadataResponsesReasoning: String        = "openai_responses_reasoning"
+  val MetadataResponsesIncompleteReplay: String = "openai_responses_incomplete_replay"
 
   val MetadataChatUsage: String             = "_chat_usage"
   val MetadataGenerateReason: String        = "agentscope_generate_reason"

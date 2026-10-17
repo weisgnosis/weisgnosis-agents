@@ -443,3 +443,45 @@ Each admitted request atomically records its input and reserves one response bef
 An unexpected request after exhaustion is recorded and fails with `AgentError.InvalidConfiguration`. When the positive `maxRecordedRequests` capacity is reached, further requests fail without recording or consuming a response. The bound counts requests, not bytes: history and tool definitions can contain large or sensitive application data. Recording is in memory only, with no automatic serialization, logging or redaction. `RecordedModelRequest.input` retains model, history, tools and `ModelRequestSettings`; `context` retains request correlation. Endpoint and API-key fields are excluded. Provider-only options outside `ModelRequestSettings`, such as response format and tool-choice preferences, are not recorded.
 
 The older `LlmClient.mock` retains its permissive exhaustion behavior. Use the strict client when an extra model call must fail the test. The [public agent scenarios](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ScriptedLlmClientIntegrationSpec.scala) exercise tool execution, next-request observations and joined cancellation. The [external artifact consumer](../../../../../../../../../../verification/artifact-consumer/README.md) also compiles and runs the strict client from packaged JARs.
+
+## Native OpenAI Responses
+
+[ResponsesLlmClient](ResponsesLlmClient.scala) implements a stateless streaming Responses profile through the existing agent API. Supply a borrowed zio-http client and the full endpoint explicitly; the Chat Completions default in `LlmConfig` is rejected:
+
+```scala
+import com.weisgnosis.agents.core.agent.ReActAgent
+import com.weisgnosis.agents.core.client.*
+import com.weisgnosis.agents.core.error.AgentError
+import zio.IO
+import zio.http.Client
+
+def responsesAgent(http: Client, apiKey: String): IO[AgentError, ReActAgent] =
+  for
+    client <- ResponsesLlmClient.make(http)
+    agent <- ReActAgent.make(
+      client = client,
+      llmConfig = LlmConfig(
+        model = "your-tool-capable-model",
+        endpoint = "https://api.openai.com/v1/responses",
+        apiKey = Some(apiKey),
+        maxTokens = Some(2048),
+        temperaturePolicy = TemperaturePolicy.Omit,
+        structuredOutputCapability = StructuredOutputCapability.Unsupported
+      )
+    )
+  yield agent
+```
+
+The host supplies credentials effectfully and runs the agent inside its scope. Each HTTP request owns a nested scope; the adapter never closes the borrowed client. Response and error bodies use the existing `CompletionTransportLimits`. No automatic retry, provider switching or pre-response rejection authority is inferred from transport failures.
+
+Requests use `stream=true`, `store=false` and `include=["reasoning.encrypted_content"]`. Function definitions use flat Responses fields and explicit strictness; `maxTokens` maps to `max_output_tokens`. Existing temperature omission, nucleus sampling, reasoning effort, tool choice and parallel-call settings are supported. Configured unsupported settings fail before acquisition. Model support for configured sampling remains the host's responsibility.
+
+Text, refusal, reasoning summaries and local function calls retain separate item identities. Only a checked completed response can propose local execution. Canonical tool IDs are the provider's `call_id`; streaming arguments accumulate by `output_index`, independently of the provider item ID. Refusal is visible text; a response combining refusal with executable calls is rejected. Output-token exhaustion returns the existing stopped result and executes no proposed tools.
+
+Completed responses retain every ordered native output item, including encrypted reasoning with an empty summary. The versioned metadata envelope survives message/checkpoint JSON codecs. Before replay, its model and canonical content must still match; stale content edits, altered protected arguments and model changes fail explicitly. Built-in compaction preserves the latest user-to-Responses segment through synthetic reminders and protects its arguments and observations from pruning.
+
+An interrupted unfinished reasoning response, or reasoning-bearing token exhaustion, retains an explicit incomplete-replay marker. Subsequent requests fail before HTTP until the host deliberately replaces that context. Automatic compaction preserves this marker. This profile does not reconstruct incomplete encrypted state or invent completed native items. Cancellation after a fully checked terminal response preserves its complete replay envelope while joining request cleanup.
+
+This first profile supports text input and text local-tool observations. Hosted tools, multimodal input/output, native `text.format`, server-side conversation state, background requests and Realtime are unsupported. Use the existing synthetic structured-output mode when required; native structured formatting is explicitly unavailable in this adapter.
+
+The [loopback HTTP scenarios](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ResponsesLlmClientSpec.scala) exercise actual tool continuation and serialized suspended-checkpoint restore. [Lifecycle scenarios](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ResponsesLlmClientLifecycleSpec.scala) cover owned cleanup, interruption and replay boundaries; [protocol scenarios](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ResponsesMessageStreamSpec.scala) cover item correlation and strict decoding. These are offline fixtures; no live native Responses execution is implied. Wire semantics follow the official [streaming events](https://developers.openai.com/api/reference/resources/responses/streaming-events) and [reasoning continuation](https://developers.openai.com/api/docs/guides/reasoning) documentation.

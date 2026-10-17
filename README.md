@@ -213,7 +213,11 @@ Artifact names are `weisgnosis-agents-<module>`, using organization `com.weisgno
 - **Application responsibilities:** configure authorization for restricted tools; the default tool authorizer allows execution. Your application also owns authentication, business tools, deciding which worker may resume a saved checkpoint, and preventing duplicate business operations. There is no bundled general shell/file/web toolkit or RAG engine.
 - **Cancellation and persistence:** cancellation waits for resources owned by the run to be released, so elapsed time can exceed its deadline. The offline example covers in-process history; external side effects are not rolled back. Stored history and checkpoints do not restart fibers or recover executing work after a process restart. Process-local approvals and hub queues need host-managed durable equivalents to survive restarts.
 - **Models and providers:** Selected live results cover their documented models and configurations. Compatible endpoints and native adapters have [documented profiles](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md); local interruption does not guarantee cancellation of remote inference.
-- **Infrastructure and compatibility:** path checks are not an atomic filesystem sandbox. PostgreSQL needs an application-owned pool and schema. RC APIs may change; rebuild consumers when upgrading. Frozen binary compatibility and Scala 3.3 cross-builds are not supplied.
+- **Infrastructure and compatibility:** path checks are not an atomic filesystem sandbox. PostgreSQL needs an application-owned pool and schema. RC APIs may change; rebuild consumers when upgrading. Frozen binary compatibility is not supplied.
+
+## Development examples
+
+The `0.1.1-SNAPSHOT` development build adds [typed user questions](modules/harness/src/main/scala/com/weisgnosis/agents/harness/questions/README.md), [saved sequential procedures](modules/harness/src/main/scala/com/weisgnosis/agents/harness/procedure/README.md) and a [native Responses client](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#native-openai-responses). Runnable [offline recipes](modules/examples/README.md#offline-development-recipes) demonstrate bounded retrieval with checked citations, named specialists and checkpoint-bound model routing. These additions are separate from the published RC1 API.
 
 ## Learn more and contribute
 

@@ -75,7 +75,8 @@ final class ConversationCompactor(
   def calculateCutoffIndex(history: Chunk[Msg], settings: CompactorConfig): Int =
     val tokenCutoff   = tokenBoundary(history, settings.keepTokens.max(0).toLong)
     val messageCutoff = (history.size - settings.preserveTailMessages.max(1)).max(0)
-    safeCutoff(history, tokenCutoff.min(messageCutoff))
+    val candidate     = tokenCutoff.min(messageCutoff)
+    safeCutoff(history, responsesContinuationStart(history).fold(candidate)(candidate.min))
 
   private def tokenBoundary(history: Chunk[Msg], keep: Long): Int =
     val suffix =
@@ -106,8 +107,10 @@ final class ConversationCompactor(
     adjust(candidate)
 
   private def prune(history: Chunk[Msg]): Chunk[Msg] =
-    val protectedStart = tokenBoundary(history, config.protectTokens.max(0).toLong)
+    val configuredStart = tokenBoundary(history, config.protectTokens.max(0).toLong)
       .min((history.size - config.preserveTailMessages.max(1)).max(0))
+    val protectedStart =
+      responsesContinuationStart(history).fold(configuredStart)(configuredStart.min)
     val limit = config.maxPruneOutputChars.max(0)
     history.zipWithIndex.map { case (message, index) =>
       if index >= protectedStart then message
@@ -137,6 +140,20 @@ final class ConversationCompactor(
               else call
           }
     }
+
+  /** Keep the latest user-to-Responses segment intact, including synthetic reminder continuations. */
+  private def responsesContinuationStart(history: Chunk[Msg]): Option[Int] =
+    val start = history.lastIndexWhere(message =>
+      message.role == Role.User && !message.isSynthetic && !ConversationCompactor.isSummary(message)
+    )
+    val active = Option.when(
+      start >= 0 && history.drop(start).exists(_.metadata.contains(Msg.MetadataResponsesNative))
+    )(start)
+    val incomplete = history.indexWhere(_.metadata.contains(Msg.MetadataResponsesIncompleteReplay))
+    (active, Option.when(incomplete >= 0)(incomplete)) match
+      case (Some(left), Some(right)) => Some(left.min(right))
+      case (Some(index), None)       => Some(index)
+      case (None, value)             => value
 
   private def preview(text: String, limit: Int): String =
     val head = limit / 2
