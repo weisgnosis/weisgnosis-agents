@@ -36,6 +36,64 @@ object ToolSchemaValidatorSpec extends ZIOSpecDefault:
     yield result
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolSchemaValidatorSpec")(
+    test("schema preflight validates host definitions without inventing an output instance") {
+      val cases = Chunk(
+        ("{}", true),
+        ("true", true),
+        ("false", true),
+        ("""{"type":"integer","minimum":2}""", true),
+        ("""{"minimum":"invalid"}""", false),
+        ("""{"$schema":"https://example.invalid/dialect"}""", false),
+        ("""{"$ref":"#/%FF"}""", false),
+        ("""{"$ref":"#/$defs/missing"}""", false),
+        ("""{"$ref":"https://example.invalid/schema"}""", false)
+      )
+      ZIO
+        .foreach(cases): (schema, accepted) =>
+          for
+            definition <- json(schema)
+            result     <- ToolSchemaValidator.validateOutputSchema(definition).either
+          yield assertTrue((schema, result.isRight) == (schema, accepted))
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
+    test("output validation classifies schema, instance, payload and opaque evaluation failures") {
+      val cases = Chunk(
+        ("{}", "1", "accepted"),
+        ("true", "1", "accepted"),
+        ("false", "1", "instance"),
+        ("""{"type":"integer","minimum":2}""", "1", "instance"),
+        ("""{"minimum":"invalid"}""", "1", "schema"),
+        ("""{"$schema":"https://example.invalid/dialect"}""", "1", "schema"),
+        ("""{"$ref":"#/%FF"}""", "1", "schema"),
+        ("""{"$ref":"#/$defs/missing"}""", "1", "evaluation"),
+        ("""{"$ref":"https://example.invalid/schema"}""", "1", "evaluation")
+      )
+      def category(result: Either[ToolSchemaValidator.OutputValidationFailure, Unit]): String =
+        result match
+          case Right(_)                                                              => "accepted"
+          case Left(ToolSchemaValidator.OutputValidationFailure.SchemaRejected(_))   => "schema"
+          case Left(ToolSchemaValidator.OutputValidationFailure.InstanceRejected(_)) => "instance"
+          case Left(ToolSchemaValidator.OutputValidationFailure.PayloadRejected(_))  => "payload"
+          case Left(ToolSchemaValidator.OutputValidationFailure.EvaluationFailed(_)) => "evaluation"
+      for
+        classifications <- ZIO.foreach(cases): (schema, output, expected) =>
+          for
+            definition <- json(schema)
+            payload    <- json(output)
+            result     <- ToolSchemaValidator.validateOutputClassified(definition, payload).either
+            legacy     <- ToolSchemaValidator.validateOutput(definition, payload).either
+          yield assertTrue(
+            (schema, category(result)) == (schema, expected),
+            legacy == result.left.map(_.error)
+          )
+        duplicate = Json.Obj("value" -> Json.Num(1), "value" -> Json.Num(2))
+        schemaFailure <- ToolSchemaValidator.validateOutputClassified(duplicate, Json.Num(1)).either
+        payloadFailure <- ToolSchemaValidator.validateOutputClassified(Json.Obj(), duplicate).either
+      yield classifications.foldLeft(assertTrue(true))(_ && _) && assertTrue(
+        category(schemaFailure) == "schema",
+        category(payloadFailure) == "payload"
+      )
+    },
     test("standard constraints and exact numbers distinguish valid and invalid neighbors") {
       val cases = Chunk(
         ("{}", "{\"name\":\"test\"}", true),

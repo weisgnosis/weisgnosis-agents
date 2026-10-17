@@ -157,17 +157,21 @@ RAG, UI, collector hosting, distributed orchestration and OS/Temporal product in
 
 ## Immediate next work
 
-The next selected task is to define the admission and failure contract for one
-opt-in, output-only structured-response repair request before implementation.
-Retain exact validation and prohibit application-tool dispatch or replay.
-Settle eligible failures, the shared request/deadline budget, canonical history
-and single terminal result/observer semantics; unresolved choices remain design questions.
+No additional implementation task is selected. The selected output-only
+structured correction and preceding increments below have public scenarios,
+independent review, full verification and fresh packaged consumption. Remaining
+research directions are proposals, not extra completion gates or implemented
+capabilities. Publication verification is separate from library acceptance.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
 
-- [ ] Define the bounded output-only structured-response repair contract; automatic
-  repair is not implemented or implied by exact output validation.
+- [x] Deliver bounded output-only structured correction, preserving exact output
+  validation, selected-target identity, joined cleanup and one successful terminal result.
+  See [correction contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/agent/README.md#output-only-structured-correction),
+  [public candidate/authority scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredRepairSpec.scala),
+  [lifecycle scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredRepairLifecycleSpec.scala)
+  and [selected-target requests](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ModelFailoverSpec.scala).
 
 - [x] Provide strict scripted model responses with bounded request recording
   through the public client API, without a new effect runtime or provider dependency.

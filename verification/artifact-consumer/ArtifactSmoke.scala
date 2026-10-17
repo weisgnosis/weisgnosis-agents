@@ -21,7 +21,8 @@ import com.weisgnosis.agents.core.agent.{
   ModelInputTransform,
   ReActAgent,
   SuppliedToolResult,
-  StructuredMode
+  StructuredMode,
+  StructuredRepairPolicy
 }
 import com.weisgnosis.agents.core.coordination.Pipeline
 import com.weisgnosis.agents.harness.memory.VersionedMemoryLimits
@@ -147,6 +148,46 @@ object ArtifactSmoke extends ZIOAppDefault:
             extra == Left(
               AgentError.InvalidConfiguration("Script exhausted: unexpected model request")
             )
+        )
+    yield ()
+
+  private def verifyStructuredRepair: ZIO[Scope, AgentError, Unit] =
+    for
+      executions <- Ref.make(0)
+      toolkit <- ZIO.fromEither(
+        Toolkit.empty.register(
+          Tool.make(ToolDef("repair_probe", "Read packaged repair evidence", Json.Obj()))(_ =>
+            executions.update(_ + 1).as("retained evidence")
+          )
+        )
+      )
+      client <- ScriptedLlmClient.make(
+        Chunk(
+          TurnOutput.ToolCalls(
+            Msg.assistant(Chunk(ContentBlock.ToolUse("read", "repair_probe", Json.Obj())))
+          ),
+          TurnOutput.FinalText(Msg.assistant("-1")),
+          TurnOutput.FinalText(Msg.assistant("1"))
+        ),
+        maxRecordedRequests = 3
+      )
+      agent <- ReActAgent.builder().model(client).toolkit(toolkit).build
+      result <- agent.runStructured[Int](
+        Chunk(Msg.user("Return a nonnegative integer")),
+        Json.Obj("type" -> Json.Str("integer"), "minimum" -> Json.Num(0)),
+        StructuredMode.Native,
+        StructuredRepairPolicy.OneOutputOnlyRequest
+      )
+      _        <- client.verifyConsumed
+      requests <- client.requests
+      count    <- executions.get
+      _ <- ZIO
+        .fail(failure("Packaged output-only structured repair failed"))
+        .unless(
+          result._2 == 1 && count == 1 && requests.size == 3 &&
+            requests.lastOption.exists(_.input.tools.isEmpty) &&
+            result._1.history.flatMap(_.toolResults).exists(_.id == "read") &&
+            result._1.history.exists(_.text == "-1")
         )
     yield ()
 
@@ -452,6 +493,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyClasspath
         _        <- verifyScriptedClient
         _        <- verifySchemaAdmission
+        _        <- verifyStructuredRepair
         _        <- verifyStructuredSchema
         _        <- verifyTemperatureOmission
         _        <- verifyTokenLimitField

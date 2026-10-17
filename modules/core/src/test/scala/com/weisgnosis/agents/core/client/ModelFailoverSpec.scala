@@ -21,7 +21,8 @@ import com.weisgnosis.agents.core.agent.{
   ModelRequestInput,
   ModelRequestSettings,
   ReActAgent,
-  StructuredMode
+  StructuredMode,
+  StructuredRepairPolicy
 }
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{AgentEvent, EventPublisher, ModelStreamContext}
@@ -92,6 +93,111 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           yield functions :+ function
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelFailover")(
+    test("structured correction stays on the selected fallback target without replaying primary") {
+      ZIO
+        .foreach(Chunk(false, true)) { rejectCorrection =>
+          ZIO.scoped {
+            for
+              calls       <- Ref.make(Chunk.empty[(String, Json)])
+              projections <- Ref.make(Chunk.empty[String])
+              targetCalls <- Ref.make(0)
+              primary <- ChatCompletionsClient.make(
+                scripted(request =>
+                  request.body.asString.orDie
+                    .flatMap(raw =>
+                      calls.update(_ :+ ("primary", raw.fromJson[Json].getOrElse(Json.Null)))
+                    )
+                    .as(rejected)
+                )
+              )
+              target <- ChatCompletionsClient.make(
+                scripted(request =>
+                  request.body.asString.orDie
+                    .flatMap(raw =>
+                      calls.update(_ :+ ("target", raw.fromJson[Json].getOrElse(Json.Null)))
+                    ) *>
+                    targetCalls.updateAndGet(_ + 1).map { count =>
+                      if count == 1 then
+                        response(
+                          frame(
+                            """{"choices":[{"index":0,"delta":{"content":"-1"}}]}"""
+                          ) + finish + done
+                        )
+                      else if rejectCorrection then
+                        Response(
+                          status = Status.BadGateway,
+                          body = Body.fromString("correction unavailable")
+                        )
+                      else response(answer)
+                    }
+                ),
+                tokenLimitField = ChatCompletionTokenLimitField.MaxCompletionTokens
+              )
+              agent <- ReActAgent.make(
+                client = primary,
+                llmConfig = primaryConfig,
+                fallback = Some(
+                  ModelTarget(
+                    target,
+                    targetConfig.copy(
+                      temperature = 0.2,
+                      structuredOutputCapability =
+                        StructuredOutputCapability.Native(NativeToolSupport.Supported)
+                    )
+                  )
+                ),
+                modelInputTransform =
+                  ModelInputTransform.withRequest(ModelInputTransform.identity)((_, request) =>
+                    projections
+                      .update(_ :+ request.model)
+                      .as(
+                        ModelInputProjection(
+                          request.history,
+                          request.settings.copy(maxTokens = Some(37))
+                        )
+                      )
+                  )
+              )
+              result <- agent
+                .runStructured[Int](
+                  Chunk(Msg.user("Return a nonnegative number")),
+                  Json.Obj("type" -> Json.Str("integer"), "minimum" -> Json.Num(0)),
+                  StructuredMode.Native,
+                  StructuredRepairPolicy.OneOutputOnlyRequest
+                )
+                .either
+              sent      <- calls.get
+              projected <- projections.get
+              attempts  <- targetCalls.get
+            yield assertTrue(
+              sent.map(_._1) == Chunk("primary", "target", "target"),
+              projected == Chunk("primary", "target", "target"),
+              attempts == 2,
+              sent.lastOption.exists { case (_, body) =>
+                body.asObject.exists(fields =>
+                  fields.get("model").contains(Json.Str("target")) &&
+                    fields.get("max_completion_tokens").contains(Json.Num(37)) &&
+                    fields.get("max_tokens").isEmpty &&
+                    fields.get("temperature").contains(Json.Num(0.2)) &&
+                    fields.get("tool_choice").isEmpty &&
+                    fields.get("tools").isEmpty &&
+                    fields.get("response_format").nonEmpty
+                )
+              },
+              if rejectCorrection then
+                result == Left(
+                  AgentError.ModelError(
+                    502,
+                    "HTTP completion request was rejected",
+                    Some("correction unavailable")
+                  )
+                )
+              else result.exists(_._2 == 7)
+            )
+          }
+        }
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    },
     test(
       "fallback retains its own wire dialect and projected settings after a primary HTTP rejection"
     ):

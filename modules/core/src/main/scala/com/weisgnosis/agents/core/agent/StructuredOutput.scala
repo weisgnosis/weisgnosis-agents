@@ -30,6 +30,10 @@ enum StructuredMode derives JsonCodec:
   case SyntheticTool
   case Auto
 
+/** Explicitly bound correction of a completed candidate; application tools are never replayed. */
+enum StructuredRepairPolicy derives JsonCodec:
+  case FailFast, OneOutputOnlyRequest
+
 /**
  * Utilities and synthetic tool definitions for enforcing structured JSON output.
  *
@@ -110,6 +114,20 @@ object StructuredOutput:
    * Creates the synthetic `generate_response` Tool instance that captures the response.
    */
   def createTool(schema: Json, onResponseCaptured: Json => UIO[Unit]): Tool[Any, Json, String] =
+    capturingTool(schema, onResponseCaptured, buildParametersSchema(schema))
+
+  /** Capture untrusted output for final exact validation instead of resuming ordinary acting. */
+  private[agent] def captureToolForOutputValidation(
+      schema: Json,
+      onResponseCaptured: Json => UIO[Unit]
+  ): Tool[Any, Json, String] =
+    capturingTool(schema, onResponseCaptured, Json.Obj())
+
+  private def capturingTool(
+      schema: Json,
+      onResponseCaptured: Json => UIO[Unit],
+      validationSchema: Json
+  ): Tool[Any, Json, String] =
     val toolDef = ToolDef(
       name = ToolName,
       description =
@@ -117,8 +135,9 @@ object StructuredOutput:
       parametersSchema = buildParametersSchema(schema)
     )
     new Tool[Any, Json, String]:
-      def definition: ToolDef                 = toolDef
-      override def isConcurrencySafe: Boolean = false
+      def definition: ToolDef                  = toolDef
+      override def inputValidationSchema: Json = validationSchema
+      override def isConcurrencySafe: Boolean  = false
       def decodeInput(raw: Json): Either[String, Json] =
         JsonBoundary
           .validate(raw)

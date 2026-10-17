@@ -22,6 +22,8 @@ import com.weisgnosis.agents.core.client.{
   ModelTarget,
   NativeToolSupport,
   StructuredOutputCapability,
+  ToolChoice,
+  ToolCallParallelism,
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
@@ -290,7 +292,7 @@ final class ReActAgent private (
           complete,
           invocation,
           llmConfig.copy(responseFormat = prepared.checkpoint.responseFormat)
-        )(value => ZIO.succeed((value, ()))).map(_._1)
+        )((value, _, _) => ZIO.succeed((value, ()))).map(_._1)
       )
 
   private def requireFreshRun: IO[AgentError.InvalidConfiguration, Unit] =
@@ -337,9 +339,10 @@ final class ReActAgent private (
   def callStructured[A: JsonCodec](
       messages: Chunk[Msg],
       schema: Json,
-      mode: StructuredMode = StructuredMode.Auto
+      mode: StructuredMode = StructuredMode.Auto,
+      repair: StructuredRepairPolicy = StructuredRepairPolicy.FailFast
   ): ZIO[Scope, AgentError, Msg] =
-    runStructured[A](messages, schema, mode).map(_._1.reply)
+    runStructured[A](messages, schema, mode, repair).map(_._1.reply)
 
   def callStructured[A: JsonCodec](
       message: Msg,
@@ -476,9 +479,10 @@ final class ReActAgent private (
   def runStructured[A: JsonCodec](
       messages: Chunk[Msg],
       schema: Json,
-      mode: StructuredMode = StructuredMode.Auto
+      mode: StructuredMode = StructuredMode.Auto,
+      repair: StructuredRepairPolicy = StructuredRepairPolicy.FailFast
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
-    runLock
+    validateStructuredRepair(mode, repair) *> runLock
       .withPermit(
         requireFreshRun *> observeInvocation((invocation, complete) =>
           ZIO.scoped(for
@@ -489,7 +493,8 @@ final class ReActAgent private (
               mode,
               publisher,
               complete,
-              invocation
+              invocation,
+              repair
             )
           yield result)
         )
@@ -502,16 +507,35 @@ final class ReActAgent private (
       mode: StructuredMode,
       publisher: EventPublisher,
       complete: AgentResult => IO[AgentError, Unit],
-      invocation: InvocationContext
+      invocation: InvocationContext,
+      repair: StructuredRepairPolicy
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     for
+      _ <- repair match
+        case StructuredRepairPolicy.FailFast => ZIO.unit
+        case StructuredRepairPolicy.OneOutputOnlyRequest =>
+          ToolSchemaValidator
+            .validateOutputSchema(schema)
+            .mapError(failure =>
+              AgentError.DeserializationError(
+                s"Invalid structured output schema: ${failure.error.message}"
+              )
+            )
       signal           <- prepareInvocationSignal(None)
       preparedMessages <- prepareInvocationInput(invocation, messages)
       runTools         <- makeRunTools
       capturedRef      <- Ref.make[Option[Json]](None)
       usageRef         <- Ref.make[Option[ChatUsage]](None)
+      lastModelRef     <- Ref.make[Option[ReceivedModelTurn]](None)
       result <-
-        val syntheticTool = StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
+        val syntheticTool = repair match
+          case StructuredRepairPolicy.FailFast =>
+            StructuredOutput.createTool(schema, json => capturedRef.set(Some(json)))
+          case StructuredRepairPolicy.OneOutputOnlyRequest =>
+            StructuredOutput.captureToolForOutputValidation(
+              schema,
+              json => capturedRef.set(Some(json))
+            )
         val nativeConfig = llmConfig.copy(responseFormat =
           Some(
             Json.Obj(
@@ -521,9 +545,40 @@ final class ReActAgent private (
           )
         )
 
-        def prepare(result: AgentResult): IO[AgentError, (AgentResult, A)] =
+        def prepare(
+            result: AgentResult,
+            replyId: String,
+            progressRef: Ref[RunProgress]
+        ): IO[AgentError, (AgentResult, A)] =
           capturedRef.get
             .flatMap(captured => prepareStructured[A](result, captured, schema))
+            .catchAllCause:
+              case Cause.Fail(candidate: StructuredPreparationFailure.Candidate, _)
+                  if repair == StructuredRepairPolicy.OneOutputOnlyRequest =>
+                lastModelRef.get
+                  .zip(capturedRef.get)
+                  .flatMap: (received, captured) =>
+                    val modelCandidate = received.exists(_.output match
+                      case TurnOutput.FinalText(message) => message == result.reply
+                      case _: TurnOutput.ToolCalls       => captured.nonEmpty
+                      case _                             => false)
+                    if modelCandidate then
+                      repairStructured[A](
+                        result,
+                        schema,
+                        mode,
+                        publisher,
+                        invocation,
+                        replyId,
+                        progressRef,
+                        usageRef,
+                        lastModelRef,
+                        signal
+                      )
+                        .mapError(StructuredPreparationFailure.Rejected(_))
+                    else ZIO.fail(candidate)
+              case cause => ZIO.refailCause(cause)
+            .mapError(_.error)
 
         def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
           runWithPublisher(
@@ -534,7 +589,7 @@ final class ReActAgent private (
             complete,
             invocation,
             nativeConfig,
-            CompletionMode.Structured(capturedRef),
+            CompletionMode.Structured(capturedRef, lastModelRef),
             Some(signal)
           )(
             prepare
@@ -554,7 +609,7 @@ final class ReActAgent private (
                 complete,
                 invocation,
                 syntheticConfig,
-                CompletionMode.Structured(capturedRef),
+                CompletionMode.Structured(capturedRef, lastModelRef),
                 Some(signal)
               )(prepare)
             )
@@ -585,16 +640,201 @@ final class ReActAgent private (
           case StructuredMode.Auto          => automaticAttempt
     yield result
 
+  private def validateStructuredRepair(
+      mode: StructuredMode,
+      repair: StructuredRepairPolicy
+  ): IO[AgentError.InvalidConfiguration, Unit] =
+    ZIO
+      .fail(
+        AgentError.InvalidConfiguration(
+          "Output-only structured repair requires explicit Native or SyntheticTool mode"
+        )
+      )
+      .when(mode == StructuredMode.Auto && repair == StructuredRepairPolicy.OneOutputOnlyRequest)
+      .unit
+
+  /** One formatting continuation shares the run's deadline, history and cancellation progress. */
+  private def repairStructured[A: JsonCodec](
+      original: AgentResult,
+      schema: Json,
+      mode: StructuredMode,
+      publisher: EventPublisher,
+      invocation: InvocationContext,
+      replyId: String,
+      progressRef: Ref[RunProgress],
+      usageRef: Ref[Option[ChatUsage]],
+      lastModelRef: Ref[Option[ReceivedModelTurn]],
+      signal: Promise[Nothing, Unit]
+  ): IO[AgentError, (AgentResult, A)] =
+    val instruction = mode match
+      case StructuredMode.SyntheticTool =>
+        "Correct the final structured response using generate_response. Do not perform any application action."
+      case _ =>
+        "Correct the final structured response. Return only a JSON value matching the requested schema. Do not call tools or perform any application action."
+    val reminder = Msg.user(
+      name = Some("system"),
+      content = Chunk(ContentBlock.Text(instruction)),
+      metadata = Map(
+        Msg.MetadataSynthetic                           -> Json.Bool(true),
+        StructuredOutput.MetadataStructuredReminder     -> Json.Bool(true),
+        StructuredOutput.MetadataStructuredReminderType -> Json.Str("output_repair")
+      )
+    )
+    val formatting = StructuredOutput.createTool(schema, _ => ZIO.unit)
+    val tools = mode match
+      case StructuredMode.SyntheticTool => Chunk(formatting.definition)
+      case _                            => Chunk.empty[ToolDef]
+
+    def prepareCorrection(received: ReceivedModelTurn): IO[AgentError, (AgentResult, A)] =
+      val message = received.output.message
+      for
+        _ <- ZIO
+          .fail(
+            AgentError.ModelError(0, "Structured correction contains unmatched inline tool results")
+          )
+          .when(ToolHistory.inspect(Chunk(message)).unmatched.nonEmpty)
+        _ <- persistAssistant(message, progressRef)
+        prepared <- (for
+          history <- stateRef.get
+          _ <- ZIO.scoped(
+            modelResponseObserver.observe(
+              AcceptedModelResponse(received.context, received.request, message, history)
+            )
+          )
+          captured <- received.output match
+            case _: TurnOutput.FinalText => ZIO.none
+            case _: TurnOutput.ToolCalls if mode == StructuredMode.SyntheticTool =>
+              message.toolUses.toList match
+                case call :: Nil
+                    if call.name == StructuredOutput.ToolName && !call.isServerTool && message.toolResults.isEmpty =>
+                  for
+                    _ <- ToolSchemaValidator
+                      .validateOutput(formatting.definition.parametersSchema, call.input)
+                      .mapError(error =>
+                        AgentError.DeserializationError(
+                          s"Invalid structured correction arguments: ${error.message}"
+                        )
+                      )
+                    payload <- ZIO.fromEither(
+                      formatting
+                        .decodeInput(call.input)
+                        .left
+                        .map(AgentError.DeserializationError(_))
+                    )
+                    _ <- ZIO.uninterruptible(for
+                      position <- stateRef.modify(current =>
+                        (
+                          current.size,
+                          current :+ Msg.tool(
+                            Chunk(
+                              ContentBlock.ToolResult.text(
+                                call.id,
+                                call.name,
+                                "Structured response captured for validation.",
+                                ToolResultState.Success
+                              )
+                            )
+                          )
+                        )
+                      )
+                      _ <- markCompleted(progressRef, Map(0 -> position))
+                    yield ())
+                  yield Some(payload)
+                case _ =>
+                  ZIO.fail(
+                    AgentError.DeserializationError(
+                      "Structured correction may only call generate_response once"
+                    )
+                  )
+            case _: TurnOutput.Truncated =>
+              ZIO.fail(
+                AgentError.ExecutionStopped("Structured correction output token budget exhausted")
+              )
+            case _: TurnOutput.Interrupted =>
+              finalizeFailedToolPhase(progressRef, _ => false) *>
+                handleInterrupt(stateRef, original.iterationCount, progressRef) *>
+                ZIO.fail(AgentError.Interrupted("Structured correction was interrupted"))
+            case _ =>
+              ZIO.fail(
+                AgentError.DeserializationError(
+                  "Structured correction must return a final response without application tool calls"
+                )
+              )
+          updated <- stateRef.get
+          usage   <- usageRef.get
+          candidate = original.copy(
+            reply = message,
+            history = updated,
+            usage = usage
+          )
+          result <- prepareStructured[A](candidate, captured, schema).mapError(_.error)
+        yield (
+          result._1.copy(history = StructuredOutput.compressHistory(result._1.history)),
+          result._2
+        ))
+          .onError(_ => finalizeFailedToolPhase(progressRef, _ => false))
+      yield prepared
+
+    val correct = for
+      previous <- lastModelRef.get.flatMap(value =>
+        ZIO
+          .fromOption(value)
+          .orElseFail(
+            AgentError.InvalidConfiguration("No admitted model target for structured correction")
+          )
+      )
+      target = previous.target.copy(config =
+        previous.target.config.copy(
+          toolChoice = Some(mode match
+            case StructuredMode.SyntheticTool => ToolChoice.Specific(StructuredOutput.ToolName)
+            case _                            => ToolChoice.None),
+          parallelToolCalls = Some(ToolCallParallelism.Disabled)
+        )
+      )
+      _       <- stateRef.update(_ :+ reminder)
+      history <- stateRef.get
+      received <- modelTurn(
+        history,
+        tools,
+        target.config,
+        replyId,
+        invocation,
+        publisher,
+        usageRef,
+        progressRef,
+        Some(target)
+      )
+      decision <- ZIO.scoped(applyReasoningHook(received.output, received.context))
+      result <- decision match
+        case ReasoningOutcome.Accept(output) => prepareCorrection(received.copy(output = output))
+        case _ =>
+          ZIO.fail(
+            AgentError.ReasoningHookError(
+              "Output-only structured correction cannot be discarded or suspended"
+            )
+          )
+    yield result
+
+    raceWithSignal(correct, signal.await).flatMap:
+      case Right(result) => ZIO.succeed(result)
+      case Left(_) =>
+        handleInterrupt(stateRef, original.iterationCount, progressRef) *>
+          ZIO.fail(AgentError.Interrupted("Structured correction was interrupted"))
+
+  private enum StructuredPreparationFailure(val error: AgentError):
+    case Candidate(reason: AgentError) extends StructuredPreparationFailure(reason)
+    case Rejected(reason: AgentError)  extends StructuredPreparationFailure(reason)
+
   /** Prepare one validated payload and final history without publishing or mutating runtime state. */
   private def prepareStructured[A: JsonCodec](
       rawResult: AgentResult,
       captured: Option[Json],
       schema: Json
-  ): IO[AgentError, (AgentResult, A)] =
+  ): IO[StructuredPreparationFailure, (AgentResult, A)] =
     if rawResult.state != AgentRunState.Completed then
-      ZIO.fail(rawResult.state match
+      ZIO.fail(StructuredPreparationFailure.Rejected(rawResult.state match
         case AgentRunState.Stopped(reason) => AgentError.ExecutionStopped(reason)
-        case _ => AgentError.Interrupted("Structured output run ended before completion"))
+        case _ => AgentError.Interrupted("Structured output run ended before completion")))
     else
       val payload = captured match
         case Some(json) => StructuredOutput.validatedPayload(json)
@@ -602,22 +842,32 @@ final class ReActAgent private (
       for
         json <- ZIO.fromEither(
           payload.left.map(error =>
-            AgentError.DeserializationError(s"Invalid structured output payload: $error")
+            StructuredPreparationFailure.Candidate(
+              AgentError.DeserializationError(s"Invalid structured output payload: $error")
+            )
           )
         )
         _ <- ToolSchemaValidator
-          .validateOutput(schema, json)
-          .mapError(error =>
-            AgentError.DeserializationError(
-              s"Structured output violates the requested schema: ${error.message}"
+          .validateOutputClassified(schema, json)
+          .mapError(failure =>
+            val error = AgentError.DeserializationError(
+              s"Structured output violates the requested schema: ${failure.error.message}"
             )
+            failure match
+              case _: ToolSchemaValidator.OutputValidationFailure.InstanceRejected |
+                  _: ToolSchemaValidator.OutputValidationFailure.PayloadRejected =>
+                StructuredPreparationFailure.Candidate(error)
+              case _ => StructuredPreparationFailure.Rejected(error)
           )
         decoded <- ZIO.fromEither(
           json
             .as[A]
             .left
             .map(error =>
-              AgentError.DeserializationError(s"Failed to decode structured output payload: $error")
+              StructuredPreparationFailure.Candidate(
+                AgentError
+                  .DeserializationError(s"Failed to decode structured output payload: $error")
+              )
             )
         )
         completed = captured match
@@ -691,14 +941,24 @@ final class ReActAgent private (
   def streamStructuredWithResult[A: JsonCodec](
       messages: Chunk[Msg],
       schema: Json,
-      mode: StructuredMode = StructuredMode.Auto
+      mode: StructuredMode = StructuredMode.Auto,
+      repair: StructuredRepairPolicy = StructuredRepairPolicy.FailFast
   ): ZStream[Scope, AgentError, AgentRunUpdate[(AgentResult, A)]] =
     streamRun(
       publisher =>
-        requireFreshRun *> observeInvocation((invocation, complete) =>
-          ZIO.scoped(
-            runStructuredWithPublisher[A](messages, schema, mode, publisher, complete, invocation)
-          )
+        validateStructuredRepair(mode, repair) *> requireFreshRun *> observeInvocation(
+          (invocation, complete) =>
+            ZIO.scoped(
+              runStructuredWithPublisher[A](
+                messages,
+                schema,
+                mode,
+                publisher,
+                complete,
+                invocation,
+                repair
+              )
+            )
         ),
       publishStructured[A]
     )
@@ -717,9 +977,10 @@ final class ReActAgent private (
   def streamStructuredEvents[A: JsonCodec](
       messages: Chunk[Msg],
       schema: Json,
-      mode: StructuredMode = StructuredMode.Auto
+      mode: StructuredMode = StructuredMode.Auto,
+      repair: StructuredRepairPolicy = StructuredRepairPolicy.FailFast
   ): ZStream[Scope, AgentError, AgentEvent] =
-    streamStructuredWithResult[A](messages, schema, mode).collect {
+    streamStructuredWithResult[A](messages, schema, mode, repair).collect {
       case AgentRunUpdate.Event(event) => event
     }
 
@@ -1033,7 +1294,7 @@ final class ReActAgent private (
         complete,
         invocation,
         interruptSignal = Some(signal)
-      )(result => ZIO.succeed((result, ())))
+      )((result, _, _) => ZIO.succeed((result, ())))
     yield result._1
 
   private enum RunEntry:
@@ -1042,11 +1303,11 @@ final class ReActAgent private (
 
   private enum CompletionMode:
     case Ordinary
-    case Structured(response: Ref[Option[Json]])
+    case Structured(response: Ref[Option[Json]], lastModel: Ref[Option[ReceivedModelTurn]])
 
     def captured: UIO[Option[Json]] = this match
-      case Ordinary             => ZIO.none
-      case Structured(response) => response.get
+      case Ordinary                => ZIO.none
+      case Structured(response, _) => response.get
 
   private def runWithPublisher[A](
       entry: RunEntry,
@@ -1059,7 +1320,7 @@ final class ReActAgent private (
       completionMode: CompletionMode = CompletionMode.Ordinary,
       interruptSignal: Option[Promise[Nothing, Unit]] = None
   )(
-      prepareResult: AgentResult => IO[AgentError, (AgentResult, A)]
+      prepareResult: (AgentResult, String, Ref[RunProgress]) => IO[AgentError, (AgentResult, A)]
   ): ZIO[Scope, AgentError, (AgentResult, A)] =
     for
       _ <- entry match
@@ -1137,7 +1398,7 @@ final class ReActAgent private (
                 )
             val prepare = execute
               .flatMap(result => usageRef.get.map(usage => result.copy(usage = usage)))
-              .flatMap(prepareResult)
+              .flatMap(result => prepareResult(result, replyId, progressRef))
               .onInterrupt(reconcileDanglingToolCalls(stateRef, progressRef).unit)
             for
               _ <- entry match
@@ -1322,6 +1583,10 @@ final class ReActAgent private (
                 received: ReceivedModelTurn
             ): ZIO[Scope, AgentError, AgentResult] =
               for
+                _ <- completionMode match
+                  case CompletionMode.Ordinary => ZIO.unit
+                  case CompletionMode.Structured(_, lastModel) =>
+                    lastModel.set(Some(received.copy(output = turnOutput)))
                 position <- persistAssistant(turnOutput.message, progressRef)
                 observed <- observeAccepted(turnOutput.message, received)
                 result <- observed match
@@ -1479,7 +1744,7 @@ final class ReActAgent private (
                           )
                     case ReasoningOutcome.Suspend(message, reason) =>
                       completionMode match
-                        case CompletionMode.Structured(_) =>
+                        case CompletionMode.Structured(_, _) =>
                           ZIO.fail(
                             AgentError.ReasoningHookError(
                               "Structured runs cannot suspend before acting"
@@ -1792,7 +2057,8 @@ final class ReActAgent private (
   final private case class ReceivedModelTurn(
       output: TurnOutput,
       context: ModelStreamContext,
-      request: ModelRequestInput
+      request: ModelRequestInput,
+      target: ModelTarget
   )
 
   /** Each selected model owns its projection, request identity and joined request scope. */
@@ -1804,7 +2070,8 @@ final class ReActAgent private (
       invocation: InvocationContext,
       eventPublisher: EventPublisher,
       usageRef: Ref[Option[ChatUsage]],
-      progressRef: Ref[RunProgress]
+      progressRef: Ref[RunProgress],
+      pinnedTarget: Option[ModelTarget] = None
   ): IO[AgentError, ReceivedModelTurn] =
     Ref
       .make[Option[TurnOutput.Interrupted]](None)
@@ -1924,7 +2191,8 @@ final class ReActAgent private (
                   yield ReceivedModelTurn(
                     output,
                     context,
-                    request.copy(history = view, settings = validated.settings)
+                    request.copy(history = view, settings = validated.settings),
+                    target
                   )
                 ):
                   case rejection: BeforeResponseRejection => rejection.original
@@ -1938,6 +2206,7 @@ final class ReActAgent private (
             case error: AgentError                  => error
 
         val compatible = fallback
+          .filter(_ => pinnedTarget.isEmpty)
           .filter(target =>
             requestConfig.responseFormat.isEmpty || (target.config.structuredOutputCapability match
               case StructuredOutputCapability.Native(support) =>
@@ -1956,7 +2225,7 @@ final class ReActAgent private (
                 case Exit.Success(_)            => ZIO.refailCause(cause)
                 case Exit.Failure(interruption) => ZIO.refailCause(cause ++ interruption)
 
-          restore(invoke(ModelTarget(client, requestConfig))).exit.flatMap:
+          restore(invoke(pinnedTarget.getOrElse(ModelTarget(client, requestConfig)))).exit.flatMap:
             case Exit.Success(output) => restore(ZIO.succeed(output))
             case Exit.Failure(cause) =>
               cause match
@@ -2706,7 +2975,8 @@ final class ReActAgent private (
   private def pendingLocalCalls(
       history: Chunk[Msg],
       position: Int,
-      completed: Map[Int, Int]
+      completed: Map[Int, Int],
+      serverCall: ContentBlock.ToolUse => Boolean = _.isServerTool
   ): Chunk[IndexedToolCall] =
     history
       .lift(position)
@@ -2716,33 +2986,46 @@ final class ReActAgent private (
           assistant.toolResults,
           _.isServerTool,
           (call, result) => call.id == result.id && result.state != ToolResultState.Running
-        ).pending.filterNot(call => call.call.isServerTool || completed.contains(call.ordinal))
+        ).pending.filterNot(call => serverCall(call.call) || completed.contains(call.ordinal))
 
-  private def finalizeFailedToolPhase(progressRef: Ref[RunProgress]): UIO[Unit] =
+  private def finalizeFailedToolPhase(
+      progressRef: Ref[RunProgress],
+      serverCall: ContentBlock.ToolUse => Boolean = _.isServerTool
+  ): UIO[Unit] =
     ZIO.uninterruptible:
       progressRef.get.flatMap:
         case RunProgress.PersistedAssistant(position, completed) =>
           stateRef
             .modify { history =>
-              val pending = pendingLocalCalls(history, position, completed)
-              val observations = pending.map: indexed =>
-                val call = indexed.call
-                Msg.tool(
-                  name = Some(call.name),
-                  content = Chunk(
-                    ContentBlock.ToolResult.text(
-                      call.id,
-                      call.name,
-                      s"Tool phase aborted before a completed result was recorded. Tool: ${call.name}",
-                      ToolResultState.Error
-                    )
-                  )
+              val pending         = pendingLocalCalls(history, position, completed, serverCall)
+              val (inline, local) = pending.partition(_.call.isServerTool)
+              def error(call: ContentBlock.ToolUse): ContentBlock.ToolResult =
+                ContentBlock.ToolResult.text(
+                  call.id,
+                  call.name,
+                  s"Tool phase aborted before a completed result was recorded. Tool: ${call.name}",
+                  ToolResultState.Error
                 )
+              val observations = local.map(indexed =>
+                Msg.tool(name = Some(indexed.call.name), content = Chunk(error(indexed.call)))
+              )
+              val retained = history.zipWithIndex.map: (message, index) =>
+                if index == position && inline.nonEmpty then
+                  Msg.assistant(
+                    content = message.content ++ inline.map(indexed => error(indexed.call)),
+                    id = message.id,
+                    name = message.name,
+                    metadata = message.metadata,
+                    timestamp = message.timestamp,
+                    usage = message.usage
+                  )
+                else message
               (
-                pending.zipWithIndex.map { case (call, offset) =>
-                  call.ordinal -> (history.size + offset)
-                }.toMap,
-                history ++ observations
+                inline.map(call => call.ordinal -> position).toMap ++
+                  local.zipWithIndex.map { case (call, offset) =>
+                    call.ordinal -> (history.size + offset)
+                  }.toMap,
+                retained ++ observations
               )
             }
             .flatMap(markCompleted(progressRef, _))

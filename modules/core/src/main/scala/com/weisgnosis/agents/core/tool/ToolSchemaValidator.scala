@@ -110,108 +110,176 @@ private[core] object ToolSchemaValidator:
   private enum ValidationTarget:
     case ToolArguments, StructuredOutput
 
+  enum OutputValidationFailure(val error: AgentError.InvalidMessage):
+    case SchemaRejected(reason: AgentError.InvalidMessage)   extends OutputValidationFailure(reason)
+    case PayloadRejected(reason: AgentError.InvalidMessage)  extends OutputValidationFailure(reason)
+    case InstanceRejected(reason: AgentError.InvalidMessage) extends OutputValidationFailure(reason)
+    case EvaluationFailed(reason: AgentError.InvalidMessage) extends OutputValidationFailure(reason)
+
   def validate(schema: Json, input: Json): IO[AgentError.InvalidMessage, Unit] =
-    validateFor(schema, input, ValidationTarget.ToolArguments)
+    validateFor(schema, input, ValidationTarget.ToolArguments).mapError(_.error)
 
   def validateOutput(schema: Json, output: Json): IO[AgentError.InvalidMessage, Unit] =
+    validateOutputClassified(schema, output).mapError(_.error)
+
+  /** Only instance rejection proves that changing the output may satisfy the admitted schema. */
+  def validateOutputClassified(
+      schema: Json,
+      output: Json
+  ): IO[OutputValidationFailure, Unit] =
     validateFor(schema, output, ValidationTarget.StructuredOutput)
+
+  /** Validates host schema configuration without treating an arbitrary payload as evidence. */
+  def validateOutputSchema(schema: Json): IO[OutputValidationFailure, Unit] =
+    for
+      _ <- ZIO
+        .fromEither(JsonBoundary.validate(schema))
+        .mapError(reason =>
+          OutputValidationFailure.SchemaRejected(
+            AgentError.InvalidMessage(s"Invalid tool JSON: $reason")
+          )
+        )
+      selected <- ZIO
+        .fromEither(declaredDraft(schema, StandardDraft.Draft202012))
+        .mapError(OutputValidationFailure.SchemaRejected(_))
+      references <- ZIO
+        .fromEither(canonicalReferences(schema))
+        .mapError(OutputValidationFailure.SchemaRejected(_))
+      _ <- evaluate(schema, None, selected, references)
+    yield ()
 
   private def validateFor(
       schema: Json,
       input: Json,
       target: ValidationTarget
-  ): IO[AgentError.InvalidMessage, Unit] =
+  ): IO[OutputValidationFailure, Unit] =
     for
-      _ <- ZIO.fromEither(
-        JsonBoundary
-          .validate(schema)
-          .flatMap(_ => JsonBoundary.validate(input))
-          .left
-          .map(reason => AgentError.InvalidMessage(s"Invalid tool JSON: $reason"))
-      )
+      _ <- ZIO
+        .fromEither(JsonBoundary.validate(schema))
+        .mapError(reason =>
+          OutputValidationFailure.SchemaRejected(
+            AgentError.InvalidMessage(s"Invalid tool JSON: $reason")
+          )
+        )
+      _ <- ZIO
+        .fromEither(JsonBoundary.validate(input))
+        .mapError(reason =>
+          OutputValidationFailure.PayloadRejected(
+            AgentError.InvalidMessage(s"Invalid tool JSON: $reason")
+          )
+        )
       _ <-
         if schema == Json.Obj() then ZIO.unit
         else
           for
-            selected <- ZIO.fromEither(declaredDraft(schema, StandardDraft.Draft202012))
+            selected <- ZIO
+              .fromEither(declaredDraft(schema, StandardDraft.Draft202012))
+              .mapError(OutputValidationFailure.SchemaRejected(_))
             view <- target match
               case ValidationTarget.ToolArguments =>
-                ZIO.fromEither(normalize(input, schema, schema))
+                ZIO
+                  .fromEither(normalize(input, schema, schema))
+                  .mapError(OutputValidationFailure.SchemaRejected(_))
               case ValidationTarget.StructuredOutput => ZIO.succeed(input)
-            references <- ZIO.fromEither(canonicalReferences(schema))
-            errors <- ZIO
-              .attempt:
-                // Each admission owns its evaluator state. Nothing is initialized in a pure factory.
-                val mapper = JsonMapper
-                  .builder()
-                  .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
-                  .build()
-                // The standard keyword's Double zero guard underflows for positive tiny divisors.
-                // Meta-validation checks positivity; retain the original decimal divisor exactly.
-                val exactMultipleOf = new Keyword:
-                  def getValue(): String = "multipleOf"
-                  def newValidator(
-                      location: SchemaLocation,
-                      node: JsonNode,
-                      parent: Schema,
-                      context: SchemaContext
-                  ): KeywordValidator =
-                    new MultipleOfValidator(location, node, parent, context):
-                      override protected def getDivisor(value: JsonNode): java.math.BigDecimal =
-                        value.decimalValue()
-                      override def validate(
-                          execution: ExecutionContext,
-                          value: JsonNode,
-                          root: JsonNode,
-                          path: NodePath
-                      ): Unit =
-                        if value.isNumber then
-                          super.validate(
-                            execution,
-                            DecimalNode.valueOf(value.decimalValue()),
-                            root,
-                            path
-                          )
-                val exactDialects = StandardDraft.values.toVector.map: profile =>
-                  val builder = Dialect
-                    .builder(Specification.getDialect(profile.version))
-                    .keyword(exactMultipleOf)
-                    .keyword(referenceKeyword("$ref", references))
-                  profile match
-                    case StandardDraft.Draft202012 =>
-                      builder.keyword(referenceKeyword("$dynamicRef", references)).build()
-                    case _ => builder.build()
-                val registry = SchemaRegistry.withDialects(
-                  exactDialects.asJava,
-                  builder =>
-                    builder
-                      .schemaCacheEnabled(false)
-                      .nodeReader(reader => reader.jsonMapper(mapper))
-                      .schemaLoader(loader =>
-                        loader
-                          .fetchRemoteResources(false)
-                          .allow(iri => standardResources.contains(iri.toString))
-                      )
-                    ()
-                )
-                val schemaNode = mapper.readTree(exactJson(schema))
-                val malformed =
-                  registry.getSchema(SchemaLocation.of(selected.id)).validate(schemaNode)
-                val failures =
-                  if !malformed.isEmpty then malformed
-                  else registry.getSchema(schemaNode).validate(mapper.readTree(exactJson(view)))
-                failures.asScala.iterator
-                  .take(8)
-                  .map(error => s"${error.getInstanceLocation}: ${error.getMessage}")
-                  .toVector
-              .mapError(error =>
-                AgentError.InvalidMessage(
-                  s"Tool schema evaluation failed (${error.getClass.getSimpleName})"
-                )
-              )
-            _ <- ZIO.fail(AgentError.InvalidMessage(errors.mkString("; "))).when(errors.nonEmpty)
+            references <- ZIO
+              .fromEither(canonicalReferences(schema))
+              .mapError(OutputValidationFailure.SchemaRejected(_))
+            _ <- evaluate(schema, Some(view), selected, references)
           yield ()
     yield ()
+
+  private def evaluate(
+      schema: Json,
+      input: Option[Json],
+      selected: StandardDraft,
+      references: Map[String, String]
+  ): IO[OutputValidationFailure, Unit] =
+    ZIO
+      .attempt:
+        // Each admission owns its evaluator state. Nothing is initialized in a pure factory.
+        val mapper = JsonMapper
+          .builder()
+          .enable(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS)
+          .build()
+        // The standard keyword's Double zero guard underflows for positive tiny divisors.
+        // Meta-validation checks positivity; retain the original decimal divisor exactly.
+        val exactMultipleOf = new Keyword:
+          def getValue(): String = "multipleOf"
+          def newValidator(
+              location: SchemaLocation,
+              node: JsonNode,
+              parent: Schema,
+              context: SchemaContext
+          ): KeywordValidator =
+            new MultipleOfValidator(location, node, parent, context):
+              override protected def getDivisor(value: JsonNode): java.math.BigDecimal =
+                value.decimalValue()
+              override def validate(
+                  execution: ExecutionContext,
+                  value: JsonNode,
+                  root: JsonNode,
+                  path: NodePath
+              ): Unit =
+                if value.isNumber then
+                  super.validate(
+                    execution,
+                    DecimalNode.valueOf(value.decimalValue()),
+                    root,
+                    path
+                  )
+        val exactDialects = StandardDraft.values.toVector.map: profile =>
+          val builder = Dialect
+            .builder(Specification.getDialect(profile.version))
+            .keyword(exactMultipleOf)
+            .keyword(referenceKeyword("$ref", references))
+          profile match
+            case StandardDraft.Draft202012 =>
+              builder.keyword(referenceKeyword("$dynamicRef", references)).build()
+            case _ => builder.build()
+        val registry = SchemaRegistry.withDialects(
+          exactDialects.asJava,
+          builder =>
+            builder
+              .schemaCacheEnabled(false)
+              .nodeReader(reader => reader.jsonMapper(mapper))
+              .schemaLoader(loader =>
+                loader
+                  .fetchRemoteResources(false)
+                  .allow(iri => standardResources.contains(iri.toString))
+              )
+            ()
+        )
+        val schemaNode = mapper.readTree(exactJson(schema))
+        val malformed =
+          registry.getSchema(SchemaLocation.of(selected.id)).validate(schemaNode)
+        def describe(
+            errors: java.util.List[com.networknt.schema.Error]
+        ): AgentError.InvalidMessage =
+          AgentError.InvalidMessage(
+            errors.asScala.iterator
+              .take(8)
+              .map(error => s"${error.getInstanceLocation}: ${error.getMessage}")
+              .mkString("; ")
+          )
+        if !malformed.isEmpty then Left(OutputValidationFailure.SchemaRejected(describe(malformed)))
+        else
+          val compiled = registry.getSchema(schemaNode)
+          input match
+            case None =>
+              compiled.initializeValidators()
+              Right(())
+            case Some(value) =>
+              val failures = compiled.validate(mapper.readTree(exactJson(value)))
+              if failures.isEmpty then Right(())
+              else Left(OutputValidationFailure.InstanceRejected(describe(failures)))
+      .mapError(error =>
+        OutputValidationFailure.EvaluationFailed(
+          AgentError.InvalidMessage(
+            s"Tool schema evaluation failed (${error.getClass.getSimpleName})"
+          )
+        )
+      )
+      .flatMap(ZIO.fromEither(_))
 
   // Preserve integer node kinds for Draft 4; the multipleOf adapter handles their exact conversion.
   // Decimal text remains exact without expanding large exponents or using the AST's numeric encoder.
