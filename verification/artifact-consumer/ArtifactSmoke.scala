@@ -95,7 +95,11 @@ import zio.stream.ZStream
 object ArtifactSmoke extends ZIOAppDefault:
   final private case class Manifest(version: String, sha256: Map[String, String]) derives JsonCodec
 
-  final private case class ExternalInput(value: String) derives JsonCodec, ToolSchema
+  final private case class ExternalInput(
+      value: String,
+      effort: ReasoningEffort = ReasoningEffort.Low
+  ) derives JsonCodec,
+        ToolSchema
 
   private def verifySchemaAdmission: IO[AgentError, Unit] =
     for
@@ -109,12 +113,12 @@ object ArtifactSmoke extends ZIOAppDefault:
         )
       )(_ => executions.update(_ + 1).as("accepted"))
       derived = Tool.derived[ExternalInput, String]("derived_probe", "Packaged macro expansion")(
-        input => executions.update(_ + 1).as(input.value)
+        input => executions.update(_ + 1).as(s"${input.value}:${input.effort}")
       )
       registry = Toolkit.single(tool).updated(derived)
       derivedResult <- registry.executeSafe(
         "derived_probe",
-        Json.Obj("value" -> Json.Str("accepted"))
+        Json.Obj("value" -> Json.Str("accepted"), "effort" -> Json.Str("High"))
       )
       rejected <- registry.executeSafe("schema_probe", Json.Num(1))
       accepted <- registry.executeSafe("schema_probe", Json.Num(2))
@@ -122,7 +126,9 @@ object ArtifactSmoke extends ZIOAppDefault:
       _ <- ZIO
         .fail(failure("Packaged schema admission or transitive evaluator failed"))
         .unless(
-          rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && derivedResult.state == ToolResultState.Success && count == 2
+          rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && derivedResult == ToolExecutionResult(
+            "accepted:High".toJson
+          ) && count == 2
         )
     yield ()
 

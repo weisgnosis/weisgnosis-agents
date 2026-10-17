@@ -157,14 +157,19 @@ RAG, UI, collector hosting, distributed orchestration and OS/Temporal product in
 
 ## Immediate next work
 
-The next selected task is bounded singleton-enum derivation for tool argument schemas,
-including nested case-class fields with verified zio-json wire values.
+The next selected task is strict scripted model support for external tests,
+with bounded request recording and explicit script-exhaustion failures.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
 
-- [ ] Derive schemas for supported singleton enums without runtime reflection;
-  reject payload variants and unsupported wire customizations explicitly.
+- [ ] Provide strict scripted model responses with bounded request recording
+  through the public client API, without a new effect runtime or provider dependency.
+
+- [x] Derive schemas for supported singleton enums without runtime reflection;
+  reject payload variants and unsupported wire customizations explicitly. See
+  [schema scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/tool/ToolSchemaSpec.scala)
+  and [packaged macro consumption](../../verification/artifact-consumer/README.md).
 
 - [x] Select exactly one token-limit field for Chat Completions JSON/SSE requests,
   preserving the selected target's projected value, retries and runtime token-budget semantics.

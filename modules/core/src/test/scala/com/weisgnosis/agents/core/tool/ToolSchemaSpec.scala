@@ -43,6 +43,18 @@ object ToolSchemaSpec extends ZIOSpecDefault:
   final case class Box[A](value: A) derives JsonCodec
   final case class Generic(box: Box[Box[String]]) derives JsonCodec, ToolSchema
 
+  enum Direction derives JsonCodec:
+    case North, South
+    override def toString: String = "Display direction"
+  final case class DirectionQuery(direction: Direction) derives JsonCodec, ToolSchema
+  final case class Directions(
+      optional: Option[Direction],
+      values: List[Direction],
+      byName: Map[String, Direction],
+      nested: Box[Direction]
+  ) derives JsonCodec,
+        ToolSchema
+
   final case class ScalarCollections(
       flag: Boolean,
       byte: Byte,
@@ -60,6 +72,114 @@ object ToolSchemaSpec extends ZIOSpecDefault:
         ToolSchema
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ToolSchemaSpec")(
+    test("singleton enum labels agree with the codec and execute through the public agent loop"):
+      ZIO
+        .foreach(List(Direction.North -> "North", Direction.South -> "South")):
+          (direction, label) =>
+            for
+              calls <- Ref.make(List.empty[Direction])
+              input = DirectionQuery(direction)
+              json <- ZIO.fromEither(input.toJson.fromJson[Json])
+              tool = Tool.derived[DirectionQuery, String]("direction", "Read direction")(query =>
+                calls.update(_ :+ query.direction).as(query.direction.toString)
+              )
+              toolkit = Toolkit.single(tool)
+              admitted <- toolkit.executeSafe("direction", json)
+              client <- LlmClient.mock(
+                Chunk(
+                  TurnOutput.ToolCalls(
+                    Msg.assistant(Chunk(ContentBlock.ToolUse("enum-call", "direction", json)))
+                  ),
+                  TurnOutput.FinalText(Msg.assistant("Done"))
+                )
+              )
+              agent    <- ReActAgent.builder().model(client).toolkit(toolkit).build
+              result   <- agent.run(Msg.user("Read the direction"))
+              history  <- agent.history
+              executed <- calls.get
+            yield assertTrue(
+              json == Json.Obj("direction" -> Json.Str(label)),
+              tool.decodeInput(json).contains(input),
+              admitted.state == ToolResultState.Success,
+              result.state == AgentRunState.Completed,
+              executed == List(direction, direction),
+              history.exists(_.content.exists {
+                case result: ContentBlock.ToolResult =>
+                  result.id == "enum-call" && result.state == ToolResultState.Success
+                case _ => false
+              })
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
+    test("singleton enum declarations advertise a closed object with string labels"):
+      val expected =
+        """{"type":"object","properties":{"direction":{"type":"string","enum":["North","South"]}},"required":["direction"],"additionalProperties":false}"""
+          .fromJson[Json]
+      assertTrue(expected.contains(summon[ToolSchema[DirectionQuery]].jsonSchema))
+    ,
+    test(
+      "enum admission rejects unknown labels, wrong shapes and extra properties before execution"
+    ):
+      for
+        calls <- Ref.make(0)
+        tool = Tool.derived[DirectionQuery, String]("direction", "Read direction")(query =>
+          calls.update(_ + 1).as(query.direction.toString)
+        )
+        results <- ZIO.foreach(
+          List(
+            Json.Obj("direction" -> Json.Str("East")),
+            Json.Obj("direction" -> Json.Str("north")),
+            Json.Obj("direction" -> Json.Null),
+            Json.Obj("direction" -> Json.Num(1)),
+            Json.Obj("direction" -> Json.Obj("North" -> Json.Obj())),
+            Json.Obj("direction" -> Json.Str("North"), "extra" -> Json.Bool(true))
+          )
+        )(Toolkit.single(tool).executeSafe("direction", _))
+        executed <- calls.get
+      yield assertTrue(executed == 0, results.forall(_.state == ToolResultState.Error))
+    ,
+    test("enum schemas retain labels in optional, collection, map and nested product positions"):
+      val input = Directions(
+        Some(Direction.North),
+        List(Direction.South, Direction.North),
+        Map("home" -> Direction.South),
+        Box(Direction.North)
+      )
+      val tool = Tool.derived[Directions, Int]("directions", "Read directions")(query =>
+        ZIO.succeed(query.values.size)
+      )
+      for
+        json     <- ZIO.fromEither(input.toJson.fromJson[Json])
+        accepted <- Toolkit.single(tool).executeSafe("directions", json)
+        optional <- ZIO.foreach(
+          List(
+            """{"values":[],"byName":{},"nested":{"value":"North"}}""",
+            """{"optional":null,"values":[],"byName":{},"nested":{"value":"South"}}"""
+          )
+        )(raw =>
+          ZIO
+            .fromEither(raw.fromJson[Json])
+            .flatMap(Toolkit.single(tool).executeSafe("directions", _))
+        )
+        rejected <- ZIO.foreach(
+          List(
+            """{"values":["East"],"byName":{},"nested":{"value":"North"}}""",
+            """{"values":[],"byName":{"home":"East"},"nested":{"value":"North"}}""",
+            """{"optional":"East","values":[],"byName":{},"nested":{"value":"North"}}""",
+            """{"values":[],"byName":{},"nested":{"value":"East"}}"""
+          )
+        )(raw =>
+          ZIO
+            .fromEither(raw.fromJson[Json])
+            .flatMap(Toolkit.single(tool).executeSafe("directions", _))
+        )
+      yield assertTrue(
+        accepted.state == ToolResultState.Success,
+        tool.decodeInput(json).contains(input),
+        optional.forall(_.state == ToolResultState.Success),
+        rejected.forall(_.state == ToolResultState.Error)
+      )
+    ,
     test("derived input reaches the public agent loop and produces a complete tool observation"):
       for
         calls <- Ref.make(0)
@@ -268,7 +388,7 @@ object ToolSchemaSpec extends ZIOSpecDefault:
         """import com.weisgnosis.agents.core.tool.ToolSchema; case class Node[A](next: Option[Node[List[A]]]); ToolSchema.derived[Node[Int]]"""
       )
       val sum = typeCheckErrors(
-        """import com.weisgnosis.agents.core.tool.ToolSchema; enum Choice { case Yes, No }; case class Query(value: Choice); ToolSchema.derived[Query]"""
+        """import com.weisgnosis.agents.core.tool.ToolSchema; sealed trait Choice; case object Yes extends Choice; case class Query(value: Choice); ToolSchema.derived[Query]"""
       )
       val recursive = typeCheckErrors(
         """import com.weisgnosis.agents.core.tool.ToolSchema; case class Node(next: Option[Node]); ToolSchema.derived[Node]"""
@@ -299,4 +419,40 @@ object ToolSchemaSpec extends ZIOSpecDefault:
         renamedDuplicate.exists(_.message.contains("duplicate JSON field names")),
         map.exists(_.message.contains("map keys must be String"))
       )
+    ,
+    test("root enums, payload cases and enum wire annotations remain compile-time errors"):
+      val root = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; enum Choice { case Yes, No }; ToolSchema.derived[Choice]"""
+      )
+      val mixed = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; enum Choice { case Yes; case Value(value: String) }; case class Query(value: Choice); ToolSchema.derived[Query]"""
+      )
+      val empty = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; enum Choice { case Yes; case Empty() }; case class Query(value: Choice); ToolSchema.derived[Query]"""
+      )
+      val parent = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; import zio.json.*; @jsonDiscriminator("kind") enum Choice { case Yes, No }; case class Query(value: Choice); ToolSchema.derived[Query]"""
+      )
+      val child = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; import zio.json.*; enum Choice { @jsonHint("affirmative") case Yes; case No }; case class Query(value: Choice); ToolSchema.derived[Query]"""
+      )
+      val companion = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; import zio.json.*; enum Choice { case Yes, No }; @jsonDiscriminator("kind") object Choice; case class Query(value: Choice); ToolSchema.derived[Query]"""
+      )
+      val hintNames = typeCheckErrors(
+        """import com.weisgnosis.agents.core.tool.ToolSchema; import zio.json.*; @jsonHintNames(SnakeCase) enum Choice { case Yes, No }; case class Query(value: Choice); ToolSchema.derived[Query]"""
+      )
+      val results = List(root, mixed, empty, parent, child, companion, hintNames)
+      val expected = List(
+        "object case class",
+        "all singletons",
+        "all singletons",
+        "unsupported JSON annotation",
+        "unsupported JSON annotation",
+        "unsupported JSON annotation",
+        "unsupported JSON annotation"
+      )
+      assertTrue(results.zip(expected).forall { case (errors, message) =>
+        errors.exists(_.message.contains(message))
+      })
   )

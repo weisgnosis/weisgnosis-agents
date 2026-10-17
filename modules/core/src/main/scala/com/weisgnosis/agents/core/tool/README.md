@@ -23,7 +23,9 @@ val evidence: Tool[Any, ReleaseQuery, String] =
 
 Derivation supports object case classes, nested and generic products, strings, booleans,
 Scala numeric primitives and BigInt/BigDecimal, Option, List, Vector, immutable Seq/Set,
-Chunk and string-key immutable Map. `@jsonField` renames are retained. Collections are
+Chunk and string-key immutable Map. Nested Scala 3 enums whose cases are all singletons
+use their default zio-json string labels, including in optional fields, collections and maps.
+`@jsonField` renames are retained. Collections are
 required unless optional or defaulted; Option fields accept missing or null values.
 Defaulted fields also accept missing or null values, matching zio-json; derivation never
 evaluates a default expression and does not emit a schema `default`. Object properties
@@ -31,8 +33,11 @@ are closed with `additionalProperties=false`. The decoder still checks numeric r
 
 This contract assumes the default zio-json derived wire format. Custom codecs and custom
 JsonCodecConfiguration must use an explicitly aligned schema. Recursive inputs, nested
-Option, sums/enums, tuples, unsupported field types, non-string map keys, duplicate JSON
-names and JSON annotations other than literal `@jsonField` fail compilation. The macro
+Option, root enums, payload or mixed enums, other sums, tuples, unsupported field types,
+non-string map keys and duplicate JSON names fail compilation. Enum JSON annotations
+(including `@jsonHint`, `@jsonHintNames` and `@jsonDiscriminator`) are rejected on the
+enum, cases and companion symbols; only default labels are supported. Product fields
+retain literal `@jsonField`; other JSON annotations fail compilation. The macro
 uses compiler type information; no runtime reflection or schema dependency is added.
 
 `Tool.fromFunction` remains the explicit-schema factory for custom formats and additional
