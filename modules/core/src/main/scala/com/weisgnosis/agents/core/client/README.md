@@ -418,3 +418,28 @@ The actual loopback public contracts are [AnthropicLlmClientSpec](../../../../..
 Protocol termination remains mandatory: OpenAI streaming requires [DONE], Anthropic requires the matching named message_stop event, and Gemini requires its validated terminal candidate. Other unsupported finish reasons and premature EOF remain failures. Truncation does not trigger automatic retry or model fallback.
 
 ReAct records the partial assistant message and returns `AgentRunState.Stopped("Model output token budget exhausted")`. It bypasses the post-reasoning rewrite hook, executes no tools from that response, and cannot succeed as structured output. Memory extraction similarly rejects partial candidates. The new sealed `TurnOutput` variant requires downstream exhaustive matches to be updated and consumers to rebuild; no transcript schema changes are required.
+
+## Strict scripted model tests
+
+`ScriptedLlmClient` is a finite, offline `LlmClient` for application tests. It ships in core and requires no provider or test-framework dependency:
+
+```scala
+for
+  model <- ScriptedLlmClient.make(
+    Chunk(TurnOutput.FinalText(Msg.assistant("Hello"))),
+    maxRecordedRequests = 4
+  )
+  agent <- ReActAgent.builder().model(model).build
+  result <- agent.run(Msg.user("Say hello"))
+  _ <- model.verifyConsumed
+  requests <- model.requests
+yield (result.reply.text, requests.map(_.input.history))
+```
+
+Use the existing core client, model and agent imports and run the effect within `ZIO.scoped`. `makeEffectful` accepts response effects requiring `Scope`, so a test can coordinate model work and cleanup with `Promise` and `acquireRelease`. Typed failures, defects and interruption retain their complete causes. Responses publish no synthetic token events.
+
+Each admitted request atomically records its input and reserves one response before running that response in the caller's scope. Failed or interrupted attempts consume their reserved response; they are never replayed. Concurrent requests reserve steps in admission order, which does not prescribe completion order. Allocate a separate client for each independent scenario. Call `verifyConsumed` after joining requests to reject unused responses; it does not wait for in-flight work.
+
+An unexpected request after exhaustion is recorded and fails with `AgentError.InvalidConfiguration`. When the positive `maxRecordedRequests` capacity is reached, further requests fail without recording or consuming a response. The bound counts requests, not bytes: history and tool definitions can contain large or sensitive application data. Recording is in memory only, with no automatic serialization, logging or redaction. `RecordedModelRequest.input` retains model, history, tools and `ModelRequestSettings`; `context` retains request correlation. Endpoint and API-key fields are excluded. Provider-only options outside `ModelRequestSettings`, such as response format and tool-choice preferences, are not recorded.
+
+The older `LlmClient.mock` retains its permissive exhaustion behavior. Use the strict client when an extra model call must fail the test. The [public agent scenarios](../../../../../../../test/scala/com/weisgnosis/agents/core/client/ScriptedLlmClientIntegrationSpec.scala) exercise tool execution, next-request observations and joined cancellation. The [external artifact consumer](../../../../../../../../../../verification/artifact-consumer/README.md) also compiles and runs the strict client from packaged JARs.

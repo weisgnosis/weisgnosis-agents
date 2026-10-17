@@ -29,6 +29,7 @@ import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
   ChatCompletionTokenLimitField,
   LlmClient,
+  ScriptedLlmClient,
   LlmConfig,
   CompletionEnvelopeProfile,
   ReasoningEffort,
@@ -100,6 +101,54 @@ object ArtifactSmoke extends ZIOAppDefault:
       effort: ReasoningEffort = ReasoningEffort.Low
   ) derives JsonCodec,
         ToolSchema
+
+  private def verifyScriptedClient: ZIO[Scope, AgentError, Unit] =
+    for
+      calls <- Ref.make(0)
+      toolkit <- ZIO.fromEither(
+        Toolkit.empty.register(
+          Tool.make(ToolDef("script_probe", "Check packaged scripted calls", Json.Obj()))(_ =>
+            calls.update(_ + 1).as("observed")
+          )
+        )
+      )
+      client <- ScriptedLlmClient.make(
+        Chunk(
+          TurnOutput.ToolCalls(
+            Msg.assistant(Chunk(ContentBlock.ToolUse("probe", "script_probe", Json.Obj())))
+          ),
+          TurnOutput.FinalText(Msg.assistant("script complete"))
+        ),
+        maxRecordedRequests = 3
+      )
+      agent      <- ReActAgent.builder().model(client).toolkit(toolkit).build
+      result     <- agent.run(Msg.user("exercise script"))
+      _          <- client.verifyConsumed
+      records    <- client.requests
+      executions <- calls.get
+      extra <- client
+        .streamTurn(
+          Chunk.empty,
+          Chunk.empty,
+          LlmConfig("probe"),
+          EventPublisher.discard,
+          ModelStreamContext("reply", "extra")
+        )
+        .either
+      _ <- ZIO
+        .fail(failure("Packaged strict scripted client failed"))
+        .unless(
+          result.reply.text == "script complete" && executions == 1 && records.size == 2 &&
+            records
+              .drop(1)
+              .exists(
+                _.input.history.exists(_.role == com.weisgnosis.agents.core.model.Role.Tool)
+              ) &&
+            extra == Left(
+              AgentError.InvalidConfiguration("Script exhausted: unexpected model request")
+            )
+        )
+    yield ()
 
   private def verifySchemaAdmission: IO[AgentError, Unit] =
     for
@@ -401,6 +450,7 @@ object ArtifactSmoke extends ZIOAppDefault:
       for
         manifest <- loadManifest
         _        <- verifyClasspath
+        _        <- verifyScriptedClient
         _        <- verifySchemaAdmission
         _        <- verifyStructuredSchema
         _        <- verifyTemperatureOmission

@@ -157,14 +157,24 @@ RAG, UI, collector hosting, distributed orchestration and OS/Temporal product in
 
 ## Immediate next work
 
-The next selected task is strict scripted model support for external tests,
-with bounded request recording and explicit script-exhaustion failures.
+The next selected task is to define the admission and failure contract for one
+opt-in, output-only structured-response repair request before implementation.
+Retain exact validation and prohibit application-tool dispatch or replay.
+Settle eligible failures, the shared request/deadline budget, canonical history
+and single terminal result/observer semantics; unresolved choices remain design questions.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
 
-- [ ] Provide strict scripted model responses with bounded request recording
+- [ ] Define the bounded output-only structured-response repair contract; automatic
+  repair is not implemented or implied by exact output validation.
+
+- [x] Provide strict scripted model responses with bounded request recording
   through the public client API, without a new effect runtime or provider dependency.
+  [Client contract](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#strict-scripted-model-tests),
+  [admission/cause scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ScriptedLlmClientSpec.scala),
+  [public agent cancellation](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ScriptedLlmClientIntegrationSpec.scala)
+  and [packaged consumption](../../verification/artifact-consumer/README.md) cover the selected behavior.
 
 - [x] Derive schemas for supported singleton enums without runtime reflection;
   reject payload variants and unsupported wire customizations explicitly. See
