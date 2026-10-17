@@ -162,7 +162,9 @@ FP/ZIO and invariant review, full verification, archive admission and fresh
 packaged-consumer evidence. No selected implementation outcome remains open in
 this delivery. Further research candidates do not silently expand this checklist.
 Scala 3.9 and ZIO 2 remain the selected runtime target; Cats Effect integration is excluded.
-The next task is the separately authorized signed SNAPSHOT delivery and public-consumer check.
+The separately authorized signed `0.1.1-SNAPSHOT` build 6 is published for all five modules.
+Anonymous downloads match the prepared artifacts, signatures are verified, and both the
+fresh public consumer and README compilation pass. No next task remains in this selected delivery.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
