@@ -27,6 +27,7 @@ import com.weisgnosis.agents.core.coordination.Pipeline
 import com.weisgnosis.agents.harness.memory.VersionedMemoryLimits
 import com.weisgnosis.agents.core.client.{
   ChatCompletionsRequest,
+  ChatCompletionTokenLimitField,
   LlmClient,
   LlmConfig,
   CompletionEnvelopeProfile,
@@ -122,6 +123,23 @@ object ArtifactSmoke extends ZIOAppDefault:
         .fail(failure("Packaged schema admission or transitive evaluator failed"))
         .unless(
           rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && derivedResult.state == ToolResultState.Success && count == 2
+        )
+    yield ()
+
+  private def verifyTokenLimitField: IO[AgentError, Unit] =
+    for
+      body <- ZIO.fromEither(
+        ChatCompletionsRequest.encode(
+          Chunk(Msg.user("hello")),
+          Chunk.empty,
+          LlmConfig("model", maxTokens = Some(37)),
+          tokenLimitField = ChatCompletionTokenLimitField.MaxCompletionTokens
+        )
+      )
+      _ <- ZIO
+        .fail(failure("Packaged token-limit wire selection failed"))
+        .unless(
+          body.get("max_completion_tokens").contains(Json.Num(37)) && body.get("max_tokens").isEmpty
         )
     yield ()
 
@@ -380,6 +398,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifySchemaAdmission
         _        <- verifyStructuredSchema
         _        <- verifyTemperatureOmission
+        _        <- verifyTokenLimitField
         _        <- verifyScopedTool
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines

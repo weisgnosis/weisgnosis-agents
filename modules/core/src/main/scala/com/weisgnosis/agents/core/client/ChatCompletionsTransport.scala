@@ -39,7 +39,8 @@ final class ChatCompletionsTransport private (
     toolSignatureFormat: ToolSignatureFormat,
     retryPolicy: CompletionRetryPolicy,
     responseMode: CompletionResponseMode,
-    toolResultFormat: ToolResultFormat
+    toolResultFormat: ToolResultFormat,
+    tokenLimitField: ChatCompletionTokenLimitField
 ):
   import ChatCompletionsTransport.*
 
@@ -82,7 +83,8 @@ final class ChatCompletionsTransport private (
                 config,
                 reasoningReplay,
                 toolSignatureFormat,
-                toolResultFormat
+                toolResultFormat,
+                tokenLimitField
               )
           case CompletionResponseMode.NonStreaming =>
             ChatCompletionsRequest.encodeNonStreaming(
@@ -91,7 +93,8 @@ final class ChatCompletionsTransport private (
               config,
               reasoningReplay,
               toolSignatureFormat,
-              toolResultFormat
+              toolResultFormat,
+              tokenLimitField
             ))
         url <- endpoint(config.endpoint)
         _ <- ZIO
@@ -367,7 +370,8 @@ object ChatCompletionsTransport:
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
       retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
       envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas,
-      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly,
+      tokenLimitField: ChatCompletionTokenLimitField = ChatCompletionTokenLimitField.MaxTokens
   ): IO[AgentError, ChatCompletionsTransport] =
     configured(
       http,
@@ -376,7 +380,8 @@ object ChatCompletionsTransport:
       toolSignatureFormat,
       retryPolicy,
       CompletionResponseMode.Streaming(envelopeProfile),
-      toolResultFormat
+      toolResultFormat,
+      tokenLimitField
     )
 
   /** Explicit ordinary JSON completion; response validation waits for bounded body EOF. */
@@ -386,7 +391,8 @@ object ChatCompletionsTransport:
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
       retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
-      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly,
+      tokenLimitField: ChatCompletionTokenLimitField = ChatCompletionTokenLimitField.MaxTokens
   ): IO[AgentError, ChatCompletionsTransport] =
     configured(
       http,
@@ -395,7 +401,8 @@ object ChatCompletionsTransport:
       toolSignatureFormat,
       retryPolicy,
       CompletionResponseMode.NonStreaming,
-      toolResultFormat
+      toolResultFormat,
+      tokenLimitField
     )
 
   private def configured(
@@ -405,7 +412,8 @@ object ChatCompletionsTransport:
       toolSignatureFormat: ToolSignatureFormat,
       retryPolicy: CompletionRetryPolicy,
       mode: CompletionResponseMode,
-      toolResultFormat: ToolResultFormat
+      toolResultFormat: ToolResultFormat,
+      tokenLimitField: ChatCompletionTokenLimitField
   ): IO[AgentError, ChatCompletionsTransport] =
     ZIO.fromEither:
       Either.cond(
@@ -417,7 +425,8 @@ object ChatCompletionsTransport:
           toolSignatureFormat,
           retryPolicy,
           mode,
-          toolResultFormat
+          toolResultFormat,
+          tokenLimitField
         ),
         AgentError.InvalidConfiguration("Transport byte limits must be positive")
       )

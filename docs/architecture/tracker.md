@@ -157,14 +157,19 @@ RAG, UI, collector hosting, distributed orchestration and OS/Temporal product in
 
 ## Immediate next work
 
-The next selected task is an explicit Chat Completions token-limit wire field,
-retaining legacy max_tokens by default and allowing max_completion_tokens.
+The next selected task is bounded singleton-enum derivation for tool argument schemas,
+including nested case-class fields with verified zio-json wire values.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
 
-- [ ] Select exactly one token-limit field for Chat Completions JSON/SSE requests,
+- [ ] Derive schemas for supported singleton enums without runtime reflection;
+  reject payload variants and unsupported wire customizations explicitly.
+
+- [x] Select exactly one token-limit field for Chat Completions JSON/SSE requests,
   preserving the selected target's projected value, retries and runtime token-budget semantics.
+  See [wire policy](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#token-limit-wire-field)
+  and [public HTTP scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ChatCompletionsTransportSpec.scala).
 
 - [x] Allow hosts to omit temperature while preserving existing numeric settings
   and the default 0.7, with explicit child inheritance and request-wire coverage.

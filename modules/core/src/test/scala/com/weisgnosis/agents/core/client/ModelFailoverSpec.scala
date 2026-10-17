@@ -92,7 +92,9 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           yield functions :+ function
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelFailover")(
-    test("fallback retains its own temperature policy after a primary HTTP rejection"):
+    test(
+      "fallback retains its own wire dialect and projected settings after a primary HTTP rejection"
+    ):
       ZIO
         .foreach(Chunk(TemperaturePolicy.Configured, TemperaturePolicy.Omit)): primaryPolicy =>
           ZIO.scoped:
@@ -110,27 +112,56 @@ object ModelFailoverSpec extends ZIOSpecDefault:
                   request.body.asString.orDie
                     .flatMap(raw => captured.update(_ :+ raw.fromJson[Json].getOrElse(Json.Null)))
                     .as(response(answer))
-                )
+                ),
+                tokenLimitField = ChatCompletionTokenLimitField.MaxCompletionTokens
               )
               targetPolicy =
                 if primaryPolicy == TemperaturePolicy.Omit then TemperaturePolicy.Configured
                 else TemperaturePolicy.Omit
               agent <- ReActAgent.make(
                 client = primary,
-                llmConfig =
-                  primaryConfig.copy(temperature = 0.2, temperaturePolicy = primaryPolicy),
+                llmConfig = primaryConfig
+                  .copy(temperature = 0.2, temperaturePolicy = primaryPolicy, maxTokens = Some(10)),
                 fallback = Some(
                   ModelTarget(
                     target,
-                    targetConfig.copy(temperature = 1.0, temperaturePolicy = targetPolicy)
+                    targetConfig.copy(
+                      temperature = 1.0,
+                      temperaturePolicy = targetPolicy,
+                      maxTokens = Some(20)
+                    )
                   )
-                )
+                ),
+                modelInputTransform =
+                  ModelInputTransform.withRequest(ModelInputTransform.identity)((_, request) =>
+                    ZIO.succeed(
+                      ModelInputProjection(
+                        request.history,
+                        request.settings.copy(maxTokens = Some(37))
+                      )
+                    )
+                  )
               )
               completed <- agent.run(Msg.user("hello"))
               bodies    <- captured.get
             yield assertTrue(
               completed.reply.text == "7",
               bodies.size == 2,
+              bodies.headOption
+                .flatMap(_.asObject)
+                .exists(body =>
+                  body.get("max_tokens").contains(Json.Num(37)) && body
+                    .get("max_completion_tokens")
+                    .isEmpty
+                ),
+              bodies
+                .lift(1)
+                .flatMap(_.asObject)
+                .exists(body =>
+                  body.get("max_completion_tokens").contains(Json.Num(37)) && body
+                    .get("max_tokens")
+                    .isEmpty
+                ),
               bodies.headOption
                 .flatMap(_.asObject)
                 .exists(

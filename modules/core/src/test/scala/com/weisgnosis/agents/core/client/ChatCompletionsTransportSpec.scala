@@ -28,6 +28,51 @@ import zio.test.*
 import HttpClientTestSupport.scripted
 
 object ChatCompletionsTransportSpec extends ZIOSpecDefault:
+  private enum TokenLimitEntry:
+    case ClientStreaming, ClientJson, TransportStreaming, TransportJson
+
+  private def tokenLimitRequest(
+      entry: TokenLimitEntry,
+      http: Client,
+      selected: LlmConfig,
+      field: ChatCompletionTokenLimitField,
+      retry: CompletionRetryPolicy
+  ): ZIO[Scope, AgentError, TurnOutput] =
+    val history = Chunk(Msg.user("hello"))
+    entry match
+      case TokenLimitEntry.ClientStreaming =>
+        ChatCompletionsClient
+          .make(http, retryPolicy = retry, tokenLimitField = field)
+          .flatMap(
+            _.streamTurn(
+              history,
+              Chunk.empty,
+              selected,
+              EventPublisher.discard,
+              ModelStreamContext("reply", "request")
+            )
+          )
+      case TokenLimitEntry.ClientJson =>
+        ChatCompletionsClient
+          .makeNonStreaming(http, retryPolicy = retry, tokenLimitField = field)
+          .flatMap(
+            _.streamTurn(
+              history,
+              Chunk.empty,
+              selected,
+              EventPublisher.discard,
+              ModelStreamContext("reply", "request")
+            )
+          )
+      case TokenLimitEntry.TransportStreaming =>
+        ChatCompletionsTransport
+          .make(http, retryPolicy = retry, tokenLimitField = field)
+          .flatMap(_.complete(history, Chunk.empty, selected))
+      case TokenLimitEntry.TransportJson =>
+        ChatCompletionsTransport
+          .makeNonStreaming(http, retryPolicy = retry, tokenLimitField = field)
+          .flatMap(_.complete(history, Chunk.empty, selected))
+
   private enum RetryExclusion:
     case Acquisition, ErrorBody, ErrorBodyDefect, StreamBody, Parser, Transform, Callback
 
@@ -41,6 +86,79 @@ object ChatCompletionsTransportSpec extends ZIOSpecDefault:
   private val success = text + stop + done
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsTransport")(
+    (test(
+      "public JSON and SSE factories retain the selected token field across actual HTTP retries"
+    ):
+      ZIO
+        .foreach(Chunk.fromArray(TokenLimitEntry.values)): entry =>
+          ZIO.foreach(
+            Chunk(
+              ChatCompletionTokenLimitField.MaxTokens,
+              ChatCompletionTokenLimitField.MaxCompletionTokens
+            )
+          ): field =>
+            val (media, wire) = entry match
+              case TokenLimitEntry.ClientJson | TokenLimitEntry.TransportJson =>
+                (
+                  "application/json",
+                  """{"object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"hello"},"finish_reason":"stop"}]}"""
+                )
+              case _ => ("text/event-stream", success)
+            ZIO
+              .scoped:
+                for
+                  sent  <- Ref.make(Chunk.empty[String])
+                  retry <- ZIO.fromEither(CompletionRetryPolicy.make(2))
+                  port <- Server.install(Routes(Method.POST / "completion" -> handler {
+                    (request: Request) =>
+                      for
+                        raw    <- request.body.asString.orDie
+                        bodies <- sent.updateAndGet(_ :+ raw)
+                      yield
+                        if bodies.size % 2 == 1 then
+                          Response(
+                            status = Status.ServiceUnavailable,
+                            body = Body.fromString("busy")
+                          )
+                        else
+                          Response(
+                            headers = Headers("Content-Type" -> media),
+                            body = Body.fromString(wire)
+                          )
+                  }))
+                  http <- ZIO.service[Client]
+                  outputs <- ZIO.foreach(Chunk(None, Some(37))): limit =>
+                    tokenLimitRequest(
+                      entry,
+                      http,
+                      config
+                        .copy(endpoint = s"http://127.0.0.1:$port/completion", maxTokens = limit),
+                      field,
+                      retry
+                    )
+                  bodies <- sent.get
+                  expected =
+                    if field == ChatCompletionTokenLimitField.MaxTokens then "max_tokens"
+                    else "max_completion_tokens"
+                  absent =
+                    if field == ChatCompletionTokenLimitField.MaxTokens then "max_completion_tokens"
+                    else "max_tokens"
+                yield assertTrue(
+                  outputs.forall(_.message.text == "hello"),
+                  bodies.size == 4,
+                  bodies.take(2).distinct.size == 1,
+                  bodies.drop(2).distinct.size == 1,
+                  bodies.zipWithIndex.forall: (raw, index) =>
+                    raw
+                      .fromJson[Json.Obj]
+                      .exists(body =>
+                        body.get(expected) == Option
+                          .when(index >= 2)(Json.Num(37)) && body.get(absent).isEmpty
+                      )
+                )
+              .provide(Client.default, Server.defaultWithPort(0))
+        .map(_.flatten.foldLeft(assertTrue(true))(_ && _))
+    ) @@ TestAspect.withLiveClock,
     test("both explicit client response modes forward the selected image-part tool profile"):
       val factories: Chunk[(Client => IO[AgentError, ChatCompletionsClient], String, String)] =
         Chunk(

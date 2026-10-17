@@ -41,7 +41,7 @@ Use an OpenAI-compatible Chat Completions endpoint with streaming and tool calli
 | `AGENT_MODEL` | A model offered by that provider with streaming and tool calling support. |
 | `AGENT_API_KEY` | Your credential for that provider. |
 
-The example leaves temperature to the provider and sends a 4,096-token output limit. Explicit sampling values remain available through `temperature` ([configuration guide](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-temperature)). The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
+The example leaves temperature to the provider and sends a 4,096-token output limit. The client defaults to `max_tokens`; [select the other token-limit field](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#token-limit-wire-field) if your endpoint requires it. Explicit sampling values remain available through `temperature` ([configuration guide](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-temperature)). The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
 
 Save the following as `src/main/scala/FirstAgent.scala`. It exposes one tool and asks the model to assess a release. The tool supplies fixed demonstration data; replace its handler with your service function to read real evidence.
 

@@ -72,7 +72,8 @@ object ChatCompletionsClient:
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
       retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
       envelopeProfile: CompletionEnvelopeProfile = CompletionEnvelopeProfile.IndexedDeltas,
-      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly,
+      tokenLimitField: ChatCompletionTokenLimitField = ChatCompletionTokenLimitField.MaxTokens
   ): IO[AgentError, ChatCompletionsClient] =
     ChatCompletionsTransport
       .make(
@@ -82,7 +83,8 @@ object ChatCompletionsClient:
         toolSignatureFormat,
         retryPolicy,
         envelopeProfile,
-        toolResultFormat
+        toolResultFormat,
+        tokenLimitField
       )
       .map(new ChatCompletionsClient(_, textTransform))
 
@@ -94,7 +96,8 @@ object ChatCompletionsClient:
       textTransform: ModelTextTransform = ModelTextTransform.identity,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
       retryPolicy: CompletionRetryPolicy = CompletionRetryPolicy.disabled,
-      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly,
+      tokenLimitField: ChatCompletionTokenLimitField = ChatCompletionTokenLimitField.MaxTokens
   ): IO[AgentError, ChatCompletionsClient] =
     ChatCompletionsTransport
       .makeNonStreaming(
@@ -103,6 +106,7 @@ object ChatCompletionsClient:
         reasoningReplay,
         toolSignatureFormat,
         retryPolicy,
-        toolResultFormat
+        toolResultFormat,
+        tokenLimitField
       )
       .map(new ChatCompletionsClient(_, textTransform))

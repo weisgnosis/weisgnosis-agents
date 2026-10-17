@@ -97,6 +97,14 @@ This is a private decoder correction without public source/JVM or configuration 
 
 Per-tool provider strictness has a separate [definition contract and migration](../tool/README.md#provider-tool-schema-strictness); it is not a model-request projection setting.
 
+## Token-limit wire field
+
+Chat Completions clients and transports default to `ChatCompletionTokenLimitField.MaxTokens`, which encodes a configured `LlmConfig.maxTokens` as `max_tokens`. For an endpoint that expects the other field, construct the client with `ChatCompletionsClient.make(http, tokenLimitField = ChatCompletionTokenLimitField.MaxCompletionTokens)`. The same argument is available on `makeNonStreaming`, both transport factories and both public request encoders.
+
+The selected field contains the existing positive optional value. With `maxTokens=None`, neither field is sent; with a value, exactly one is sent. The host selects the endpoint protocol explicitly. No model-name detection, duplicate token-limit keys or provider-option map is introduced. Request transforms can change the numeric limit; each primary/fallback client retains its own field selection. HTTP status retries reuse the encoded body. This does not change runtime token-budget exhaustion, truncation handling or local execution limits.
+
+Migration: the policy is an appended defaulted factory/encoder argument. Ordinary source calls retain legacy wire behavior; dependent binaries must be rebuilt and constructor/method values may need updates. LlmConfig, ModelRequestSettings, child declarations and checkpoint wire data have no new field for this policy.
+
 ## Optional temperature
 
 `LlmConfig("model", temperaturePolicy = TemperaturePolicy.Omit)` leaves temperature out of the provider request. The default is `Configured`, which sends the existing numeric `temperature` value (default `0.7`). `configuredTemperature` exposes the effective optional value. Under `Omit`, the retained scalar is dormant and is neither emitted nor range-checked; switching back to `Configured` validates it again. Omission emits no JSON key, rather than JSON null.

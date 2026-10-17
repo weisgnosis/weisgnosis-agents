@@ -80,6 +80,47 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
     case _ => Chunk(msg)
 
   def spec: Spec[TestEnvironment, Any] = suite("ChatCompletionsRequestSpec")(
+    test("token-limit dialect emits exactly one selected field in JSON and SSE"):
+      val history = Chunk(Msg.user("hello"))
+      val checked = Chunk(
+        (ChatCompletionTokenLimitField.MaxTokens, "max_tokens", "max_completion_tokens"),
+        (ChatCompletionTokenLimitField.MaxCompletionTokens, "max_completion_tokens", "max_tokens")
+      ).forall: (field, expected, absent) =>
+        Chunk(None, Some(37)).forall: limit =>
+          val selected = config.copy(maxTokens = limit)
+          Chunk(
+            ChatCompletionsRequest.encode(history, Chunk.empty, selected, tokenLimitField = field),
+            ChatCompletionsRequest.encodeNonStreaming(
+              history,
+              Chunk.empty,
+              selected,
+              tokenLimitField = field
+            )
+          ).forall(
+            _.exists(body =>
+              body.get(expected) == limit.map(Json.Num(_)) && body.get(absent).isEmpty
+            )
+          )
+      val invalid = Chunk(0, -1).forall: limit =>
+        val selected = config.copy(maxTokens = Some(limit))
+        ChatCompletionsRequest
+          .encode(
+            history,
+            Chunk.empty,
+            selected,
+            tokenLimitField = ChatCompletionTokenLimitField.MaxCompletionTokens
+          )
+          .isLeft &&
+        ChatCompletionsRequest
+          .encodeNonStreaming(
+            history,
+            Chunk.empty,
+            selected,
+            tokenLimitField = ChatCompletionTokenLimitField.MaxCompletionTokens
+          )
+          .isLeft
+      assertTrue(checked, invalid)
+    ,
     test("temperature omission preserves legacy codecs and both completion encodings"):
       val history = Chunk(Msg.user("hello"))
       val omitted = config.copy(temperaturePolicy = TemperaturePolicy.Omit)

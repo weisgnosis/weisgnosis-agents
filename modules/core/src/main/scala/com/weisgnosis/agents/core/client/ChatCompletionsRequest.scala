@@ -39,6 +39,14 @@ enum ToolSignatureFormat derives JsonCodec:
 enum ToolResultFormat derives JsonCodec:
   case TextOnly, ImageParts
 
+/** Explicit token-limit wire field for a host-selected Chat Completions endpoint. */
+enum ChatCompletionTokenLimitField:
+  case MaxTokens, MaxCompletionTokens
+
+  private[client] def wireName: String = this match
+    case MaxTokens           => "max_tokens"
+    case MaxCompletionTokens => "max_completion_tokens"
+
 /** Internal response selection prevents independent streaming and envelope flags. */
 private[client] enum CompletionResponseMode:
   case Streaming(profile: CompletionEnvelopeProfile)
@@ -57,7 +65,8 @@ object ChatCompletionsRequest:
       config: LlmConfig,
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
-      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly,
+      tokenLimitField: ChatCompletionTokenLimitField = ChatCompletionTokenLimitField.MaxTokens
   ): Either[AgentError, Json.Obj] =
     encodeWithMode(
       history,
@@ -66,7 +75,8 @@ object ChatCompletionsRequest:
       reasoningReplay,
       toolSignatureFormat,
       toolResultFormat,
-      CompletionResponseMode.Streaming(CompletionEnvelopeProfile.IndexedDeltas)
+      CompletionResponseMode.Streaming(CompletionEnvelopeProfile.IndexedDeltas),
+      tokenLimitField
     )
 
   /** Selects one ordinary JSON response; all message and tool validation remains identical. */
@@ -76,7 +86,8 @@ object ChatCompletionsRequest:
       config: LlmConfig,
       reasoningReplay: ReasoningReplay = ReasoningReplay.Omit,
       toolSignatureFormat: ToolSignatureFormat = ToolSignatureFormat.Unsupported,
-      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly
+      toolResultFormat: ToolResultFormat = ToolResultFormat.TextOnly,
+      tokenLimitField: ChatCompletionTokenLimitField = ChatCompletionTokenLimitField.MaxTokens
   ): Either[AgentError, Json.Obj] =
     encodeWithMode(
       history,
@@ -85,7 +96,8 @@ object ChatCompletionsRequest:
       reasoningReplay,
       toolSignatureFormat,
       toolResultFormat,
-      CompletionResponseMode.NonStreaming
+      CompletionResponseMode.NonStreaming,
+      tokenLimitField
     )
 
   private def encodeWithMode(
@@ -95,7 +107,8 @@ object ChatCompletionsRequest:
       reasoningReplay: ReasoningReplay,
       toolSignatureFormat: ToolSignatureFormat,
       toolResultFormat: ToolResultFormat,
-      mode: CompletionResponseMode
+      mode: CompletionResponseMode,
+      tokenLimitField: ChatCompletionTokenLimitField
   ): Either[AgentError, Json.Obj] =
     val responseFields = mode match
       case CompletionResponseMode.Streaming(_) =>
@@ -150,7 +163,9 @@ object ChatCompletionsRequest:
         ) ++ responseFields ++ Chunk.fromIterable(
           config.configuredTemperature.map(value => "temperature" -> Json.Num(value))
         ) ++
-          Chunk.fromIterable(config.maxTokens.map(value => "max_tokens" -> Json.Num(value))) ++
+          Chunk.fromIterable(
+            config.maxTokens.map(value => tokenLimitField.wireName -> Json.Num(value))
+          ) ++
           Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
           Chunk.fromIterable(
             config.frequencyPenalty.map(value => "frequency_penalty" -> Json.Num(value))
