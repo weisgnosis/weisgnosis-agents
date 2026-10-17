@@ -80,6 +80,71 @@ object ChatCompletionsRequestSpec extends ZIOSpecDefault:
     case _ => Chunk(msg)
 
   def spec: Spec[TestEnvironment, Any] = suite("ChatCompletionsRequestSpec")(
+    test("temperature omission preserves legacy codecs and both completion encodings"):
+      val history = Chunk(Msg.user("hello"))
+      val omitted = config.copy(temperaturePolicy = TemperaturePolicy.Omit)
+      val configurations =
+        Chunk(config, config.copy(temperature = 0), config.copy(temperature = 1), omitted)
+      val bodies = configurations.map: selected =>
+        val encodings = Chunk(
+          ChatCompletionsRequest.encode(history, Chunk.empty, selected),
+          ChatCompletionsRequest.encodeNonStreaming(history, Chunk.empty, selected),
+          AnthropicMessagesRequest.encode(history, Chunk.empty, selected),
+          GeminiMessagesRequest.encode(history, Chunk.empty, selected, GeminiCodeExecution.Disabled)
+        )
+        encodings.zipWithIndex.forall: (encoded, index) =>
+          encoded.exists: body =>
+            val fields =
+              if index == 3 then
+                body.asObject.flatMap(_.get("generationConfig")).flatMap(_.asObject)
+              else body.asObject
+            fields.exists(_.get("temperature") == selected.configuredTemperature.map(Json.Num(_)))
+      assertTrue(
+        bodies.forall(identity),
+        omitted.toJson.fromJson[LlmConfig] == Right(omitted),
+        """{"model":"test-model"}""".fromJson[LlmConfig] == Right(config),
+        """{"model":"test-model","temperature":0}""".fromJson[LlmConfig] == Right(
+          config.copy(temperature = 0)
+        ),
+        """{"model":"test-model","temperaturePolicy":null}"""
+          .fromJson[LlmConfig]
+          .exists(_.temperaturePolicy == TemperaturePolicy.Configured),
+        """{"model":"test-model","temperature":null}"""
+          .fromJson[LlmConfig]
+          .exists(_.temperature == 0.7),
+        """{"model":"test-model","temperaturePolicy":"unknown"}""".fromJson[LlmConfig].isLeft
+      )
+    ,
+    test("only configured temperature is range-checked and thinking accepts omission"):
+      val history = Chunk(Msg.user("hello"))
+      val invalid = Chunk(Double.NaN, Double.PositiveInfinity, Double.NegativeInfinity, -0.1, 2.1)
+      val checked = invalid.forall: value =>
+        val selected = config.copy(temperature = value)
+        val omitted  = selected.copy(temperaturePolicy = TemperaturePolicy.Omit)
+        ChatCompletionsRequest.encode(history, Chunk.empty, selected).isLeft &&
+        AnthropicMessagesRequest.encode(history, Chunk.empty, selected).isLeft &&
+        GeminiMessagesRequest
+          .encode(history, Chunk.empty, selected, GeminiCodeExecution.Disabled)
+          .isLeft &&
+        ChatCompletionsRequest.encode(history, Chunk.empty, omitted).isRight &&
+        AnthropicMessagesRequest.encode(history, Chunk.empty, omitted).isRight &&
+        GeminiMessagesRequest
+          .encode(history, Chunk.empty, omitted, GeminiCodeExecution.Disabled)
+          .isRight
+      val thinking = ThinkingBudget.fromInt(1024)
+      assertTrue(
+        checked,
+        thinking.exists: budget =>
+          val selected = config.copy(maxTokens = Some(2048), thinkingBudget = Some(budget))
+          AnthropicMessagesRequest.encode(history, Chunk.empty, selected).isLeft &&
+          AnthropicMessagesRequest
+            .encode(history, Chunk.empty, selected.copy(temperaturePolicy = TemperaturePolicy.Omit))
+            .isRight &&
+          AnthropicMessagesRequest
+            .encode(history, Chunk.empty, selected.copy(temperature = 1))
+            .isRight
+      )
+    ,
     test(
       "explicit image-part tool profile preserves ordered observations and rejects unsupported output"
     ):

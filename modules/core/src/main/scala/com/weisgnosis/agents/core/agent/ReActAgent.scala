@@ -1861,7 +1861,8 @@ final class ReActAgent private (
                 target.config.seed,
                 target.config.stopSequences,
                 target.config.reasoningEffort,
-                target.config.thinkingBudget
+                target.config.thinkingBudget,
+                target.config.temperaturePolicy
               )
             )
             candidate <- ZIO.scoped(
@@ -1878,7 +1879,8 @@ final class ReActAgent private (
               seed = validated.settings.seed,
               stopSequences = validated.settings.stopSequences,
               reasoningEffort = validated.settings.reasoningEffort,
-              thinkingBudget = validated.settings.thinkingBudget
+              thinkingBudget = validated.settings.thinkingBudget,
+              temperaturePolicy = validated.settings.temperaturePolicy
             )
             result <- ZIO.scoped:
               for

@@ -97,13 +97,23 @@ This is a private decoder correction without public source/JVM or configuration 
 
 Per-tool provider strictness has a separate [definition contract and migration](../tool/README.md#provider-tool-schema-strictness); it is not a model-request projection setting.
 
+## Optional temperature
+
+`LlmConfig("model", temperaturePolicy = TemperaturePolicy.Omit)` leaves temperature out of the provider request. The default is `Configured`, which sends the existing numeric `temperature` value (default `0.7`). `configuredTemperature` exposes the effective optional value. Under `Omit`, the retained scalar is dormant and is neither emitted nor range-checked; switching back to `Configured` validates it again. Omission emits no JSON key, rather than JSON null.
+
+Chat Completions streaming and ordinary JSON, native Anthropic Messages and native Gemini requests honor this setting. Explicit values retain adapter-specific range checks. The existing Anthropic thinking profile accepts omission or explicit temperature 1, retaining its other budget and tool-choice restrictions. This does not infer model support or add newer thinking profiles.
+
+`ModelRequestSettings.temperaturePolicy` carries the selected primary/fallback target's choice through request transforms. A transform can explicitly switch either way; changing the scalar alone retains the current policy. Child declarations use the separate [inheritance contract](../../../../../../../../../../modules/harness/src/main/scala/com/weisgnosis/agents/harness/subagent/README.md#inline-declarations).
+
+Migration: the defaulted policy is appended to LlmConfig and ModelRequestSettings. Existing numeric constructor/copy calls remain source-compatible; dependent binaries must be rebuilt and positional extractors/method values may need updates. Legacy missing/null temperature remains 0.7, missing/null policy means Configured, and unknown policies fail decoding. Explicit Omit round-trips through configuration JSON. Wire omission is separate from the stored numeric configuration value.
+
 ## Optional thinking budget
 
 ThinkingBudget.fromInt returns a checked positive opaque value; zero, negative/sentinel values, fractional/out-of-range JSON and nonnumeric values are rejected. LlmConfig and ModelRequestSettings append optional thinkingBudget, default None. The shared request encoder emits exact top-level thinking_budget only when present, for an explicitly compatible host-selected endpoint. It supplies no local token limit, model detection or automatic compatibility policy. Ordinary JSON/SSE and native/synthetic structured requests share that encoding.
 
 Each selected target initializes projection from its own configuration. Projected Some overrides that target preference and None clears it; neither changes model/client/tool authority. Provider preference is distinct from runtime completion/iteration limits. Pinned OpenAIChatFormatterTest.testApplyThinkingBudget (444), testApplyThinkingBudgetFromDefault (457), testApplyThinkingBudgetOverride (470) and testThinkingBudgetAbsent (484) have bounded explicit configuration/default/projection/omission adaptations; mutable Java default merging, arbitrary integers and extra-body overrides are excluded.
 
-Migration: current LlmConfig has sixteen positional/Product fields and ModelRequestSettings has nine. Appended defaulted options preserve ordinary omitted-argument source calls and legacy absent/null configuration JSON, while positional extractors, constructor method values and JVM signatures require assessment and dependent binaries must be rebuilt. This does not freeze a release ABI.
+Migration: current LlmConfig has seventeen positional/Product fields and ModelRequestSettings has ten. Appended defaulted options preserve ordinary omitted-argument source calls and legacy absent/null configuration JSON, while positional extractors, constructor method values and JVM signatures require assessment and dependent binaries must be rebuilt. This does not freeze a release ABI.
 
 ## Optional reasoning effort
 
@@ -111,7 +121,7 @@ The supported ReasoningEffort.Low, Medium and High subset expresses explicit pro
 
 Each primary/fallback target supplies its own preference to ModelRequestSettings.reasoningEffort. Scoped request projection may replace it or clear it with None; legacy history transforms retain it, retries reuse the serialized body, and native/synthetic formatting preserves the projected value. The runtime does not infer completion, permissions or reasoning replay policy from this preference. Endpoint support remains the host's responsibility.
 
-Migration: current arities are sixteen LlmConfig fields and nine ModelRequestSettings fields under the [thinking-budget migration](#optional-thinking-budget). Appended defaulted options preserve ordinary omitted-argument construction and legacy JSON; positional patterns/constructor method values may need adaptation and dependent binaries must be rebuilt.
+Migration: current arities are seventeen LlmConfig fields and ten ModelRequestSettings fields under the [thinking-budget migration](#optional-thinking-budget). Appended defaulted options preserve ordinary omitted-argument construction and legacy JSON; positional patterns/constructor method values may need adaptation and dependent binaries must be rebuilt.
 
 ## Optional stop sequences
 
@@ -206,7 +216,7 @@ History must contain complete local call/result pairs. Orphan, duplicate, unknow
 
 ReasoningReplay.Omit is the default. LatestAssistant replays unsigned thinking only from the last assistant message through reasoning_content. OpenRouterEncryptedDetails validates and replays encrypted detail arrays from every historical assistant message. OpenRouterDetails additionally supports checked text and summary objects; other detailed/signed thinking formats remain unsupported. Unsupported media, provider-hosted server calls/results, calls signed with an unsupported format, and non-text tool output under the default TextOnly profile fail explicitly. User-media projection is defined below; broader provider formatting remains separate.
 
-Validation covers nonblank models, finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
+Validation covers nonblank models, configured finite temperature in [0, 2], positive optional token limits, protocol names, unique definitions/call IDs, object schemas/arguments/response formats, and duplicate JSON fields. ToolUse.input is authoritative; stale raw content is not sent. Forwarding a schema object does not validate arbitrary JSON Schema semantics. Endpoint, authentication headers, HTTP status handling, and request resource lifetime belong to ChatCompletionsTransport.
 
 ## Tool-image result projection
 
@@ -373,7 +383,7 @@ The expanded existing cancellation group targets cooperative/external interrupti
 
 Select a provider through the existing `ModelTarget(client, config)`; the host borrows a scoped `zio.http.Client` and supplies an explicit full endpoint and credentials. `ChatCompletionsClient` remains the OpenAI-compatible profile. Native profiles do not translate unsupported generation settings silently or infer safe retries from uncertain network failures.
 
-`AnthropicLlmClient.make(http)` implements native Messages text, signed thinking and local tool turns with `x-api-key` and the selected API version. Use the full `/v1/messages` endpoint. System text is encoded separately; exact thinking signatures and indexed text/tool order survive continuation. Interrupted open thinking remains in canonical history with its incomplete marker and is omitted from the next native request; it is never converted into signed thinking. Unmarked unsigned thinking, malformed markers and stale native replay are rejected. Choose sufficient maxTokens for an explicitly selected thinking budget and temperature 1. Native responseFormat, penalties, seed, reasoningEffort, media and redacted thinking are rejected by this profile. Synthetic structured output uses the ordinary local `generate_response` mechanism instead of native formatting.
+`AnthropicLlmClient.make(http)` implements native Messages text, signed thinking and local tool turns with `x-api-key` and the selected API version. Use the full `/v1/messages` endpoint. System text is encoded separately; exact thinking signatures and indexed text/tool order survive continuation. Interrupted open thinking remains in canonical history with its incomplete marker and is omitted from the next native request; it is never converted into signed thinking. Unmarked unsigned thinking, malformed markers and stale native replay are rejected. Choose sufficient maxTokens for an explicitly selected thinking budget and omitted temperature or temperature 1. Native responseFormat, penalties, seed, reasoningEffort, media and redacted thinking are rejected by this profile. Synthetic structured output uses the ordinary local `generate_response` mechanism instead of native formatting.
 
 Anthropic top-level message deltas carry cumulative usage. Missing/null intermediate stop reasons retain the previous reason; repeated consistent reasons are accepted, conflicts are rejected and content blocks cannot reopen after these deltas. A final reason and message_stop remain mandatory.
 

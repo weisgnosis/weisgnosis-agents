@@ -37,6 +37,14 @@ enum ToolCallParallelism derives JsonCodec:
 enum ReasoningEffort derives JsonCodec:
   case Low, Medium, High
 
+/** Choose an explicit sampling value or leave the provider's default unchanged. */
+enum TemperaturePolicy derives JsonCodec:
+  case Configured, Omit
+
+  def configuredValue(temperature: Double): Option[Double] = this match
+    case Configured => Some(temperature)
+    case Omit       => None
+
 final case class LlmConfig(
     model: String,
     endpoint: String = "https://api.openai.com/v1/chat/completions",
@@ -53,8 +61,10 @@ final case class LlmConfig(
     parallelToolCalls: Option[ToolCallParallelism] = None,
     stopSequences: Option[StopSequences] = None,
     reasoningEffort: Option[ReasoningEffort] = None,
-    thinkingBudget: Option[ThinkingBudget] = None
-) derives JsonCodec
+    thinkingBudget: Option[ThinkingBudget] = None,
+    temperaturePolicy: TemperaturePolicy = TemperaturePolicy.Configured
+) derives JsonCodec:
+  def configuredTemperature: Option[Double] = temperaturePolicy.configuredValue(temperature)
 
 /**
  * Streaming LLM client interface for invoking models and streaming token deltas.

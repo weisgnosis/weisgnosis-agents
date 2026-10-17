@@ -15,6 +15,7 @@
  */
 package com.weisgnosis.agents.harness.subagent
 
+import com.weisgnosis.agents.core.client.TemperaturePolicy
 import com.weisgnosis.agents.core.error.AgentError
 import zio.*
 import zio.test.*
@@ -41,6 +42,25 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
         ("description: Review\ntopP: '1e0'", base.copy(topP = Some(1))),
         ("description: Review\ntop_p: null", base),
         ("description: Review\ntopP: ~", base),
+        ("description: Review\ntemperature_policy: null", base),
+        ("description: Review\ntemperature_policy: ~", base),
+        ("description: Review\ntemperature_policy:", base),
+        (
+          "description: Review\ntemperature_policy: omit\ntemperature: null",
+          base.copy(temperaturePolicy = Some(TemperaturePolicy.Omit))
+        ),
+        (
+          "description: Review\ntemperature_policy: ' OMIT '",
+          base.copy(temperaturePolicy = Some(TemperaturePolicy.Omit))
+        ),
+        (
+          "description: Review\ntemperature_policy: configured",
+          base.copy(temperaturePolicy = Some(TemperaturePolicy.Configured))
+        ),
+        (
+          "description: Review\ntemperature_policy: configured\ntemperature: 0.3",
+          base.copy(temperature = Some(0.3), temperaturePolicy = Some(TemperaturePolicy.Configured))
+        ),
         (
           "description: Review\nmodel: null\ntemperature: ~\nsteps:\nmaxIters: NULL\ntools: Null",
           base
@@ -161,6 +181,13 @@ object SubagentDeclarationParserSpec extends ZIOSpecDefault:
         "description: Review\ntemperature: 'null'",
         "description: Review\ntemperature: .inf",
         "description: Review\ntemperature: 1e999",
+        "description: Review\ntemperature_policy: omit\ntemperature: 0.3",
+        "description: Review\ntemperature_policy: omit\ntemperature_policy: configured",
+        "description: Review\ntemperature_policy: default",
+        "description: Review\ntemperature_policy: 'null'",
+        "description: Review\ntemperature_policy: ''",
+        "description: Review\ntemperature_policy: [omit]",
+        "description: Review\ntemperature_policy: {value: omit}",
         "description: Review\ntop_p: 0.5\ntopP: 0.5",
         "description: Review\ntop_p: null\ntopP: 0.5",
         "description: Review\ntop_p: 0.5\ntopP: null",

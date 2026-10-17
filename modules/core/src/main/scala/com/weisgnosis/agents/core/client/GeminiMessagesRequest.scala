@@ -22,7 +22,9 @@ private[client] object GeminiMessagesRequest:
     for
       _ <- Either.cond(
         !config.model.isBlank && config.maxTokens.forall(_ > 0) &&
-          config.temperature.isFinite && config.temperature >= 0 && config.temperature <= 2 &&
+          config.configuredTemperature.forall(value =>
+            value.isFinite && value >= 0 && value <= 2
+          ) &&
           config.topP.forall(value => value.isFinite && value >= 0 && value <= 1) &&
           config.responseFormat.isEmpty && config.toolChoice.isEmpty && config.parallelToolCalls.isEmpty &&
           (tools.isEmpty || execution == GeminiCodeExecution.Disabled) &&
@@ -49,9 +51,11 @@ private[client] object GeminiMessagesRequest:
       )
       generation = Json.Obj(
         Chunk(
-          "temperature"     -> Json.Num(config.temperature),
           "maxOutputTokens" -> Json.Num(config.maxTokens.getOrElse(1024))
-        ) ++ Chunk.fromIterable(config.topP.map(value => "topP" -> Json.Num(value))) ++
+        ) ++ Chunk.fromIterable(
+          config.configuredTemperature.map(value => "temperature" -> Json.Num(value))
+        ) ++
+          Chunk.fromIterable(config.topP.map(value => "topP" -> Json.Num(value))) ++
           Chunk.fromIterable(
             config.stopSequences.map(value =>
               "stopSequences" -> Json.Arr(value.values.map(Json.Str(_)))

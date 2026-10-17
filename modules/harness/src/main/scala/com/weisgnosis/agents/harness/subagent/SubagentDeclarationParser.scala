@@ -16,6 +16,7 @@
 package com.weisgnosis.agents.harness.subagent
 
 import com.weisgnosis.agents.core.error.AgentError
+import com.weisgnosis.agents.core.client.TemperaturePolicy
 import org.snakeyaml.engine.v2.api.LoadSettings
 import org.snakeyaml.engine.v2.api.lowlevel.Parse
 import org.snakeyaml.engine.v2.events.*
@@ -54,6 +55,7 @@ object SubagentDeclarationParser:
       "description",
       "model",
       "temperature",
+      "temperature_policy",
       "top_p",
       "topP",
       "tools",
@@ -217,6 +219,14 @@ object SubagentDeclarationParser:
       tools       <- selection(values, "tools")
       skills      <- selection(values, "skills")
       sampled     <- optional(scalar(values, "temperature"), decimal(_, "temperature"))
+      temperaturePolicy <- optional(
+        scalar(values, "temperature_policy"),
+        value =>
+          value.trim.toLowerCase(java.util.Locale.ROOT) match
+            case "configured" => Right(TemperaturePolicy.Configured)
+            case "omit"       => Right(TemperaturePolicy.Omit)
+            case _            => Left(invalid("temperature_policy must be configured or omit"))
+      )
       _ <- Either.cond(
         !(values.contains("top_p") && values.contains("topP")),
         (),
@@ -253,6 +263,7 @@ object SubagentDeclarationParser:
         ),
         topP,
         mode,
-        visibility
+        visibility,
+        temperaturePolicy
       ).validated
     yield declaration

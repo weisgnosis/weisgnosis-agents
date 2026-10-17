@@ -110,7 +110,7 @@ object ChatCompletionsRequest:
       _ <- validatePairing(history)
       _ <- configuration(config.model.trim.nonEmpty, "Model name must not be blank")
       _ <- configuration(
-        config.temperature.isFinite && config.temperature >= 0 && config.temperature <= 2,
+        config.configuredTemperature.forall(value => value.isFinite && value >= 0 && value <= 2),
         "Temperature must be finite and between zero and two"
       )
       _ <- configuration(config.maxTokens.forall(_ > 0), "Maximum tokens must be positive")
@@ -147,7 +147,9 @@ object ChatCompletionsRequest:
         Chunk(
           "model"    -> Json.Str(config.model),
           "messages" -> Json.Arr(messages.flatten)
-        ) ++ responseFields ++ Chunk("temperature" -> Json.Num(config.temperature)) ++
+        ) ++ responseFields ++ Chunk.fromIterable(
+          config.configuredTemperature.map(value => "temperature" -> Json.Num(value))
+        ) ++
           Chunk.fromIterable(config.maxTokens.map(value => "max_tokens" -> Json.Num(value))) ++
           Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
           Chunk.fromIterable(

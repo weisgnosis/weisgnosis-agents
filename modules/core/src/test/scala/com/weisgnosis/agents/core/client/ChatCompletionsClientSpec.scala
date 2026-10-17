@@ -55,6 +55,67 @@ object ChatCompletionsClientSpec extends ZIOSpecDefault:
   private val done = "data: [DONE]\n\n"
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ChatCompletionsClient")(
+    test("all native HTTP clients omit temperature only when explicitly requested"):
+      val anthropic =
+        "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"role\":\"assistant\",\"content\":[],\"usage\":{\"input_tokens\":1,\"output_tokens\":0}}}\n\n" +
+          "event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"answer\"}}\n\n" +
+          "event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
+          "event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":1}}\n\n" +
+          "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n"
+      val gemini = frame(
+        """{"candidates":[{"index":0,"content":{"role":"model","parts":[{"text":"answer"}]},"finishReason":"STOP"}]}"""
+      )
+      ZIO
+        .scoped:
+          for
+            captured <- Ref.make(Chunk.empty[Json])
+            wire     <- Ref.make(text + stop + done)
+            port <- Server.install(Routes(Method.POST / "completion" -> handler {
+              (request: Request) =>
+                for
+                  raw   <- request.body.asString.orDie
+                  _     <- captured.update(_ :+ raw.fromJson[Json].getOrElse(Json.Null))
+                  reply <- wire.get
+                yield response(ZStream.succeed(reply))
+            }))
+            http            <- ZIO.service[Client]
+            chat            <- ChatCompletionsClient.make(http)
+            nativeAnthropic <- AnthropicLlmClient.make(http)
+            nativeGemini    <- GeminiLlmClient.make(http)
+            clients: Chunk[(LlmClient, String)] = Chunk(
+              (chat, text + stop + done),
+              (nativeAnthropic, anthropic),
+              (nativeGemini, gemini)
+            )
+            values = Chunk(None, Some(0.0), Some(0.7), Some(1.0))
+            outcomes <- ZIO.foreach(clients): (client, reply) =>
+              wire.set(reply) *> ZIO.foreach(values): value =>
+                val selected = config.copy(
+                  endpoint = s"http://127.0.0.1:$port/completion",
+                  temperature = value.getOrElse(0.7),
+                  temperaturePolicy =
+                    if value.isEmpty then TemperaturePolicy.Omit else TemperaturePolicy.Configured
+                )
+                client.streamTurn(
+                  Chunk(Msg.user("hello")),
+                  Chunk.empty,
+                  selected,
+                  EventPublisher.discard,
+                  ModelStreamContext("reply", "request")
+                )
+            bodies <- captured.get
+          yield assertTrue(
+            outcomes.flatten.forall(_.message.text == "answer"),
+            bodies.size == 12,
+            bodies.zipWithIndex.forall: (body, index) =>
+              val fields =
+                if index >= 8 then
+                  body.asObject.flatMap(_.get("generationConfig")).flatMap(_.asObject)
+                else body.asObject
+              fields.exists(_.get("temperature") == values.lift(index % 4).flatten.map(Json.Num(_)))
+          )
+        .provide(Client.default, Server.defaultWithPort(0))
+    ,
     test(
       "publishes correlated deltas before response completion and commits only the finished reply"
     ):

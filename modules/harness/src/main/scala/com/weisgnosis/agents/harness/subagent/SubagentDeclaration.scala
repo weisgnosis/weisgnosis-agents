@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.harness.subagent
 
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult}
-import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig}
+import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TemperaturePolicy}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.tool.Toolkit
 import zio.*
@@ -46,7 +46,8 @@ final case class SubagentDeclaration(
     skills: SubagentSkillSelection = SubagentSkillSelection.AllAvailable,
     topP: Option[Double] = None,
     mode: SubagentMode = SubagentMode.All,
-    visibility: SubagentVisibility = SubagentVisibility.Visible
+    visibility: SubagentVisibility = SubagentVisibility.Visible,
+    temperaturePolicy: Option[TemperaturePolicy] = None
 ) derives JsonCodec:
   def validated: Either[AgentError, SubagentDeclaration] =
     val validTools = tools match
@@ -61,6 +62,12 @@ final case class SubagentDeclaration(
       Left(AgentError.InvalidConfiguration("Subagent model override must be nonblank"))
     else if temperature.exists(value => !value.isFinite) then
       Left(AgentError.InvalidConfiguration("Subagent temperature must be finite"))
+    else if temperature.nonEmpty && temperaturePolicy.contains(TemperaturePolicy.Omit) then
+      Left(
+        AgentError.InvalidConfiguration(
+          "Subagent omitted temperature cannot have a numeric override"
+        )
+      )
     else if topP.exists(value => !value.isFinite || value < 0 || value > 1) then
       Left(AgentError.InvalidConfiguration("Subagent topP must be finite and between 0 and 1"))
     else if maxIterations.exists(_ <= 0) then
@@ -97,6 +104,10 @@ final case class SubagentDeclaration(
         parentModel.copy(
           model = declaration.model.getOrElse(parentModel.model),
           temperature = declaration.temperature.getOrElse(parentModel.temperature),
+          temperaturePolicy = declaration.temperaturePolicy.getOrElse(
+            if declaration.temperature.nonEmpty then TemperaturePolicy.Configured
+            else parentModel.temperaturePolicy
+          ),
           topP = declaration.topP.orElse(parentModel.topP)
         ),
         inherited,

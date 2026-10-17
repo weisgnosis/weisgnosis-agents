@@ -16,7 +16,7 @@
 package com.weisgnosis.agents.harness.subagent
 
 import com.weisgnosis.agents.core.agent.{AgentConfig, AgentResult, ToolExecution}
-import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TurnOutput}
+import com.weisgnosis.agents.core.client.{LlmClient, LlmConfig, TemperaturePolicy, TurnOutput}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.{ContentBlock, Msg, Role, ToolResultState}
@@ -148,6 +148,7 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
           declared.copy(model = Some(" ")),
           declared.copy(temperature = Some(Double.NaN)),
           declared.copy(temperature = Some(Double.PositiveInfinity)),
+          declared.copy(temperature = Some(0.2), temperaturePolicy = Some(TemperaturePolicy.Omit)),
           declared.copy(topP = Some(Double.NaN)),
           declared.copy(topP = Some(Double.PositiveInfinity)),
           declared.copy(topP = Some(-0.1)),
@@ -162,7 +163,8 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
         roundTrip = declared.copy(
           tools = SubagentToolSelection.Only(Set.empty),
           skills = SubagentSkillSelection.Only(Set("guide")),
-          topP = Some(0.9)
+          topP = Some(0.9),
+          temperaturePolicy = Some(TemperaturePolicy.Omit)
         )
         untouched <- acquired.get
       yield assertTrue(
@@ -171,8 +173,14 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
         valid.isRight,
         untouched == 0,
         roundTrip.toJson.fromJson[SubagentDeclaration] == Right(roundTrip),
+        Chunk(TemperaturePolicy.Configured, TemperaturePolicy.Omit).forall(policy =>
+          val value = declared.copy(temperaturePolicy = Some(policy))
+          value.toJson.fromJson[SubagentDeclaration] == Right(value)
+        ),
         Chunk(0.0, 1.0).forall(value => declared.copy(topP = Some(value)).validated.isRight),
         """{"name":"reviewer","description":"Reviews delegated work","systemPrompt":"Review carefully.","topP":null}"""
+          .fromJson[SubagentDeclaration] == Right(declared),
+        """{"name":"reviewer","description":"Reviews delegated work","systemPrompt":"Review carefully.","temperaturePolicy":null}"""
           .fromJson[SubagentDeclaration] == Right(declared),
         """{"name":"reviewer","description":"Reviews delegated work","systemPrompt":"Review carefully."}"""
           .fromJson[SubagentDeclaration] == Right(declared)
@@ -256,7 +264,7 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
       ZIO
         .foreach(
           Chunk(
-            (SubagentDeclaration.generalPurpose, Set("read", "write"), parentModel, 2),
+            (SubagentDeclaration.generalPurpose, Set("read", "write"), parentModel, 2, parentModel),
             (
               declared.copy(
                 tools = SubagentToolSelection.Only(Set("read", "hidden")),
@@ -267,7 +275,8 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
               ),
               Set("read"),
               parentModel.copy(model = "child-model", temperature = 0.2, topP = Some(0)),
-              1
+              1,
+              parentModel
             ),
             (
               declared.copy(
@@ -277,10 +286,49 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
               ),
               Set.empty[String],
               parentModel,
-              1
+              1,
+              parentModel
+            ),
+            (
+              declared,
+              Set("read", "write"),
+              parentModel.copy(temperaturePolicy = TemperaturePolicy.Omit),
+              2,
+              parentModel.copy(temperaturePolicy = TemperaturePolicy.Omit)
+            ),
+            (
+              declared.copy(temperature = Some(0.2)),
+              Set("read", "write"),
+              parentModel.copy(temperature = 0.2),
+              2,
+              parentModel.copy(temperaturePolicy = TemperaturePolicy.Omit)
+            ),
+            (
+              declared.copy(temperaturePolicy = Some(TemperaturePolicy.Configured)),
+              Set("read", "write"),
+              parentModel,
+              2,
+              parentModel.copy(temperaturePolicy = TemperaturePolicy.Omit)
+            ),
+            (
+              declared.copy(temperaturePolicy = Some(TemperaturePolicy.Omit)),
+              Set("read", "write"),
+              parentModel.copy(temperaturePolicy = TemperaturePolicy.Omit),
+              2,
+              parentModel
+            ),
+            (
+              declared.copy(
+                temperature = Some(0.3),
+                temperaturePolicy = Some(TemperaturePolicy.Configured)
+              ),
+              Set("read", "write"),
+              parentModel.copy(temperature = 0.3),
+              2,
+              parentModel.copy(temperaturePolicy = TemperaturePolicy.Omit)
             )
           )
-        ) { case (declaration, expectedTools, expectedModel, iterations) =>
+        ) { case (declaration, expectedTools, expectedModel, iterations, inheritedModel) =>
           ZIO.scoped:
             for
               supervisor <- TaskSupervisor.open[AgentResult]
@@ -298,7 +346,7 @@ object SubagentDeclarationSpec extends ZIOSpecDefault:
                 declaration.factory(
                   construction,
                   parentConfig,
-                  parentModel,
+                  inheritedModel,
                   inherited,
                   PlanSession.make.flatMap(permissions),
                   (_, _) => ZIO.succeed(tools(Chunk("write"), executed)),

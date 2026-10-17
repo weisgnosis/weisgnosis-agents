@@ -38,10 +38,10 @@ Use an OpenAI-compatible Chat Completions endpoint with streaming and tool calli
 | Variable | Value |
 | --- | --- |
 | `AGENT_ENDPOINT` | Your provider's Chat Completions URL, for example `https://api.openai.com/v1/chat/completions`. |
-| `AGENT_MODEL` | A model offered by that provider with streaming, tool calling and `temperature=0` support. |
+| `AGENT_MODEL` | A model offered by that provider with streaming and tool calling support. |
 | `AGENT_API_KEY` | Your credential for that provider. |
 
-The example sends `temperature=0` and a 4,096-token output limit. The client always sends temperature; choose a model that accepts it. The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
+The example leaves temperature to the provider and sends a 4,096-token output limit. Explicit sampling values remain available through `temperature` ([configuration guide](modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-temperature)). The recorded live checks used a private compatible gateway; they do not establish a live run against OpenAI's native endpoint.
 
 Save the following as `src/main/scala/FirstAgent.scala`. It exposes one tool and asks the model to assess a release. The tool supplies fixed demonstration data; replace its handler with your service function to read real evidence.
 
@@ -50,7 +50,7 @@ Save the following as `src/main/scala/FirstAgent.scala`. It exposes one tool and
 package example
 
 import com.weisgnosis.agents.core.agent.ReActAgent
-import com.weisgnosis.agents.core.client.{ChatCompletionsClient, LlmConfig}
+import com.weisgnosis.agents.core.client.{ChatCompletionsClient, LlmConfig, TemperaturePolicy}
 import com.weisgnosis.agents.core.model.Msg
 import com.weisgnosis.agents.core.tool.{Tool, ToolSchema, Toolkit}
 import zio.*
@@ -81,7 +81,7 @@ object FirstAgent extends ZIOAppDefault:
             model,
             endpoint = endpoint,
             apiKey = Some(key),
-            temperature = 0,
+            temperaturePolicy = TemperaturePolicy.Omit,
             maxTokens = Some(4096)
           ))
           .toolkit(Toolkit.single(evidence))

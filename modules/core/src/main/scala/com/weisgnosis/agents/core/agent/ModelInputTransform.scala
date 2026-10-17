@@ -15,7 +15,12 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{ReasoningEffort, StopSequences, ThinkingBudget}
+import com.weisgnosis.agents.core.client.{
+  ReasoningEffort,
+  StopSequences,
+  ThinkingBudget,
+  TemperaturePolicy
+}
 import com.weisgnosis.agents.core.error.AgentError
 import com.weisgnosis.agents.core.event.ModelStreamContext
 import com.weisgnosis.agents.core.model.Msg
@@ -32,8 +37,10 @@ final case class ModelRequestSettings(
     seed: Option[Long] = None,
     stopSequences: Option[StopSequences] = None,
     reasoningEffort: Option[ReasoningEffort] = None,
-    thinkingBudget: Option[ThinkingBudget] = None
-)
+    thinkingBudget: Option[ThinkingBudget] = None,
+    temperaturePolicy: TemperaturePolicy = TemperaturePolicy.Configured
+):
+  def configuredTemperature: Option[Double] = temperaturePolicy.configuredValue(temperature)
 
 final case class ModelRequestInput(
     history: Chunk[Msg],
@@ -115,8 +122,9 @@ object ModelInputTransform:
     for
       _ <- validate(original, candidate.history)
       _ <- Either.cond(
-        candidate.settings.temperature.isFinite && candidate.settings.temperature >= 0 &&
-          candidate.settings.temperature <= 2,
+        candidate.settings.configuredTemperature.forall(value =>
+          value.isFinite && value >= 0 && value <= 2
+        ),
         (),
         AgentError.ModelInputError("Projected temperature must be finite and between 0 and 2")
       )

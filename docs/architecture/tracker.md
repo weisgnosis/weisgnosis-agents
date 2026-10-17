@@ -157,14 +157,20 @@ RAG, UI, collector hosting, distributed orchestration and OS/Temporal product in
 
 ## Immediate next work
 
-The next selected task is explicit temperature omission through configuration,
-request transforms, selected model targets, native adapters and child inheritance.
+The next selected task is an explicit Chat Completions token-limit wire field,
+retaining legacy max_tokens by default and allowing max_completion_tokens.
 The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
 
-- [ ] Allow hosts to omit temperature while preserving existing numeric settings
+- [ ] Select exactly one token-limit field for Chat Completions JSON/SSE requests,
+  preserving the selected target's projected value, retries and runtime token-budget semantics.
+
+- [x] Allow hosts to omit temperature while preserving existing numeric settings
   and the default 0.7, with explicit child inheritance and request-wire coverage.
+  See [configuration](../../modules/core/src/main/scala/com/weisgnosis/agents/core/client/README.md#optional-temperature),
+  [wire scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ChatCompletionsClientSpec.scala)
+  and [child scenarios](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/subagent/SubagentDeclarationSpec.scala).
 
 - [x] Reject structured responses that decode but violate the requested JSON Schema,
   preserving exact nullable values, root definitions, completed tool observations

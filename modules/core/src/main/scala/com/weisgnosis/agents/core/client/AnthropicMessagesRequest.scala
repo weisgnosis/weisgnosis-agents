@@ -61,24 +61,27 @@ private[client] object AnthropicMessagesRequest:
   private def check(config: LlmConfig): Either[AgentError, Unit] =
     Either.cond(
       !config.model.isBlank && config.maxTokens.forall(_ > 0) &&
-        config.temperature.isFinite && config.temperature >= 0 && config.temperature <= 1 &&
+        config.configuredTemperature.forall(value => value.isFinite && value >= 0 && value <= 1) &&
         config.topP.forall(value => value.isFinite && value >= 0 && value <= 1) &&
         config.responseFormat.isEmpty && config.frequencyPenalty.isEmpty &&
         config.presencePenalty.isEmpty && config.seed.isEmpty && config.reasoningEffort.isEmpty &&
         config.thinkingBudget.forall(budget =>
           budget.tokens >= 1024 && budget.tokens < config.maxTokens.getOrElse(1024)
         ) &&
-        (config.thinkingBudget.isEmpty || (config.temperature == 1 && config.topP.isEmpty &&
+        (config.thinkingBudget.isEmpty || (config.configuredTemperature
+          .forall(_ == 1) && config.topP.isEmpty &&
           config.toolChoice
             .forall(choice => choice == ToolChoice.Auto || choice == ToolChoice.None))),
       (),
       AgentError.InvalidConfiguration(
-        "Unsupported or invalid Anthropic configuration; native responseFormat, penalties, seed and reasoningEffort are not supported; thinking needs temperature 1 and a budget >=1024 below maxTokens"
+        "Unsupported or invalid Anthropic configuration; native responseFormat, penalties, seed and reasoningEffort are not supported; thinking needs omitted temperature or temperature 1 and a budget >=1024 below maxTokens"
       )
     )
 
   private def options(config: LlmConfig): Chunk[(String, Json)] =
-    Chunk("temperature" -> Json.Num(config.temperature)) ++
+    Chunk.fromIterable(
+      config.configuredTemperature.map(value => "temperature" -> Json.Num(value))
+    ) ++
       Chunk.fromIterable(config.topP.map(value => "top_p" -> Json.Num(value))) ++
       Chunk.fromIterable(
         config.stopSequences.map(value =>

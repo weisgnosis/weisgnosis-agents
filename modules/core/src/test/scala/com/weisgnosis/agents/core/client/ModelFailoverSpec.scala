@@ -92,6 +92,57 @@ object ModelFailoverSpec extends ZIOSpecDefault:
           yield functions :+ function
 
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelFailover")(
+    test("fallback retains its own temperature policy after a primary HTTP rejection"):
+      ZIO
+        .foreach(Chunk(TemperaturePolicy.Configured, TemperaturePolicy.Omit)): primaryPolicy =>
+          ZIO.scoped:
+            for
+              captured <- Ref.make(Chunk.empty[Json])
+              primary <- ChatCompletionsClient.make(
+                scripted(request =>
+                  request.body.asString.orDie
+                    .flatMap(raw => captured.update(_ :+ raw.fromJson[Json].getOrElse(Json.Null)))
+                    .as(rejected)
+                )
+              )
+              target <- ChatCompletionsClient.make(
+                scripted(request =>
+                  request.body.asString.orDie
+                    .flatMap(raw => captured.update(_ :+ raw.fromJson[Json].getOrElse(Json.Null)))
+                    .as(response(answer))
+                )
+              )
+              targetPolicy =
+                if primaryPolicy == TemperaturePolicy.Omit then TemperaturePolicy.Configured
+                else TemperaturePolicy.Omit
+              agent <- ReActAgent.make(
+                client = primary,
+                llmConfig =
+                  primaryConfig.copy(temperature = 0.2, temperaturePolicy = primaryPolicy),
+                fallback = Some(
+                  ModelTarget(
+                    target,
+                    targetConfig.copy(temperature = 1.0, temperaturePolicy = targetPolicy)
+                  )
+                )
+              )
+              completed <- agent.run(Msg.user("hello"))
+              bodies    <- captured.get
+            yield assertTrue(
+              completed.reply.text == "7",
+              bodies.size == 2,
+              bodies.headOption
+                .flatMap(_.asObject)
+                .exists(
+                  _.get("temperature") == primaryPolicy.configuredValue(0.2).map(Json.Num(_))
+                ),
+              bodies
+                .lift(1)
+                .flatMap(_.asObject)
+                .exists(_.get("temperature") == targetPolicy.configuredValue(1.0).map(Json.Num(_)))
+            )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test(
       "selects the target per request with truthful contexts, projected input and one canonical turn"
     ):

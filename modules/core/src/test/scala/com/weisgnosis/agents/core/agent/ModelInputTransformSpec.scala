@@ -15,9 +15,16 @@
  */
 package com.weisgnosis.agents.core.agent
 
-import com.weisgnosis.agents.core.client.{ReasoningEffort, StopSequences}
+import com.weisgnosis.agents.core.client.{
+  LlmClient,
+  LlmConfig,
+  ReasoningEffort,
+  StopSequences,
+  TemperaturePolicy,
+  TurnOutput
+}
 import com.weisgnosis.agents.core.error.AgentError
-import com.weisgnosis.agents.core.event.ModelStreamContext
+import com.weisgnosis.agents.core.event.{EventPublisher, ModelStreamContext}
 import com.weisgnosis.agents.core.model.*
 import com.weisgnosis.agents.core.tool.ToolDef
 import zio.*
@@ -28,6 +35,52 @@ import zio.test.*
 object ModelInputTransformSpec extends ZIOSpecDefault:
   private val context: ModelStreamContext = ModelStreamContext("reply", "request")
   def spec: Spec[TestEnvironment & Scope, Any] = suite("ModelInputTransformSpec")(
+    test("request projection can omit and restore temperature before client invocation"):
+      val cases = Chunk(
+        (TemperaturePolicy.Configured, TemperaturePolicy.Omit, 0.2, true),
+        (TemperaturePolicy.Omit, TemperaturePolicy.Configured, 1.0, true),
+        (TemperaturePolicy.Configured, TemperaturePolicy.Omit, Double.NaN, true),
+        (TemperaturePolicy.Omit, TemperaturePolicy.Configured, Double.NaN, false)
+      )
+      ZIO
+        .foreach(cases): (original, projected, value, valid) =>
+          for
+            seen <- Ref.make(Chunk.empty[LlmConfig])
+            client = new LlmClient:
+              def streamTurn(
+                  history: Chunk[Msg],
+                  tools: Chunk[ToolDef],
+                  config: LlmConfig,
+                  publisher: EventPublisher,
+                  context: ModelStreamContext
+              ): ZIO[Scope, AgentError, TurnOutput] =
+                seen.update(_ :+ config).as(TurnOutput.FinalText(Msg.assistant("answer")))
+            transform = ModelInputTransform.withRequest(ModelInputTransform.identity)((_, input) =>
+              ZIO.succeed(
+                ModelInputProjection(
+                  input.history,
+                  input.settings.copy(temperature = value, temperaturePolicy = projected)
+                )
+              )
+            )
+            agent <- ReActAgent.make(
+              client = client,
+              llmConfig = LlmConfig("model", temperaturePolicy = original),
+              modelInputTransform = transform
+            )
+            outcome <- agent.run(Msg.user("hello")).either
+            configs <- seen.get
+          yield assertTrue(
+            outcome.isRight == valid,
+            configs.size == (if valid then 1 else 0),
+            configs.forall(config =>
+              config.temperaturePolicy == projected && config.configuredTemperature == projected
+                .configuredValue(value)
+            ),
+            valid || outcome.left.exists(_.isInstanceOf[AgentError.ModelInputError])
+          )
+        .map(_.foldLeft(assertTrue(true))(_ && _))
+    ,
     test("peer projection supports coalesced input and media but rejects unsupported peer blocks"):
       val image = ContentBlock.Image.url("https://example.test/image.png")
       val peer = ContentBlock.PeerObservation(

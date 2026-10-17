@@ -35,6 +35,7 @@ import com.weisgnosis.agents.core.client.{
   ToolCallParallelism,
   ThinkingBudget,
   ToolResultFormat,
+  TemperaturePolicy,
   TurnOutput
 }
 import com.weisgnosis.agents.core.error.AgentError
@@ -121,6 +122,19 @@ object ArtifactSmoke extends ZIOAppDefault:
         .fail(failure("Packaged schema admission or transitive evaluator failed"))
         .unless(
           rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && derivedResult.state == ToolResultState.Success && count == 2
+        )
+    yield ()
+
+  private def verifyTemperatureOmission: IO[AgentError, Unit] =
+    val config = LlmConfig("model", temperaturePolicy = TemperaturePolicy.Omit)
+    for
+      body <- ZIO.fromEither(
+        ChatCompletionsRequest.encode(Chunk(Msg.user("hello")), Chunk.empty, config)
+      )
+      _ <- ZIO
+        .fail(failure("Packaged temperature omission or codec failed"))
+        .unless(
+          body.get("temperature").isEmpty && config.toJson.fromJson[LlmConfig] == Right(config)
         )
     yield ()
 
@@ -365,6 +379,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         _        <- verifyClasspath
         _        <- verifySchemaAdmission
         _        <- verifyStructuredSchema
+        _        <- verifyTemperatureOmission
         _        <- verifyScopedTool
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines
