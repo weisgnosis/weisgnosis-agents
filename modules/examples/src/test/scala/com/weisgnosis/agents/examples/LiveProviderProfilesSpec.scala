@@ -146,7 +146,11 @@ object LiveProviderProfilesSpec extends ZIOSpecDefault:
                   AgentError.ModelError(400, "native unsupported")
                 ) && observed.size == 1
               case Response.WrongValue | Response.ExtraNativeField =>
-                outcome.left.exists(_.isInstanceOf[AgentError.InvalidMessage]) && observed.size == 1
+                outcome.left.exists {
+                  case AgentError.DeserializationError(message) =>
+                    message.startsWith("Structured output violates the requested schema:")
+                  case _ => false
+                } && observed.size == 1
               case Response.MissingHold =>
                 outcome == Left(
                   AgentError.InvalidMessage("Cancellation profile did not enter profile_hold")

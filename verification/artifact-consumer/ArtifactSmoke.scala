@@ -20,7 +20,8 @@ import com.weisgnosis.agents.core.agent.{
   AgentRunState,
   ModelInputTransform,
   ReActAgent,
-  SuppliedToolResult
+  SuppliedToolResult,
+  StructuredMode
 }
 import com.weisgnosis.agents.core.coordination.Pipeline
 import com.weisgnosis.agents.harness.memory.VersionedMemoryLimits
@@ -120,6 +121,29 @@ object ArtifactSmoke extends ZIOAppDefault:
         .fail(failure("Packaged schema admission or transitive evaluator failed"))
         .unless(
           rejected.state == ToolResultState.Error && accepted.state == ToolResultState.Success && derivedResult.state == ToolResultState.Success && count == 2
+        )
+    yield ()
+
+  private def verifyStructuredSchema: ZIO[Scope, AgentError, Unit] =
+    val schema = Json.Obj("type" -> Json.Str("integer"), "minimum" -> Json.Num(0))
+    for
+      client <- LlmClient.mock(
+        Chunk(
+          TurnOutput.FinalText(Msg.assistant("-1")),
+          TurnOutput.FinalText(Msg.assistant("1"))
+        )
+      )
+      agent <- ReActAgent.make(client = client)
+      rejected <- agent
+        .runStructured[Json](Chunk(Msg.user("answer")), schema, StructuredMode.Native)
+        .either
+      accepted <- agent
+        .runStructured[Json](Chunk(Msg.user("answer")), schema, StructuredMode.Native)
+      _ <- ZIO
+        .fail(failure("Packaged structured output schema validation failed"))
+        .unless(
+          rejected.left
+            .exists(_.isInstanceOf[AgentError.DeserializationError]) && accepted._2 == Json.Num(1)
         )
     yield ()
 
@@ -340,6 +364,7 @@ object ArtifactSmoke extends ZIOAppDefault:
         manifest <- loadManifest
         _        <- verifyClasspath
         _        <- verifySchemaAdmission
+        _        <- verifyStructuredSchema
         _        <- verifyScopedTool
         _        <- verifyExternalBinding
         _        <- verifyMcpDeadlines

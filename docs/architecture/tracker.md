@@ -157,10 +157,19 @@ RAG, UI, collector hosting, distributed orchestration and OS/Temporal product in
 
 ## Immediate next work
 
-The selected first-release checklist is complete. No additional library task is
-selected. Scoped tool execution is verified on official ZIO 2.1.26 without
+The next selected task is explicit temperature omission through configuration,
+request transforms, selected model targets, native adapters and child inheritance.
+The target remains Scala 3.9.0 and ZIO 2. Scoped tool execution is verified on official ZIO 2.1.26 without
 dependency forks, backports or third-party source changes. OS integration remains
 separate.
+
+- [ ] Allow hosts to omit temperature while preserving existing numeric settings
+  and the default 0.7, with explicit child inheritance and request-wire coverage.
+
+- [x] Reject structured responses that decode but violate the requested JSON Schema,
+  preserving exact nullable values, root definitions, completed tool observations
+  and failure/event authority without automatic replay. See
+  [public boundary scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredJsonBoundarySpec.scala).
 
 - [x] Preserve exact diagnostic FIFO delivery through non-suspending dequeue and
   single-reference, read-only readiness waiting. Independent raw, producer-observed

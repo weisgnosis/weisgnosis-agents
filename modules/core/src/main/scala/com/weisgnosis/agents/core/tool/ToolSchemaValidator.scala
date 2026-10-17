@@ -107,7 +107,20 @@ private[core] object ToolSchemaValidator:
             Left(AgentError.InvalidMessage("Tool schema dialect must be a standard URI string"))
       case _ => Right(inherited)
 
+  private enum ValidationTarget:
+    case ToolArguments, StructuredOutput
+
   def validate(schema: Json, input: Json): IO[AgentError.InvalidMessage, Unit] =
+    validateFor(schema, input, ValidationTarget.ToolArguments)
+
+  def validateOutput(schema: Json, output: Json): IO[AgentError.InvalidMessage, Unit] =
+    validateFor(schema, output, ValidationTarget.StructuredOutput)
+
+  private def validateFor(
+      schema: Json,
+      input: Json,
+      target: ValidationTarget
+  ): IO[AgentError.InvalidMessage, Unit] =
     for
       _ <- ZIO.fromEither(
         JsonBoundary
@@ -120,8 +133,11 @@ private[core] object ToolSchemaValidator:
         if schema == Json.Obj() then ZIO.unit
         else
           for
-            selected   <- ZIO.fromEither(declaredDraft(schema, StandardDraft.Draft202012))
-            view       <- ZIO.fromEither(normalize(input, schema, schema))
+            selected <- ZIO.fromEither(declaredDraft(schema, StandardDraft.Draft202012))
+            view <- target match
+              case ValidationTarget.ToolArguments =>
+                ZIO.fromEither(normalize(input, schema, schema))
+              case ValidationTarget.StructuredOutput => ZIO.succeed(input)
             references <- ZIO.fromEither(canonicalReferences(schema))
             errors <- ZIO
               .attempt:

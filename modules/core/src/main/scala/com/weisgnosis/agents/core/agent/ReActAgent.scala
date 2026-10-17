@@ -523,7 +523,7 @@ final class ReActAgent private (
 
         def prepare(result: AgentResult): IO[AgentError, (AgentResult, A)] =
           capturedRef.get
-            .flatMap(captured => ZIO.fromEither(prepareStructured[A](result, captured)))
+            .flatMap(captured => prepareStructured[A](result, captured, schema))
 
         def nativeAttempt: ZIO[Scope, AgentError, (AgentResult, A)] =
           runWithPublisher(
@@ -588,10 +588,11 @@ final class ReActAgent private (
   /** Prepare one validated payload and final history without publishing or mutating runtime state. */
   private def prepareStructured[A: JsonCodec](
       rawResult: AgentResult,
-      captured: Option[Json]
-  ): Either[AgentError, (AgentResult, A)] =
+      captured: Option[Json],
+      schema: Json
+  ): IO[AgentError, (AgentResult, A)] =
     if rawResult.state != AgentRunState.Completed then
-      Left(rawResult.state match
+      ZIO.fail(rawResult.state match
         case AgentRunState.Stopped(reason) => AgentError.ExecutionStopped(reason)
         case _ => AgentError.Interrupted("Structured output run ended before completion"))
     else
@@ -599,15 +600,26 @@ final class ReActAgent private (
         case Some(json) => StructuredOutput.validatedPayload(json)
         case None       => StructuredOutput.structuredPayload(rawResult.reply)
       for
-        json <- payload.left.map(error =>
-          AgentError.DeserializationError(s"Invalid structured output payload: $error")
-        )
-        decoded <- json
-          .as[A]
-          .left
-          .map(error =>
-            AgentError.DeserializationError(s"Failed to decode structured output payload: $error")
+        json <- ZIO.fromEither(
+          payload.left.map(error =>
+            AgentError.DeserializationError(s"Invalid structured output payload: $error")
           )
+        )
+        _ <- ToolSchemaValidator
+          .validateOutput(schema, json)
+          .mapError(error =>
+            AgentError.DeserializationError(
+              s"Structured output violates the requested schema: ${error.message}"
+            )
+          )
+        decoded <- ZIO.fromEither(
+          json
+            .as[A]
+            .left
+            .map(error =>
+              AgentError.DeserializationError(s"Failed to decode structured output payload: $error")
+            )
+        )
         completed = captured match
           case Some(_) =>
             val reply = Msg.assistant(

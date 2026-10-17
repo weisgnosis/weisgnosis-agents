@@ -660,7 +660,7 @@ ReActAgentToolEventSpec adds six local runtime regressions for persistence, erro
 - [x] Move shared validation to core.json.JsonBoundary and add a sixth direct-AST regression without serialization overhead.
 See the [finite scoped phase and legacy-hook applicability](#scoped-phase-and-permission-advice-adaptation) for named executable mappings and explicit Java API differences; structured-output mappings alone do not establish hook parity.
 
-These HTTP and boundary scenarios establish the listed local contracts, not exhaustive upstream or provider compatibility. They do not establish JSON Schema validation; [local tool schema admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) has its own contract. Auto fallback recognizes status 400/422/501, not a complete provider capability protocol.
+These HTTP and boundary scenarios establish the listed local contracts, not exhaustive upstream or provider compatibility. The additional [structured boundary scenarios](../../modules/core/src/test/scala/com/weisgnosis/agents/core/agent/StructuredJsonBoundarySpec.scala) check the exact final payload against its JSON Schema before successful completion, including numeric/enum/object constraints, local definitions and explicit nullability. [Local tool schema admission](../../modules/core/src/main/scala/com/weisgnosis/agents/core/tool/README.md#runtime-schema-admission) retains its separate optional-null argument normalization contract. Auto fallback recognizes status 400/422/501, not a complete provider capability protocol.
 
 ## Explicit structured-output capability selection
 
