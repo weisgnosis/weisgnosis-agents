@@ -199,6 +199,8 @@ separate.
   [loopback continuation/restore](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ResponsesLlmClientSpec.scala),
   [cleanup/replay boundaries](../../modules/core/src/test/scala/com/weisgnosis/agents/core/client/ResponsesLlmClientLifecycleSpec.scala)
   and [compaction protections](../../modules/harness/src/test/scala/com/weisgnosis/agents/harness/memory/ResponsesCompactionSpec.scala).
+  The separately requested [selected live Responses profiles](../live-e2e-results.md#native-responses-live-profiles-on-2026-10-18)
+  pass local tool continuation and JSON checkpoint restoration on both named Qwen models.
 
 - [x] Deliver bounded output-only structured correction, preserving exact output
   validation, selected-target identity, joined cleanup and one successful terminal result.

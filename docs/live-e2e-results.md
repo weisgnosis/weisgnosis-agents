@@ -220,3 +220,31 @@ solely to record receipts or update prose.
 The gateway uses the OpenAI-compatible protocol; native Anthropic/Gemini,
 hosted tools and realtime WebSockets were not tested here. No Python AgentScope
 comparison was rerun, and no language superiority or inference speedup is claimed.
+
+
+## Native Responses live profiles on 2026-10-18
+
+The published `0.1.1-SNAPSHOT` build 6 binaries from implementation commit `156d9a4`
+were consumed by a separately compiled neutral-package host. The configured gateway exposed
+an actual Responses SSE endpoint; endpoint and credential values are excluded from this report.
+Catalog discovery confirmed both selected models were loaded before requests. No adapter or
+runtime source changes were needed for the successful profiles.
+
+| Model | Local tool and continuation | JSON checkpoint restore and resume |
+| --- | --- | --- |
+| `qwen3.8-27b` | Passed | Passed |
+| `qwen3.8-27b-uncensored-mlx` | Passed | Passed |
+
+All four receipts report Completed, one successful `live_sum(2, 3)` call/result pair,
+a final reply of `5`, native replay metadata and positive output usage. In each checkpoint
+profile the host checked the model's exact proposal before supplying the result; decoded
+snapshot equality was true, and a new agent continued the saved external-tool occurrence.
+Both processes exited zero. An independent source review checked these assertions and the
+public API boundary. The [runner and exact command](../verification/README.md#selected-live-native-responses-profiles)
+are retained for reproduction with host-supplied configuration.
+
+This verifies the selected local-function and checkpoint-handoff paths against two actual models.
+Native replay metadata does not establish that encrypted reasoning was supplied. In-flight
+HTTP cancellation, native structured formatting, hosted tools, multimodal data and other
+models were not tested by these profiles. No Python comparison or performance ranking is
+inferred. Library source was unchanged; the host runner was compiled with fatal warnings.

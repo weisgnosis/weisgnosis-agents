@@ -85,3 +85,34 @@ artifacts and source metadata; local success does not establish remote execution
 The runnable [examples](../modules/examples/README.md) distinguish offline application checks from
 explicit live-provider runs. Keep endpoint credentials in the process environment. The
 [completion checklist](../docs/architecture/tracker.md) records remaining library outcomes.
+
+
+## Selected live native Responses profiles
+
+[LiveNativeResponses](live-responses/LiveNativeResponses.scala) is an opt-in external consumer
+in a neutral package. It uses packaged public APIs, with no source-project dependency or
+private helpers. It performs two real-model profiles: one local arithmetic tool, then an
+external-tool checkpoint serialized to JSON, restored in a fresh agent and resumed with a
+checked host result. Both require a completed reply of `5`, exactly one successful call/result
+pair, native replay metadata and positive output usage. The checkpoint profile also checks
+the original proposal arguments and snapshot equality after decoding.
+
+Prepare artifacts as above, then set process-local `WEISGNOSIS_LIVE_ENDPOINT` to a complete
+Responses endpoint, `WEISGNOSIS_LIVE_MODEL` to a tool-capable model and
+`WEISGNOSIS_LIVE_API_KEY` to its credential. Each agent invocation permits at most four
+ReAct iterations and has a 180-second timeout. Each model request has a 4,096-output-token
+limit. The runner omits temperature. Supply the variables through your own secret manager; do not place values in
+source or shell history.
+
+From `verification/artifact-consumer`, run:
+
+```sh
+sbt 'set Compile / unmanagedSources := Seq(file("../live-responses/LiveNativeResponses.scala"))' 'set Compile / run / mainClass := Some("consumer.live.LiveNativeResponses")' clean compile run
+```
+
+These settings affect that sbt session only; the ordinary packaged-consumer entry point is
+unchanged. Successful output contains one JSON receipt per profile, with every relevant
+assertion true and process exit zero. `checkpointRoundTrip` is false for the local-tool
+profile because it does not perform restoration. This run does not prove encrypted reasoning
+support, in-flight model cancellation, hosted tools or provider-wide compatibility. See the
+[dated live results](../docs/live-e2e-results.md#native-responses-live-profiles-on-2026-10-18).
