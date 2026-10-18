@@ -114,5 +114,37 @@ These settings affect that sbt session only; the ordinary packaged-consumer entr
 unchanged. Successful output contains one JSON receipt per profile, with every relevant
 assertion true and process exit zero. `checkpointRoundTrip` is false for the local-tool
 profile because it does not perform restoration. This run does not prove encrypted reasoning
-support, in-flight model cancellation, hosted tools or provider-wide compatibility. See the
+support, server-side inference cancellation, hosted tools or provider-wide compatibility. See the
 [dated live results](../docs/live-e2e-results.md#native-responses-live-profiles-on-2026-10-18).
+
+
+## Live Responses HTTP cancellation
+
+[LiveResponsesHttpCancellation](live-responses/LiveResponsesHttpCancellation.scala) uses the same
+staged artifacts and process-local endpoint/model/key configuration as the previous runner.
+Select a model that streams nonempty reasoning text or summary deltas. From
+`verification/artifact-consumer`, run:
+
+```sh
+sbt 'set Compile / unmanagedSources := Seq(file("../live-responses/LiveResponsesHttpCancellation.scala"))' 'set Compile / run / mainClass := Some("consumer.live.LiveResponsesHttpCancellation")' clean compile run
+```
+
+The borrowed driver delegates the actual network request and forwards real SSE frames until
+the first reasoning delta; it then parks downstream while the upstream reader stays scoped.
+The runtime's parsed-frame event triggers hard cancellation. A controlled finalizer holds
+cleanup so the runner can assert that the consumer has not returned. After release, a marker
+registered before HTTP acquisition checks that the driver's finalizers have finished.
+No provider response is synthesized.
+
+A successful `native-http-cancellation` receipt requires the original interruptor, joined cleanup,
+no false completion, zero tool calls and one recovery message. The incomplete reasoning context
+must be rejected before another HTTP driver call. A fresh agent on the same client must then
+complete with `READY`; dispatch counts must be one before the fresh context and two overall.
+Each invocation has a 180-second timeout; the entire scoped profile has a 420-second watchdog
+and an emergency cleanup release. The interrupted request configures 1,024 output tokens;
+the fresh-context request configures 4,096, with temperature omitted in both.
+
+This is an instrumented live ownership check, not a measurement of unmodified stream timing,
+physical socket closure or cancellation of inference on the server. The
+[dated results](../docs/live-e2e-results.md#native-responses-live-profiles-on-2026-10-18)
+record the two selected model runs.

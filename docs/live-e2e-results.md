@@ -230,12 +230,12 @@ an actual Responses SSE endpoint; endpoint and credential values are excluded fr
 Catalog discovery confirmed both selected models were loaded before requests. No adapter or
 runtime source changes were needed for the successful profiles.
 
-| Model | Local tool and continuation | JSON checkpoint restore and resume |
-| --- | --- | --- |
-| `qwen3.8-27b` | Passed | Passed |
-| `qwen3.8-27b-uncensored-mlx` | Passed | Passed |
+| Model | Local tool and continuation | JSON checkpoint restore and resume | Controlled HTTP cancellation |
+| --- | --- | --- | --- |
+| `qwen3.8-27b` | Passed | Passed | Passed |
+| `qwen3.8-27b-uncensored-mlx` | Passed | Passed | Passed |
 
-All four receipts report Completed, one successful `live_sum(2, 3)` call/result pair,
+The four tool/checkpoint receipts report Completed, one successful `live_sum(2, 3)` call/result pair,
 a final reply of `5`, native replay metadata and positive output usage. In each checkpoint
 profile the host checked the model's exact proposal before supplying the result; decoded
 snapshot equality was true, and a new agent continued the saved external-tool occurrence.
@@ -243,8 +243,25 @@ Both processes exited zero. An independent source review checked these assertion
 public API boundary. The [runner and exact command](../verification/README.md#selected-live-native-responses-profiles)
 are retained for reproduction with host-supplied configuration.
 
-This verifies the selected local-function and checkpoint-handoff paths against two actual models.
-Native replay metadata does not establish that encrypted reasoning was supplied. In-flight
-HTTP cancellation, native structured formatting, hosted tools, multimodal data and other
-models were not tested by these profiles. No Python comparison or performance ranking is
-inferred. Library source was unchanged; the host runner was compiled with fatal warnings.
+The two HTTP cancellation receipts verify interruption after a real adapter-admitted reasoning
+delta. A borrowed-driver boundary forwards actual SSE frames, then pauses downstream without
+closing the upstream reader. No SSE content is fabricated. A held cleanup finalizer verifies
+that the public consumer remains pending until release; a marker registered before acquisition
+runs after the real HTTP driver's finalizers. Both runs retain the original controller interrupt,
+release the request scope, emit no false model completion, execute no tools and record one
+interrupted recovery message.
+
+Continuing the incomplete reasoning context fails before another HTTP driver dispatch. A new
+agent using the same borrowed client then completes with `READY`: each receipt counts one
+request before the fresh context and two in total. Both cancellation processes exit zero;
+independent review checked the assertions and both actual receipt objects. The
+[HTTP cancellation runner and command](../verification/README.md#live-responses-http-cancellation)
+retain this controlled setup for reproduction.
+
+This verifies the selected local-function, checkpoint-handoff and owned HTTP cancellation paths
+against two actual models. The controlled pause does not measure unmodified transport timing,
+physical socket closure or server-side inference cancellation. Native replay metadata does not
+establish that encrypted reasoning was supplied. Native structured formatting, hosted tools,
+multimodal data and other models were not tested by these profiles. No Python comparison or
+performance ranking is inferred. Library source was unchanged; both host runners were compiled
+with fatal warnings.
